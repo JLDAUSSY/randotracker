@@ -1,10 +1,11 @@
 /**
- * RandoTracker - Application Mobile PWA & Suivi de Randonnée Multi-Groupes 4G
- * Cartographie IGN / OpenTopoMap, Traces GPX, Géolocalisation Auto & Invitations QR Code
+ * RandoTracker v6 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
+ * Cartes Officielles IGN Géoplateforme & OpenTopoMap, Multi-Traces GPX (jusqu'à 5),
+ * Géolocalisation Immédiate, Suivi des Participants en Direct & Invitations QR Code.
  */
 
 // ============================================================================
-// CONSTANTES & CONFIGURATION
+// CONFIGURATION & CONSTANTES
 // ============================================================================
 const MAX_TRACKS = 5;
 const MAX_USERS = 10;
@@ -36,7 +37,7 @@ const state = {
     lon: 6.1550,
     ele: 450,
     speed: 0.0,
-    battery: 92,
+    battery: 95,
     isSos: false,
     lastSeen: Date.now()
   },
@@ -55,11 +56,11 @@ const state = {
   peerConnections: new Map(),
   hoverMarker: null,
   activeDrawer: null,
-  qrCodeInstance: null
+  hasAutoCenteredGps: false
 };
 
 // ============================================================================
-// TOAST NOTIFICATIONS
+// NOTIFICATIONS TOAST HAUTE VISIBILITÉ
 // ============================================================================
 function showToast(msg, type = 'info') {
   const existing = document.getElementById('app-toast');
@@ -68,10 +69,10 @@ function showToast(msg, type = 'info') {
   const toast = document.createElement('div');
   toast.id = 'app-toast';
   const bgColor = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-red-600' : 'bg-slate-800';
-  toast.className = `fixed top-24 left-1/2 -translate-x-1/2 z-50 ${bgColor} text-white text-sm sm:text-base font-black px-5 py-3 rounded-2xl shadow-2xl border-2 border-white/20 flex items-center gap-3 transition-all duration-300 transform translate-y-0`;
+  toast.className = `fixed top-24 left-1/2 -translate-x-1/2 z-50 ${bgColor} text-white text-sm sm:text-base font-black px-5 py-3.5 rounded-2xl shadow-2xl border-2 border-white/20 flex items-center gap-3 transition-all duration-300 transform translate-y-0 max-w-[90vw]`;
   toast.innerHTML = `
-    <span>${type === 'success' ? '📍' : type === 'error' ? '⚠️' : 'ℹ️'}</span>
-    <span>${msg}</span>
+    <span class="text-xl">${type === 'success' ? '📍' : type === 'error' ? '⚠️' : 'ℹ️'}</span>
+    <span class="truncate">${msg}</span>
   `;
   document.body.appendChild(toast);
   setTimeout(() => {
@@ -81,20 +82,31 @@ function showToast(msg, type = 'info') {
 }
 
 // ============================================================================
-// ENREGISTREMENT DU SERVICE WORKER (PWA & MODE HORS-LIGNE)
+// SERVICE WORKER & PWA
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then((reg) => console.log('[PWA] Service Worker actif:', reg.scope))
+      navigator.serviceWorker.register('./sw.js?v=6')
+        .then((reg) => console.log('[PWA] Service Worker v6 actif:', reg.scope))
         .catch((err) => console.log('[PWA] Erreur Service Worker:', err));
     });
+  }
+
+  // Surveillance du niveau de batterie réel
+  if (navigator.getBattery) {
+    navigator.getBattery().then((battery) => {
+      state.myUser.battery = Math.round(battery.level * 100);
+      battery.addEventListener('levelchange', () => {
+        state.myUser.battery = Math.round(battery.level * 100);
+        broadcastMyPosition();
+      });
+    }).catch(() => {});
   }
 }
 
 // ============================================================================
-// INITIALISATION DE LA CARTE & DES FONDS DE CARTE
+// INITIALISATION DE LA CARTE & DES FONDS DE CARTE IGN / OPENTOPO
 // ============================================================================
 function initMap() {
   state.map = L.map('map', {
@@ -105,7 +117,7 @@ function initMap() {
 
   L.control.zoom({ position: 'bottomright' }).addTo(state.map);
 
-  // 1. Fond IGN Géoplateforme (Plan IGN V2 Open)
+  // 1. Fond IGN Géoplateforme (Plan IGN V2)
   state.layers.ign = L.tileLayer(
     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     {
@@ -143,21 +155,26 @@ function initMap() {
 
   state.layers.ign.addTo(state.map);
 
-  // Support Glisser-Déposer de fichiers GPX directement sur la carte
+  // Support Glisser-Déposer direct de fichiers GPX sur la carte
   const mapDiv = document.getElementById('map');
-  mapDiv.addEventListener('dragover', (e) => {
-    e.preventDefault();
-  });
+  mapDiv.addEventListener('dragover', (e) => e.preventDefault());
   mapDiv.addEventListener('drop', async (e) => {
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files);
+    let added = 0;
     for (const file of files) {
       if (file.name.toLowerCase().endsWith('.gpx')) {
-        const text = await file.text();
-        const parsed = parseGpxContent(text, file.name);
-        addTrackToState(parsed);
+        try {
+          const text = await file.text();
+          const parsed = parseGpxContent(text, file.name);
+          addTrackToState(parsed);
+          added++;
+        } catch (err) {
+          showToast(`Erreur GPX : ${err.message}`, 'error');
+        }
       }
     }
+    if (added > 0) fitAllTracks();
   });
 }
 
@@ -197,9 +214,8 @@ function setBaseLayer(layerKey) {
 }
 
 // ============================================================================
-// GESTION DU PARSING & CHARGEMENT DE JUSQU'À 5 TRACES GPX
+// CALCULS GÉODÉSIQUES & PARSING GPX
 // ============================================================================
-
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -214,7 +230,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 function parseGpxContent(xmlText, fileName) {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-  
+
   let name = fileName.replace(/\.gpx$/i, '');
   const nameNode = xmlDoc.querySelector('trk > name') || xmlDoc.querySelector('metadata > name');
   if (nameNode && nameNode.textContent.trim()) {
@@ -282,9 +298,12 @@ function parseGpxContent(xmlText, fileName) {
   };
 }
 
+// ============================================================================
+// GESTION DES JUSQU'À 5 TRACES GPX SUPERPOSÉES
+// ============================================================================
 function addTrackToState(track) {
   if (state.tracks.length >= MAX_TRACKS) {
-    alert(`Limite de ${MAX_TRACKS} traces atteinte. Veuillez en supprimer une avant d'en ajouter.`);
+    alert(`Limite de ${MAX_TRACKS} traces atteinte. Supprimez une trace pour en ajouter une autre.`);
     return false;
   }
 
@@ -293,10 +312,9 @@ function addTrackToState(track) {
 
   state.tracks.push(track);
   renderTrackOnMap(track);
-  renderTracksList();
-  updateTracksBadge();
+  renderQuickTracksBar();
   fitAllTracks();
-  showToast(`Trace ajoutée : ${track.name}`, 'success');
+  showToast(`Trace ajoutée : ${track.name} (${track.totalDistance.toFixed(1)} km)`, 'success');
   return true;
 }
 
@@ -304,24 +322,26 @@ function renderTrackOnMap(track) {
   const layerGroup = L.layerGroup();
   const latlngs = track.points.map(p => [p.lat, p.lon]);
 
+  // Liseré noir sous la trace pour contraste maximal sur IGN et Satellite
   const borderPolyline = L.polyline(latlngs, {
     color: '#0f172a',
-    weight: 8,
-    opacity: 0.75,
+    weight: 9,
+    opacity: 0.85,
     lineCap: 'round',
     lineJoin: 'round'
   });
 
+  // Ligne colorée principale
   const mainPolyline = L.polyline(latlngs, {
     color: track.color.hex,
-    weight: 5,
+    weight: 5.5,
     opacity: 0.98,
     lineCap: 'round',
     lineJoin: 'round'
   });
 
   mainPolyline.bindPopup(`
-    <div class="space-y-2 p-1 min-w-[210px]">
+    <div class="space-y-2.5 p-1 min-w-[220px]">
       <div class="flex items-center gap-2.5">
         <span class="w-4 h-4 rounded-full shadow" style="background-color: ${track.color.hex}"></span>
         <h4 class="font-black text-base text-white">${track.name}</h4>
@@ -329,9 +349,12 @@ function renderTrackOnMap(track) {
       <div class="grid grid-cols-2 gap-2 text-sm text-slate-200 pt-2 border-t border-slate-700">
         <div>Distance : <b class="text-white">${track.totalDistance.toFixed(1)} km</b></div>
         <div>Dénivelé + : <b class="text-emerald-400">+${track.eleGain} m</b></div>
-        <div>Altitude Min : <b class="text-white">${track.minEle} m</b></div>
-        <div>Altitude Max : <b class="text-white">${track.maxEle} m</b></div>
+        <div>Alt. Min : <b class="text-white">${track.minEle} m</b></div>
+        <div>Alt. Max : <b class="text-white">${track.maxEle} m</b></div>
       </div>
+      <button onclick="openElevationDrawer('${track.id}')" class="w-full mt-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow">
+        📈 Voir Profil Altimétrique
+      </button>
     </div>
   `);
 
@@ -343,9 +366,9 @@ function renderTrackOnMap(track) {
     const startPt = track.points[0];
     const startIcon = L.divIcon({
       className: 'start-marker',
-      html: `<div class="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-xs font-black text-white shadow-lg">D</div>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
+      html: `<div class="w-9 h-9 rounded-full bg-emerald-500 border-3 border-white flex items-center justify-center text-xs font-black text-white shadow-xl">D</div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
     });
     const startMarker = L.marker([startPt.lat, startPt.lon], { icon: startIcon }).bindTooltip(`Départ : ${track.name}`, { direction: 'top' });
     layerGroup.addLayer(startMarker);
@@ -356,9 +379,9 @@ function renderTrackOnMap(track) {
     const endPt = track.points[track.points.length - 1];
     const endIcon = L.divIcon({
       className: 'end-marker',
-      html: `<div class="w-8 h-8 rounded-full bg-slate-900 border-2 border-white flex items-center justify-center text-sm font-black text-white shadow-lg">🏁</div>`,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
+      html: `<div class="w-9 h-9 rounded-full bg-slate-900 border-3 border-white flex items-center justify-center text-base font-black text-white shadow-xl">🏁</div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
     });
     const endMarker = L.marker([endPt.lat, endPt.lon], { icon: endIcon }).bindTooltip(`Arrivée : ${track.name}`, { direction: 'top' });
     layerGroup.addLayer(endMarker);
@@ -369,6 +392,60 @@ function renderTrackOnMap(track) {
   }
 
   state.trackLayers.set(track.id, layerGroup);
+}
+
+// ============================================================================
+// BANDEAU FLOTTANT RAPIDE DES TRACES GPX
+// ============================================================================
+function renderQuickTracksBar() {
+  const bar = document.getElementById('quick-tracks-bar');
+  if (!bar) return;
+
+  if (state.tracks.length === 0) {
+    bar.innerHTML = `
+      <div class="flex items-center gap-2 bg-slate-900/95 backdrop-blur-md border-2 border-emerald-500/50 rounded-2xl p-1.5 shadow-2xl">
+        <label for="gpx-file-input" class="cursor-pointer flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm px-4 py-2.5 rounded-xl shadow transition active:scale-95">
+          <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+          <span>Charger GPX</span>
+        </label>
+        <button id="quick-demo-btn" onclick="loadDemoTracks()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-3 py-2.5 rounded-xl border border-slate-700 active:scale-95">
+          <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
+          <span>Démo 3 Parcours</span>
+        </button>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  const tracksHtml = state.tracks.map((track) => `
+    <div class="flex items-center gap-1 bg-slate-900/95 backdrop-blur-md border-2 ${track.visible ? 'border-slate-700' : 'border-slate-800 opacity-50'} rounded-2xl px-3 py-2 shadow-2xl shrink-0">
+      <button onclick="toggleTrackVisibility('${track.id}')" class="flex items-center gap-2 text-white font-black text-sm active:scale-95" title="Afficher/Masquer">
+        <span class="w-4 h-4 rounded-full shadow shrink-0" style="background-color: ${track.color.hex}"></span>
+        <span class="truncate max-w-[110px] sm:max-w-[160px]">${track.name}</span>
+        <span class="text-xs text-emerald-400 font-black">${track.totalDistance.toFixed(1)}km</span>
+      </button>
+      <button onclick="openElevationDrawer('${track.id}')" class="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800" title="Profil altimétrique">
+        <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-400"></i>
+      </button>
+      <button onclick="zoomToTrack('${track.id}')" class="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800" title="Centrer">
+        <i data-lucide="maximize" class="w-4 h-4"></i>
+      </button>
+      <button onclick="removeTrack('${track.id}')" class="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-slate-800" title="Supprimer">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+  `).join('');
+
+  const addPill = state.tracks.length < MAX_TRACKS ? `
+    <label for="gpx-file-input" class="cursor-pointer flex items-center gap-1.5 bg-slate-900/95 backdrop-blur-md border-2 border-dashed border-emerald-500/80 hover:border-emerald-400 text-emerald-400 rounded-2xl px-3 py-2 font-black text-xs shadow-2xl shrink-0 active:scale-95">
+      <i data-lucide="plus" class="w-4 h-4"></i>
+      <span>GPX (${state.tracks.length}/5)</span>
+    </label>
+  ` : '';
+
+  bar.innerHTML = tracksHtml + addPill;
+  lucide.createIcons();
 }
 
 function toggleTrackVisibility(trackId) {
@@ -382,7 +459,7 @@ function toggleTrackVisibility(trackId) {
   } else {
     state.map.removeLayer(layer);
   }
-  renderTracksList();
+  renderQuickTracksBar();
 }
 
 function removeTrack(trackId) {
@@ -396,8 +473,7 @@ function removeTrack(trackId) {
   }
 
   state.tracks.splice(index, 1);
-  renderTracksList();
-  updateTracksBadge();
+  renderQuickTracksBar();
 }
 
 function zoomToTrack(trackId) {
@@ -406,8 +482,7 @@ function zoomToTrack(trackId) {
 
   const latlngs = track.points.map(p => [p.lat, p.lon]);
   const bounds = L.latLngBounds(latlngs);
-  state.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
-  closeAllDrawers();
+  state.map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
 }
 
 function fitAllTracks() {
@@ -420,76 +495,14 @@ function fitAllTracks() {
 
   if (allPoints.length > 0) {
     const bounds = L.latLngBounds(allPoints);
-    state.map.fitBounds(bounds, { padding: [40, 40] });
+    state.map.fitBounds(bounds, { padding: [50, 50] });
+  } else if (state.isTrackingGps) {
+    state.map.setView([state.myUser.lat, state.myUser.lon], 15, { animate: true });
   }
-}
-
-function renderTracksList() {
-  const container = document.getElementById('tracks-list-container');
-  if (!container) return;
-
-  if (state.tracks.length === 0) {
-    container.innerHTML = `
-      <div class="text-center py-10 text-slate-400 text-sm font-semibold">
-        <i data-lucide="map-pin-off" class="w-10 h-10 mx-auto mb-3 opacity-50"></i>
-        Aucune trace GPX chargée.<br/>Cliquez sur "Charger GPX" pour en ajouter jusqu'à 5.
-      </div>
-    `;
-    lucide.createIcons();
-    return;
-  }
-
-  container.innerHTML = state.tracks.map((track) => `
-    <div class="p-4 sm:p-5 rounded-3xl bg-slate-800/90 border-2 ${track.visible ? 'border-slate-700' : 'border-slate-800 opacity-60'} hover:border-slate-500 transition flex flex-col gap-3 shadow-xl">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3 min-w-0">
-          <span class="w-5 h-5 rounded-full shrink-0 shadow-md" style="background-color: ${track.color.hex}"></span>
-          <h4 class="font-black text-base sm:text-lg text-white truncate" title="${track.name}">${track.name}</h4>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <button onclick="zoomToTrack('${track.id}')" class="p-2.5 rounded-2xl text-slate-200 hover:text-white bg-slate-750 hover:bg-slate-700 active:scale-90 border border-slate-700 shadow" title="Centrer la carte sur cette trace">
-            <i data-lucide="focus" class="w-5 h-5"></i>
-          </button>
-          <button onclick="toggleTrackVisibility('${track.id}')" class="p-2.5 rounded-2xl text-slate-200 hover:text-white bg-slate-750 hover:bg-slate-700 active:scale-90 border border-slate-700 shadow" title="${track.visible ? 'Masquer' : 'Afficher'}">
-            <i data-lucide="${track.visible ? 'eye' : 'eye-off'}" class="w-5 h-5"></i>
-          </button>
-          <button onclick="removeTrack('${track.id}')" class="p-2.5 rounded-2xl text-slate-400 hover:text-red-400 bg-slate-750 hover:bg-slate-700 active:scale-90 border border-slate-700 shadow" title="Supprimer">
-            <i data-lucide="trash-2" class="w-5 h-5"></i>
-          </button>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3 text-xs sm:text-sm text-slate-200 bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800">
-        <div class="flex items-center gap-2.5">
-          <i data-lucide="navigation" class="w-5 h-5 text-emerald-400"></i>
-          <span>Distance : <b class="text-white text-base">${track.totalDistance.toFixed(1)} km</b></span>
-        </div>
-        <div class="flex items-center gap-2.5">
-          <i data-lucide="trending-up" class="w-5 h-5 text-emerald-400"></i>
-          <span>D+ : <b class="text-emerald-400 text-base">+${track.eleGain} m</b></span>
-        </div>
-      </div>
-
-      <button onclick="openElevationDrawer('${track.id}')" class="w-full py-3 px-4 rounded-2xl bg-slate-700/80 hover:bg-slate-700 text-slate-100 text-sm font-black flex items-center justify-center gap-2.5 transition active:scale-98 shadow-md">
-        <i data-lucide="bar-chart-2" class="w-5 h-5 text-emerald-400"></i>
-        <span>Voir le Profil Altimétrique</span>
-      </button>
-    </div>
-  `).join('');
-
-  lucide.createIcons();
-}
-
-function updateTracksBadge() {
-  const count = state.tracks.length;
-  const panelBadge = document.getElementById('tracks-badge');
-  const navBadge = document.getElementById('nav-tracks-badge');
-  if (panelBadge) panelBadge.textContent = `${count}/${MAX_TRACKS}`;
-  if (navBadge) navBadge.textContent = count;
 }
 
 // ============================================================================
-// PROFIL ALTIMÉTRIQUE (Chart.js)
+// PROFIL ALTIMÉTRIQUE INTERACTIF (Chart.js)
 // ============================================================================
 function openElevationDrawer(trackId) {
   const track = state.tracks.find(t => t.id === trackId);
@@ -500,7 +513,7 @@ function openElevationDrawer(trackId) {
   const stats = document.getElementById('ele-drawer-stats');
   const colorDot = document.getElementById('ele-drawer-color');
 
-  title.textContent = `Profil : ${track.name}`;
+  title.textContent = `${track.name}`;
   stats.textContent = `${track.totalDistance.toFixed(1)} km | +${track.eleGain}m D+`;
   colorDot.style.backgroundColor = track.color.hex;
 
@@ -508,7 +521,7 @@ function openElevationDrawer(trackId) {
 
   const labels = [];
   const elevationData = [];
-  const step = Math.max(1, Math.floor(track.points.length / 100));
+  const step = Math.max(1, Math.floor(track.points.length / 120));
 
   for (let i = 0; i < track.points.length; i += step) {
     const pt = track.points[i];
@@ -522,7 +535,7 @@ function openElevationDrawer(trackId) {
 
   const ctx = document.getElementById('elevation-chart').getContext('2d');
   const gradient = ctx.createLinearGradient(0, 0, 0, 160);
-  gradient.addColorStop(0, track.color.hex + '99');
+  gradient.addColorStop(0, track.color.hex + 'bb');
   gradient.addColorStop(1, track.color.hex + '05');
 
   state.chartInstance = new Chart(ctx, {
@@ -533,7 +546,7 @@ function openElevationDrawer(trackId) {
         label: 'Altitude (m)',
         data: elevationData,
         borderColor: track.color.hex,
-        borderWidth: 3,
+        borderWidth: 3.5,
         backgroundColor: gradient,
         fill: true,
         tension: 0.3,
@@ -606,9 +619,8 @@ function updateHoverMapMarker(lat, lon) {
 }
 
 // ============================================================================
-// GESTION DES RANDONNEURS GÉOLOCALISÉS (Jusqu'à 10)
+// SUIVI DES RANDONNEURS & MARQUEURS SUR LA CARTE (Jusqu'à 10)
 // ============================================================================
-
 function createOrUpdateUserMarker(user) {
   let marker = state.userMarkers.get(user.id);
   const isMe = user.id === state.myUser.id;
@@ -700,9 +712,13 @@ function renderUsersList() {
   if (panelBadge) panelBadge.textContent = `${totalCount}/${MAX_USERS}`;
   if (navBadge) navBadge.textContent = totalCount;
 
-  document.getElementById('my-speed-stat').textContent = `${(state.myUser.speed || 0).toFixed(1)} km/h`;
-  document.getElementById('my-ele-stat').textContent = `${Math.round(state.myUser.ele || 0)} m`;
-  document.getElementById('my-battery-stat').textContent = `${state.myUser.battery || 92}%`;
+  const mySpeedStat = document.getElementById('my-speed-stat');
+  const myEleStat = document.getElementById('my-ele-stat');
+  const myBatteryStat = document.getElementById('my-battery-stat');
+
+  if (mySpeedStat) mySpeedStat.textContent = `${(state.myUser.speed || 0).toFixed(1)} km/h`;
+  if (myEleStat) myEleStat.textContent = `${Math.round(state.myUser.ele || 0)} m`;
+  if (myBatteryStat) myBatteryStat.textContent = `${state.myUser.battery || 95}%`;
 
   const otherUsersList = Array.from(state.otherUsers.values());
 
@@ -710,8 +726,8 @@ function renderUsersList() {
     container.innerHTML = `
       <div class="text-center py-8 text-slate-400 text-sm font-semibold">
         <i data-lucide="user-x" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
-        Aucun autre randonneur connecté pour le moment.<br/>
-        Cliquez sur <b class="text-blue-400">« Inviter des participants »</b> pour partager le QR Code.
+        Aucun autre marcheur connecté pour le moment.<br/>
+        Cliquez sur <b class="text-blue-400">« Inviter »</b> pour partager le QR Code ou sur <b class="text-emerald-400">« Test Démo »</b>.
       </div>
     `;
     lucide.createIcons();
@@ -759,54 +775,31 @@ function centerOnUser(userId) {
 
   state.map.setView([user.lat, user.lon], 16, { animate: true });
   const marker = state.userMarkers.get(userId);
-  if (marker) {
-    marker.openPopup();
-  }
+  if (marker) marker.openPopup();
   closeAllDrawers();
 }
 
 // ============================================================================
-// GESTION DES TIROIRS / PANNEAUX MOBILES
+// GESTION DU TIROIR DES PARTICIPANTS
 // ============================================================================
 function openDrawer(panelName) {
-  const tracksPanel = document.getElementById('tracks-panel');
   const usersPanel = document.getElementById('users-panel');
   const backdrop = document.getElementById('drawer-backdrop');
 
-  if (panelName === 'tracks') {
-    tracksPanel.classList.remove('drawer-closed');
-    tracksPanel.classList.add('drawer-open');
-    usersPanel.classList.add('drawer-closed');
-    usersPanel.classList.remove('drawer-open');
-    state.activeDrawer = 'tracks';
-    if (backdrop) backdrop.classList.remove('hidden');
-
-    document.getElementById('nav-btn-tracks').classList.add('text-emerald-400');
-    document.getElementById('nav-btn-users').classList.remove('text-emerald-400');
-    document.getElementById('nav-btn-map').classList.remove('text-emerald-400');
-  } else if (panelName === 'users') {
-    usersPanel.classList.remove('drawer-closed');
-    usersPanel.classList.add('drawer-open');
-    tracksPanel.classList.add('drawer-closed');
-    tracksPanel.classList.remove('drawer-open');
+  if (panelName === 'users') {
+    if (usersPanel) {
+      usersPanel.classList.remove('drawer-closed');
+      usersPanel.classList.add('drawer-open');
+    }
     state.activeDrawer = 'users';
     if (backdrop) backdrop.classList.remove('hidden');
-
-    document.getElementById('nav-btn-users').classList.add('text-emerald-400');
-    document.getElementById('nav-btn-tracks').classList.remove('text-emerald-400');
-    document.getElementById('nav-btn-map').classList.remove('text-emerald-400');
   }
 }
 
 function closeAllDrawers() {
-  const tracksPanel = document.getElementById('tracks-panel');
   const usersPanel = document.getElementById('users-panel');
   const backdrop = document.getElementById('drawer-backdrop');
 
-  if (tracksPanel) {
-    tracksPanel.classList.add('drawer-closed');
-    tracksPanel.classList.remove('drawer-open');
-  }
   if (usersPanel) {
     usersPanel.classList.add('drawer-closed');
     usersPanel.classList.remove('drawer-open');
@@ -814,10 +807,6 @@ function closeAllDrawers() {
   if (backdrop) backdrop.classList.add('hidden');
 
   state.activeDrawer = null;
-
-  document.getElementById('nav-btn-map').classList.add('text-emerald-400');
-  document.getElementById('nav-btn-tracks').classList.remove('text-emerald-400');
-  document.getElementById('nav-btn-users').classList.remove('text-emerald-400');
 }
 
 // ============================================================================
@@ -827,12 +816,10 @@ function startGpsWatch(useHighAccuracy = true) {
   const navBubble = document.getElementById('nav-gps-bubble');
   const navIcon = document.getElementById('nav-gps-icon');
   const navLabel = document.getElementById('nav-gps-label');
-  const bannerText = document.getElementById('gps-banner-text');
 
   if (navLabel) navLabel.textContent = 'Recherche...';
-  if (navBubble) navBubble.className = 'w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-500 flex items-center justify-center';
-  if (navIcon) navIcon.className = 'w-8 h-8 text-amber-400 animate-spin';
-  if (bannerText) bannerText.textContent = '📍 Recherche de vos coordonnées GPS...';
+  if (navBubble) navBubble.className = 'w-18 h-18 rounded-full bg-amber-500/20 border-4 border-amber-500 flex items-center justify-center';
+  if (navIcon) navIcon.className = 'w-9 h-9 text-amber-400 animate-spin';
 
   const onPositionSuccess = (pos) => {
     state.isTrackingGps = true;
@@ -844,9 +831,8 @@ function startGpsWatch(useHighAccuracy = true) {
 
     const accStr = `±${Math.round(pos.coords.accuracy)}m`;
     if (navLabel) navLabel.textContent = `GPS (${accStr})`;
-    if (navBubble) navBubble.className = 'w-16 h-16 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center shadow-2xl animate-pulse';
-    if (navIcon) navIcon.className = 'w-8 h-8 text-white';
-    if (bannerText) bannerText.textContent = `📍 Position GPS verrouillée (${accStr})`;
+    if (navBubble) navBubble.className = 'w-18 h-18 rounded-full bg-emerald-600 border-4 border-white flex items-center justify-center shadow-2xl animate-pulse';
+    if (navIcon) navIcon.className = 'w-9 h-9 text-white';
 
     // Cercle vert de précision
     if (!state.accuracyCircle) {
@@ -854,7 +840,7 @@ function startGpsWatch(useHighAccuracy = true) {
         radius: pos.coords.accuracy || 20,
         color: '#10b981',
         fillColor: '#10b981',
-        fillOpacity: 0.14,
+        fillOpacity: 0.16,
         weight: 2
       }).addTo(state.map);
     } else {
@@ -863,15 +849,19 @@ function startGpsWatch(useHighAccuracy = true) {
     }
 
     broadcastMyPosition();
-    state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
-    showToast(`GPS connecté (Précision : ${accStr})`, 'success');
+
+    // Centrage initial au premier point GPS
+    if (!state.hasAutoCenteredGps) {
+      state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
+      state.hasAutoCenteredGps = true;
+      showToast(`Position GPS trouvée (${accStr})`, 'success');
+    }
   };
 
   const onPositionError = (err) => {
-    console.warn(`[GPS] Erreur (${useHighAccuracy}):`, err.code, err.message);
+    console.warn(`[GPS] Erreur (highAcc=${useHighAccuracy}):`, err.code, err.message);
 
     if (useHighAccuracy) {
-      console.log('[GPS] Bascule en mode normal...');
       startGpsWatch(false);
       return;
     }
@@ -879,14 +869,13 @@ function startGpsWatch(useHighAccuracy = true) {
     stopGpsWatch();
     let explication = err.message;
     if (err.code === 1) {
-      explication = "Autorisation GPS refusée. Veuillez autoriser l'accès à la position dans votre navigateur.";
+      explication = "Autorisation GPS refusée. Veuillez autoriser la localisation dans les réglages de votre navigateur.";
     } else if (err.code === 2) {
-      explication = "Signal GPS indisponible. Activez le service de localisation de votre appareil.";
+      explication = "Signal GPS indisponible. Activez la localisation de votre téléphone.";
     } else if (err.code === 3) {
       explication = "Délai de réponse GPS dépassé.";
     }
 
-    if (bannerText) bannerText.textContent = `⚠️ GPS : ${explication}`;
     showToast(explication, 'error');
   };
 
@@ -920,12 +909,10 @@ function stopGpsWatch() {
   const navBubble = document.getElementById('nav-gps-bubble');
   const navIcon = document.getElementById('nav-gps-icon');
   const navLabel = document.getElementById('nav-gps-label');
-  const bannerText = document.getElementById('gps-banner-text');
 
   if (navLabel) navLabel.textContent = 'Mon GPS';
-  if (navBubble) navBubble.className = 'w-16 h-16 rounded-full bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-xl';
-  if (navIcon) navIcon.className = 'w-8 h-8 text-slate-300';
-  if (bannerText) bannerText.textContent = 'GPS désactivé. Appuyez sur « Mon GPS » pour activer.';
+  if (navBubble) navBubble.className = 'w-18 h-18 rounded-full bg-slate-800 border-4 border-slate-600 flex items-center justify-center shadow-xl';
+  if (navIcon) navIcon.className = 'w-9 h-9 text-slate-300';
 }
 
 function toggleGps() {
@@ -942,7 +929,7 @@ function toggleGps() {
 }
 
 // ============================================================================
-// SYSTÈME D'INVITATION DES PARTICIPANTS (QR CODE + WHATSAPP / SMS)
+// INVITATION DES PARTICIPANTS (QR CODE + LIEN DIRECT WHATSAPP / SMS)
 // ============================================================================
 function getInviteUrl() {
   const origin = window.location.origin;
@@ -956,35 +943,34 @@ function openInviteModal() {
   const qrcodeContainer = document.getElementById('qrcode');
   const inviteUrl = getInviteUrl();
 
-  urlDisplay.textContent = inviteUrl;
-  qrcodeContainer.innerHTML = '';
-
-  // Générer le QR Code
-  try {
-    if (typeof QRCode !== 'undefined') {
-      new QRCode(qrcodeContainer, {
-        text: inviteUrl,
-        width: 220,
-        height: 220,
-        colorDark: '#0f172a',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H
-      });
-    } else {
-      // Fallback API QR
+  if (urlDisplay) urlDisplay.textContent = inviteUrl;
+  if (qrcodeContainer) {
+    qrcodeContainer.innerHTML = '';
+    try {
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(qrcodeContainer, {
+          text: inviteUrl,
+          width: 220,
+          height: 220,
+          colorDark: '#0f172a',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.H
+        });
+      } else {
+        qrcodeContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(inviteUrl)}" alt="QR Code" class="w-[220px] h-[220px] rounded-xl" />`;
+      }
+    } catch (e) {
       qrcodeContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(inviteUrl)}" alt="QR Code" class="w-[220px] h-[220px] rounded-xl" />`;
     }
-  } catch (e) {
-    qrcodeContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(inviteUrl)}" alt="QR Code" class="w-[220px] h-[220px] rounded-xl" />`;
   }
 
-  modal.classList.remove('hidden');
+  if (modal) modal.classList.remove('hidden');
 }
 
 async function shareInviteLink() {
   const inviteUrl = getInviteUrl();
-  const title = `RandoTracker - Salon ${state.roomCode}`;
-  const text = `Rejoins notre randonnée en direct sur la carte détaillée avec le salon ${state.roomCode} :`;
+  const title = `RandoTracker - Sortie ${state.roomCode}`;
+  const text = `Rejoins notre randonnée en direct sur la carte IGN/Topo (Salon ${state.roomCode}) :`;
 
   if (navigator.share) {
     try {
@@ -995,26 +981,27 @@ async function shareInviteLink() {
       });
       showToast('Invitation partagée !', 'success');
       return;
-    } catch (err) {
-      // L'utilisateur a annulé ou le partage a échoué
-    }
+    } catch (err) {}
   }
 
-  // Fallback : Copie dans le presse-papier
   copyInviteLink();
 }
 
 function copyInviteLink() {
   const inviteUrl = getInviteUrl();
-  navigator.clipboard.writeText(inviteUrl).then(() => {
-    showToast('Lien copié dans le presse-papier !', 'success');
-  }).catch(() => {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      showToast('Lien copié dans le presse-papier !', 'success');
+    }).catch(() => {
+      prompt('Copiez ce lien d\'invitation :', inviteUrl);
+    });
+  } else {
     prompt('Copiez ce lien d\'invitation :', inviteUrl);
-  });
+  }
 }
 
 // ============================================================================
-// SYNCHRONISATION 4G & SALONS
+// SYNCHRONISATION EN TEMPS RÉEL (WebRTC, WebSocket & BroadcastChannel)
 // ============================================================================
 function initRealtimeSync() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -1096,7 +1083,7 @@ function broadcastMyPosition() {
   };
 
   if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-    state.ws.send(JSON.stringify(payload));
+    try { state.ws.send(JSON.stringify(payload)); } catch (e) {}
   }
 
   state.peerConnections.forEach((conn) => {
@@ -1106,7 +1093,7 @@ function broadcastMyPosition() {
   });
 
   if (state.broadcastChannel) {
-    state.broadcastChannel.postMessage(payload);
+    try { state.broadcastChannel.postMessage(payload); } catch (e) {}
   }
 }
 
@@ -1134,15 +1121,91 @@ function handleIncomingMessage(data) {
     state.otherUsers.delete(data.userId);
     removeUserMarker(data.userId);
     renderUsersList();
-  } else if (data.type === 'all_users_cleared') {
-    state.otherUsers.forEach((_, id) => removeUserMarker(id));
-    state.otherUsers.clear();
-    renderUsersList();
   }
 }
 
 // ============================================================================
-// CHARGEMENT DES TRACES PAR DÉFAUT
+// SIMULATION DE MARCHEURS DÉMO POUR TESTER LE MULTI-UTILISATEUR
+// ============================================================================
+function toggleSimulation() {
+  if (state.isSimulating) {
+    clearInterval(state.simulationInterval);
+    state.isSimulating = false;
+    const btn = document.getElementById('simulate-users-btn');
+    if (btn) btn.innerHTML = '<i data-lucide="play" class="w-3.5 h-3.5"></i><span>Test Démo</span>';
+    lucide.createIcons();
+    showToast('Simulation arrêtée', 'info');
+    return;
+  }
+
+  // Création de 3 compagnons de rando autour de ma position
+  const companions = [
+    { id: 'sim_1', name: 'Sophie L.', role: 'Serre-file', icon: '🛡️', color: '#2563eb', latOffset: -0.003, lonOffset: -0.004, speed: 3.8, battery: 88, isSos: false, angle: 0 },
+    { id: 'sim_2', name: 'Marc V.', role: 'Randonneur', icon: '🦊', color: '#dc2626', latOffset: 0.002, lonOffset: 0.003, speed: 4.5, battery: 74, isSos: false, angle: 1.2 },
+    { id: 'sim_3', name: 'Thomas D.', role: 'Randonneur', icon: '🐻', color: '#d97706', latOffset: 0.004, lonOffset: -0.002, speed: 4.1, battery: 91, isSos: false, angle: 2.5 }
+  ];
+
+  companions.forEach(c => {
+    const userObj = {
+      id: c.id,
+      name: c.name,
+      role: c.role,
+      icon: c.icon,
+      color: c.color,
+      lat: state.myUser.lat + c.latOffset,
+      lon: state.myUser.lon + c.lonOffset,
+      ele: state.myUser.ele + Math.round((Math.random() - 0.5) * 40),
+      speed: c.speed,
+      battery: c.battery,
+      isSos: c.isSos,
+      lastSeen: Date.now()
+    };
+    state.otherUsers.set(c.id, userObj);
+    createOrUpdateUserMarker(userObj);
+  });
+
+  renderUsersList();
+  state.isSimulating = true;
+
+  const btn = document.getElementById('simulate-users-btn');
+  if (btn) btn.innerHTML = '<i data-lucide="square" class="w-3.5 h-3.5 text-amber-400"></i><span>Stop Démo</span>';
+  lucide.createIcons();
+  showToast('3 randonneurs simulés en direct !', 'success');
+
+  // Animation des déplacements
+  state.simulationInterval = setInterval(() => {
+    companions.forEach(c => {
+      c.angle += 0.08;
+      const user = state.otherUsers.get(c.id);
+      if (user) {
+        user.lat = state.myUser.lat + c.latOffset + 0.0015 * Math.sin(c.angle);
+        user.lon = state.myUser.lon + c.lonOffset + 0.0015 * Math.cos(c.angle);
+        user.speed = Math.max(2.5, +(c.speed + (Math.random() - 0.5) * 0.6).toFixed(1));
+        user.lastSeen = Date.now();
+        createOrUpdateUserMarker(user);
+      }
+    });
+    renderUsersList();
+  }, 2500);
+}
+
+function clearAllSimUsers() {
+  if (state.isSimulating) {
+    clearInterval(state.simulationInterval);
+    state.isSimulating = false;
+    const btn = document.getElementById('simulate-users-btn');
+    if (btn) btn.innerHTML = '<i data-lucide="play" class="w-3.5 h-3.5"></i><span>Test Démo</span>';
+    lucide.createIcons();
+  }
+
+  state.otherUsers.forEach((_, id) => removeUserMarker(id));
+  state.otherUsers.clear();
+  renderUsersList();
+  showToast('Liste des marcheurs réinitialisée', 'info');
+}
+
+// ============================================================================
+// CHARGEMENT DES 3 PARCOURS DÉMO (ANNECY / MONT VEYRIER)
 // ============================================================================
 function generateDemoTrackPoints(centerLat, centerLon, radiusKm, numPoints, baseEle, maxEle, irregularity = 0.3) {
   const pts = [];
@@ -1175,6 +1238,14 @@ function generateDemoTrackPoints(centerLat, centerLon, radiusKm, numPoints, base
 }
 
 async function loadDemoTracks() {
+  // Supprimer les traces existantes pour rechargement propre
+  state.tracks.forEach(t => {
+    const l = state.trackLayers.get(t.id);
+    if (l) state.map.removeLayer(l);
+  });
+  state.tracks = [];
+  state.trackLayers.clear();
+
   let loadedCount = 0;
   const files = [
     { url: './tracks/parcours_1_vert_6km.gpx', name: 'Niveau 1 - Boucle Découverte (6 km)' },
@@ -1194,6 +1265,7 @@ async function loadDemoTracks() {
     } catch (e) {}
   }
 
+  // Fallback mathématique si fichiers GPX non servis
   if (loadedCount === 0) {
     const p1 = generateDemoTrackPoints(45.8920, 6.1550, 1.1, 90, 450, 690, 0.25);
     addTrackToState({ id: 'demo_1', name: 'Niveau 1 - Boucle Découverte (6 km)', points: p1.points, totalDistance: p1.totalDistance, eleGain: p1.eleGain, minEle: p1.minEle, maxEle: p1.maxEle, visible: true });
@@ -1204,103 +1276,115 @@ async function loadDemoTracks() {
     const p3 = generateDemoTrackPoints(45.9010, 6.1850, 3.4, 200, 450, 1600, 0.45);
     addTrackToState({ id: 'demo_3', name: 'Niveau 3 - Traversée des Crêtes (18 km)', points: p3.points, totalDistance: p3.totalDistance, eleGain: p3.eleGain, minEle: p3.minEle, maxEle: p3.maxEle, visible: true });
   }
+
+  fitAllTracks();
 }
 
 // ============================================================================
-// GESTIONNAIRES D'ÉVÉNEMENTS
+// ÉCOUTEURS D'ÉVÉNEMENTS & INTERACTIONS UTILISATEUR
 // ============================================================================
 function setupEventListeners() {
-  // Navigation Tab Bar en bas
-  document.getElementById('nav-btn-map').addEventListener('click', () => {
-    closeAllDrawers();
-    fitAllTracks();
-  });
+  // Navigation inférieure (3 gros boutons)
+  const navGps = document.getElementById('nav-btn-gps');
+  if (navGps) navGps.addEventListener('click', toggleGps);
 
-  document.getElementById('nav-btn-tracks').addEventListener('click', () => {
-    if (state.activeDrawer === 'tracks') closeAllDrawers();
-    else openDrawer('tracks');
-  });
+  const navUsers = document.getElementById('nav-btn-users');
+  if (navUsers) {
+    navUsers.addEventListener('click', () => {
+      if (state.activeDrawer === 'users') closeAllDrawers();
+      else openDrawer('users');
+    });
+  }
 
-  document.getElementById('nav-btn-users').addEventListener('click', () => {
-    if (state.activeDrawer === 'users') closeAllDrawers();
-    else openDrawer('users');
-  });
+  // Boutons flottants sur la carte
+  const centerBtn = document.getElementById('center-my-gps-btn');
+  if (centerBtn) {
+    centerBtn.addEventListener('click', () => {
+      if (state.isTrackingGps) {
+        state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
+      } else {
+        startGpsWatch(true);
+      }
+    });
+  }
 
-  document.getElementById('nav-btn-gps').addEventListener('click', toggleGps);
-  document.getElementById('refresh-gps-banner-btn').addEventListener('click', () => startGpsWatch(true));
-
-  // Boutons flottants
-  document.getElementById('center-my-gps-btn').addEventListener('click', () => {
-    if (state.isTrackingGps) {
-      state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
-    } else {
-      toggleGps();
-    }
-  });
-
-  document.getElementById('fit-all-btn').addEventListener('click', fitAllTracks);
+  const fitBtn = document.getElementById('fit-all-btn');
+  if (fitBtn) fitBtn.addEventListener('click', fitAllTracks);
 
   // Invitations
-  document.getElementById('header-invite-btn').addEventListener('click', openInviteModal);
-  document.getElementById('drawer-invite-btn').addEventListener('click', openInviteModal);
-  document.getElementById('close-invite-modal-btn').addEventListener('click', () => document.getElementById('invite-modal').classList.add('hidden'));
-  document.getElementById('share-native-btn').addEventListener('click', shareInviteLink);
-  document.getElementById('copy-link-btn').addEventListener('click', copyInviteLink);
+  const headerInvite = document.getElementById('header-invite-btn');
+  if (headerInvite) headerInvite.addEventListener('click', openInviteModal);
+
+  const drawerInvite = document.getElementById('drawer-invite-btn');
+  if (drawerInvite) drawerInvite.addEventListener('click', openInviteModal);
+
+  const closeInvite = document.getElementById('close-invite-modal-btn');
+  if (closeInvite) closeInvite.addEventListener('click', () => document.getElementById('invite-modal').classList.add('hidden'));
+
+  const shareBtn = document.getElementById('share-native-btn');
+  if (shareBtn) shareBtn.addEventListener('click', shareInviteLink);
+
+  const copyBtn = document.getElementById('copy-link-btn');
+  if (copyBtn) copyBtn.addEventListener('click', copyInviteLink);
 
   // Fermetures tiroirs
-  document.getElementById('close-tracks-panel-btn').addEventListener('click', closeAllDrawers);
-  document.getElementById('close-users-panel-btn').addEventListener('click', closeAllDrawers);
-  document.getElementById('drawer-backdrop').addEventListener('click', closeAllDrawers);
+  const closeUsers = document.getElementById('close-users-panel-btn');
+  if (closeUsers) closeUsers.addEventListener('click', closeAllDrawers);
 
-  // Recharger démo
-  document.getElementById('load-sample-tracks-btn').addEventListener('click', () => {
-    state.tracks.forEach(t => {
-      const l = state.trackLayers.get(t.id);
-      if (l) state.map.removeLayer(l);
-    });
-    state.tracks = [];
-    state.trackLayers.clear();
-    loadDemoTracks();
-  });
+  const backdrop = document.getElementById('drawer-backdrop');
+  if (backdrop) backdrop.addEventListener('click', closeAllDrawers);
 
-  // Import GPX Multifichiers (1 à 5)
+  // Simulation
+  const simBtn = document.getElementById('simulate-users-btn');
+  if (simBtn) simBtn.addEventListener('click', toggleSimulation);
+
+  const clearSimBtn = document.getElementById('clear-sim-users-btn');
+  if (clearSimBtn) clearSimBtn.addEventListener('click', clearAllSimUsers);
+
+  // Import GPX Multifichiers (1 à 5 fichiers sélectionnés d'un coup)
   const gpxInput = document.getElementById('gpx-file-input');
-  gpxInput.addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files);
-    let countAdded = 0;
-    for (const file of files) {
-      if (state.tracks.length >= MAX_TRACKS) {
-        alert(`Vous avez atteint la limite de ${MAX_TRACKS} traces GPX.`);
-        break;
+  if (gpxInput) {
+    gpxInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      let countAdded = 0;
+      for (const file of files) {
+        if (state.tracks.length >= MAX_TRACKS) {
+          alert(`Limite de ${MAX_TRACKS} traces GPX atteinte.`);
+          break;
+        }
+        try {
+          const text = await file.text();
+          const parsed = parseGpxContent(text, file.name);
+          addTrackToState(parsed);
+          countAdded++;
+        } catch (err) {
+          alert(`Erreur dans ${file.name} : ${err.message}`);
+        }
       }
-      try {
-        const text = await file.text();
-        const parsed = parseGpxContent(text, file.name);
-        addTrackToState(parsed);
-        countAdded++;
-      } catch (err) {
-        alert(`Erreur dans ${file.name} : ${err.message}`);
-      }
-    }
-    gpxInput.value = '';
-    if (countAdded > 0) {
-      closeAllDrawers();
-    }
-  });
+      gpxInput.value = '';
+      if (countAdded > 0) fitAllTracks();
+    });
+  }
 
   // Fermer profil altimétrique
-  document.getElementById('close-ele-drawer-btn').addEventListener('click', () => {
-    document.getElementById('elevation-drawer').classList.add('hidden');
-    if (state.hoverMarker) {
-      state.map.removeLayer(state.hoverMarker);
-      state.hoverMarker = null;
-    }
-  });
+  const closeEle = document.getElementById('close-ele-drawer-btn');
+  if (closeEle) {
+    closeEle.addEventListener('click', () => {
+      document.getElementById('elevation-drawer').classList.add('hidden');
+      if (state.hoverMarker) {
+        state.map.removeLayer(state.hoverMarker);
+        state.hoverMarker = null;
+      }
+    });
+  }
 
-  // Modale Fonds de Carte
+  // Modal Fonds de Carte (IGN / Topo / Satellite / OSM)
   const layerModal = document.getElementById('layer-modal');
-  document.getElementById('open-layer-modal-btn').addEventListener('click', () => layerModal.classList.remove('hidden'));
-  document.getElementById('close-layer-modal-btn').addEventListener('click', () => layerModal.classList.add('hidden'));
+  const openLayerBtn = document.getElementById('open-layer-modal-btn');
+  const closeLayerBtn = document.getElementById('close-layer-modal-btn');
+
+  if (openLayerBtn) openLayerBtn.addEventListener('click', () => layerModal.classList.remove('hidden'));
+  if (closeLayerBtn) closeLayerBtn.addEventListener('click', () => layerModal.classList.add('hidden'));
 
   document.querySelectorAll('.layer-opt-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1309,46 +1393,57 @@ function setupEventListeners() {
     });
   });
 
-  // Modale Code de Salon 4G
+  // Modal Code de Salon de Randonnée
   const roomModal = document.getElementById('room-modal');
   const inputRoom = document.getElementById('input-room-code');
-  document.getElementById('open-room-btn').addEventListener('click', () => {
-    inputRoom.value = state.roomCode;
-    roomModal.classList.remove('hidden');
-  });
-  document.getElementById('close-room-modal-btn').addEventListener('click', () => roomModal.classList.add('hidden'));
-  document.getElementById('cancel-room-btn').addEventListener('click', () => roomModal.classList.add('hidden'));
-  document.getElementById('save-room-btn').addEventListener('click', () => {
-    const val = inputRoom.value.toUpperCase().trim();
-    if (val) {
-      state.roomCode = val;
-      updateRoomDisplay();
-      initPeerJS();
-      roomModal.classList.add('hidden');
-      showToast(`Salon 4G connecté : ${state.roomCode}`, 'success');
-    }
-  });
+  const openRoomBtn = document.getElementById('open-room-btn');
+  const closeRoomBtn = document.getElementById('close-room-modal-btn');
+  const cancelRoomBtn = document.getElementById('cancel-room-btn');
+  const saveRoomBtn = document.getElementById('save-room-btn');
 
-  // SOS
+  if (openRoomBtn) {
+    openRoomBtn.addEventListener('click', () => {
+      if (inputRoom) inputRoom.value = state.roomCode;
+      if (roomModal) roomModal.classList.remove('hidden');
+    });
+  }
+  if (closeRoomBtn) closeRoomBtn.addEventListener('click', () => roomModal.classList.add('hidden'));
+  if (cancelRoomBtn) cancelRoomBtn.addEventListener('click', () => roomModal.classList.add('hidden'));
+  if (saveRoomBtn) {
+    saveRoomBtn.addEventListener('click', () => {
+      const val = inputRoom.value.toUpperCase().trim();
+      if (val) {
+        state.roomCode = val;
+        updateRoomDisplay();
+        initPeerJS();
+        roomModal.classList.add('hidden');
+        showToast(`Salon connecté : ${state.roomCode}`, 'success');
+      }
+    });
+  }
+
+  // Alerte SOS Randonneur
   const sosBtn = document.getElementById('sos-toggle-btn');
   const sosText = document.getElementById('sos-btn-text');
-  sosBtn.addEventListener('click', () => {
-    state.myUser.isSos = !state.myUser.isSos;
-    if (state.myUser.isSos) {
-      sosBtn.classList.remove('bg-red-600/20', 'text-red-400');
-      sosBtn.classList.add('bg-red-600', 'text-white', 'animate-pulse');
-      sosText.textContent = '⚠️ ALERTE SOS ACTIVE (ANNULER)';
-      showToast('🚨 ALERTE SOS ENVOYÉE AU GROUPE !', 'error');
-    } else {
-      sosBtn.classList.add('bg-red-600/20', 'text-red-400');
-      sosBtn.classList.remove('bg-red-600', 'text-white', 'animate-pulse');
-      sosText.textContent = '🚨 SIGNALER UN PROBLÈME / SOS';
-      showToast('Alerte SOS désactivée', 'info');
-    }
-    broadcastMyPosition();
-  });
+  if (sosBtn) {
+    sosBtn.addEventListener('click', () => {
+      state.myUser.isSos = !state.myUser.isSos;
+      if (state.myUser.isSos) {
+        sosBtn.classList.remove('bg-red-600/20', 'text-red-400');
+        sosBtn.classList.add('bg-red-600', 'text-white', 'animate-pulse');
+        if (sosText) sosText.textContent = '⚠️ ALERTE SOS ACTIVE (ANNULER)';
+        showToast('🚨 ALERTE SOS ENVOYÉE AU GROUPE !', 'error');
+      } else {
+        sosBtn.classList.add('bg-red-600/20', 'text-red-400');
+        sosBtn.classList.remove('bg-red-600', 'text-white', 'animate-pulse');
+        if (sosText) sosText.textContent = '🚨 SIGNALER UN PROBLÈME / SOS';
+        showToast('Alerte SOS désactivée', 'info');
+      }
+      broadcastMyPosition();
+    });
+  }
 
-  // Profil
+  // Modal Profil Utilisateur (Nom, Rôle, Avatar)
   const profileModal = document.getElementById('profile-modal');
   const openProfile = () => {
     document.getElementById('input-user-name').value = state.myUser.name;
@@ -1356,10 +1451,16 @@ function setupEventListeners() {
     profileModal.classList.remove('hidden');
   };
 
-  document.getElementById('open-profile-btn').addEventListener('click', openProfile);
-  document.getElementById('edit-profile-btn').addEventListener('click', openProfile);
-  document.getElementById('close-profile-modal-btn').addEventListener('click', () => profileModal.classList.add('hidden'));
-  document.getElementById('cancel-profile-btn').addEventListener('click', () => profileModal.classList.add('hidden'));
+  const openProfileBtn = document.getElementById('open-profile-btn');
+  const editProfileBtn = document.getElementById('edit-profile-btn');
+  const closeProfileBtn = document.getElementById('close-profile-modal-btn');
+  const cancelProfileBtn = document.getElementById('cancel-profile-btn');
+  const saveProfileBtn = document.getElementById('save-profile-btn');
+
+  if (openProfileBtn) openProfileBtn.addEventListener('click', openProfile);
+  if (editProfileBtn) editProfileBtn.addEventListener('click', openProfile);
+  if (closeProfileBtn) closeProfileBtn.addEventListener('click', () => profileModal.classList.add('hidden'));
+  if (cancelProfileBtn) cancelProfileBtn.addEventListener('click', () => profileModal.classList.add('hidden'));
 
   document.querySelectorAll('.avatar-opt').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1370,24 +1471,35 @@ function setupEventListeners() {
     });
   });
 
-  document.getElementById('save-profile-btn').addEventListener('click', () => {
-    const name = document.getElementById('input-user-name').value.trim();
-    const role = document.getElementById('input-user-role').value;
-    if (name) state.myUser.name = name;
-    if (role) state.myUser.role = role;
+  if (saveProfileBtn) {
+    saveProfileBtn.addEventListener('click', () => {
+      const name = document.getElementById('input-user-name').value.trim();
+      const role = document.getElementById('input-user-role').value;
+      if (name) state.myUser.name = name;
+      if (role) state.myUser.role = role;
 
-    document.getElementById('header-avatar-badge').textContent = state.myUser.icon;
-    document.getElementById('header-avatar-badge').style.backgroundColor = state.myUser.color;
+      const headerBadge = document.getElementById('header-avatar-badge');
+      if (headerBadge) {
+        headerBadge.textContent = state.myUser.icon;
+        headerBadge.style.backgroundColor = state.myUser.color;
+      }
 
-    document.getElementById('my-name-display').textContent = state.myUser.name;
-    document.getElementById('my-role-display').textContent = state.myUser.role;
-    document.getElementById('my-avatar-display').textContent = state.myUser.icon;
-    document.getElementById('my-avatar-display').style.backgroundColor = state.myUser.color;
+      const myName = document.getElementById('my-name-display');
+      const myRole = document.getElementById('my-role-display');
+      const myAvatar = document.getElementById('my-avatar-display');
 
-    profileModal.classList.add('hidden');
-    broadcastMyPosition();
-    showToast('Profil mis à jour', 'success');
-  });
+      if (myName) myName.textContent = state.myUser.name;
+      if (myRole) myRole.textContent = state.myUser.role;
+      if (myAvatar) {
+        myAvatar.textContent = state.myUser.icon;
+        myAvatar.style.backgroundColor = state.myUser.color;
+      }
+
+      profileModal.classList.add('hidden');
+      broadcastMyPosition();
+      showToast('Profil mis à jour', 'success');
+    });
+  }
 }
 
 // ============================================================================
@@ -1401,11 +1513,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   createOrUpdateUserMarker(state.myUser);
   renderUsersList();
+  renderQuickTracksBar();
 
   await loadDemoTracks();
   lucide.createIcons();
 
-  // DÉCLENCHEMENT AUTOMATIQUE DE LA GÉOLOCALISATION AU DÉMARRAGE
+  // DÉCLENCHEMENT IMMÉDIAT DE LA GÉOLOCALISATION GPS
   if (navigator.geolocation) {
     console.log('[GPS] Démarrage automatique de la géolocalisation...');
     startGpsWatch(true);

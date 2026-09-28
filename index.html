@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="manifest" href="manifest.json" />
 
-  <title>RandoTracker - Suivi de Randonnée 4G & IGN</title>
+  <title>RandoTracker - Suivi de Randonnée & Cartes IGN</title>
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -42,55 +42,46 @@
   <!-- Chart.js for Elevation Profile -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- PeerJS for WebRTC 4G Sync -->
+  <!-- PeerJS for WebRTC Sync -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
-  <!-- QRCode.js for participant invitations -->
+  <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v5 -->
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <!-- Custom Styles with Cache-Busting v6 -->
+  <link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
   <!-- ================================================================= -->
-  <!-- TOP HEADER ULTRA-LARGES BOUTONS -->
+  <!-- TOP HEADER SIMPLE & TRÈS GRAND (76px) -->
   <!-- ================================================================= -->
   <header class="h-20 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-3 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
-    <!-- Logo & Titre -->
+    <!-- Logo & Nom -->
     <div class="flex items-center gap-3">
       <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-xl shadow-emerald-500/30 shrink-0">
         <i data-lucide="mountain-snow" class="w-8 h-8 text-white"></i>
       </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="font-black text-xl sm:text-2xl tracking-tight text-white">RandoTracker</span>
-          <!-- Bouton Inviter / Salon en Haut -->
-          <button id="header-invite-btn" class="text-xs sm:text-sm font-black px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-full flex items-center gap-1.5 shadow-md transition active:scale-95">
-            <i data-lucide="user-plus" class="w-4 h-4"></i>
-            <span>Inviter</span>
-          </button>
-        </div>
-      </div>
+      <span class="font-black text-xl sm:text-2xl tracking-tight text-white">RandoTracker</span>
     </div>
 
-    <!-- Actions Haut Droite ULTRA-LARGES -->
-    <div class="flex items-center gap-3">
-      <!-- Choix Fond de Carte (50px de haut) -->
-      <button id="open-layer-modal-btn" class="h-12 px-4 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 text-sm sm:text-base font-black flex items-center gap-2.5 transition active:scale-95 shadow-lg">
-        <i data-lucide="layers" class="w-6 h-6 text-emerald-400"></i>
+    <!-- Actions Haut Droite GÉANTES -->
+    <div class="flex items-center gap-2.5">
+      <!-- Choix Fond de Carte (IGN / Topo) -->
+      <button id="open-layer-modal-btn" class="h-12 px-4 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 text-sm font-black flex items-center gap-2 transition active:scale-95 shadow-lg">
+        <i data-lucide="layers" class="w-5 h-5 text-emerald-400"></i>
         <span id="active-layer-label">IGN Plan</span>
       </button>
 
-      <!-- Code Salon 4G -->
-      <button id="open-room-btn" class="h-12 px-3.5 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-2 border-emerald-500/40 text-sm font-black flex items-center gap-2 transition active:scale-95 shadow-lg" title="Changer le code de salon 4G">
-        <i data-lucide="radio" class="w-4 h-4 text-emerald-400 animate-pulse"></i>
-        <span id="active-room-name">RANDO-2026</span>
+      <!-- Bouton Inviter des Amis -->
+      <button id="header-invite-btn" class="h-12 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black flex items-center gap-2 shadow-lg transition active:scale-95">
+        <i data-lucide="user-plus" class="w-5 h-5"></i>
+        <span class="hidden sm:inline">Inviter</span>
       </button>
 
-      <!-- Profil Utilisateur -->
+      <!-- Mon Profil -->
       <button id="open-profile-btn" class="h-12 w-12 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 flex items-center justify-center transition active:scale-95 shadow-lg" title="Mon Profil">
-        <div id="header-avatar-badge" class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-base font-black text-white shadow">
+        <div id="header-avatar-badge" class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-lg font-black text-white shadow">
           🌲
         </div>
       </button>
@@ -98,29 +89,23 @@
   </header>
 
   <!-- ================================================================= -->
-  <!-- CARTE PLEIN ÉCRAN -->
+  <!-- CARTE PLEIN ÉCRAN (100% VISIBLE) -->
   <!-- ================================================================= -->
   <main class="relative flex-1 w-full h-full overflow-hidden">
     
-    <!-- LEAFLET MAP CONTAINER -->
+    <!-- LEAFLET MAP -->
     <div id="map" class="w-full h-full z-0"></div>
 
-    <!-- BANNIÈRE D'ÉTAT GPS FLOTTANTE EN HAUT DE CARTE -->
-    <div id="gps-status-banner" class="absolute top-4 left-4 right-4 sm:left-6 sm:right-auto z-20 bg-slate-900/95 backdrop-blur-md border-2 border-emerald-500/60 rounded-2xl px-4 py-2.5 shadow-2xl flex items-center justify-between gap-3 text-xs sm:text-sm font-black text-white">
-      <div class="flex items-center gap-2.5">
-        <span class="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
-        <span id="gps-banner-text">📍 Recherche GPS satellite en cours...</span>
-      </div>
-      <button id="refresh-gps-banner-btn" class="px-2.5 py-1 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500">
-        Actualiser
-      </button>
+    <!-- BANDEAU FLOTTANT DES TRACES GPX EN HAUT DE LA CARTE (Activer / Masquer en 1 clic) -->
+    <div id="quick-tracks-bar" class="absolute top-3 left-3 right-3 sm:left-6 sm:right-auto z-20 flex items-center gap-2 overflow-x-auto pb-1 max-w-[95vw]">
+      <!-- Injected via JavaScript : Boutons rapides pour chaque trace GPX + Bouton '+' -->
     </div>
 
-    <!-- BOUTONS FLOTTANTS ULTRA-GÉANTS SUR LA CARTE (64px x 64px) -->
-    <div class="absolute top-20 right-4 z-20 flex flex-col gap-4">
+    <!-- BOUTONS FLOTTANTS SUR LA CARTE (64px x 64px) -->
+    <div class="absolute bottom-6 right-4 z-20 flex flex-col gap-4">
       <!-- Recadrer la vue sur toutes les traces -->
-      <button id="fit-all-btn" class="w-16 h-16 rounded-3xl bg-slate-900/98 backdrop-blur-md border-2 border-slate-700 text-slate-100 hover:text-white shadow-2xl flex items-center justify-center transition active:scale-90" title="Recadrer sur toutes les traces">
-        <i data-lucide="maximize-2" class="w-7 h-7 text-emerald-400"></i>
+      <button id="fit-all-btn" class="w-16 h-16 rounded-3xl bg-slate-900/98 backdrop-blur-md border-2 border-slate-700 text-slate-100 hover:text-white shadow-2xl flex items-center justify-center transition active:scale-90" title="Recadrer la carte sur les traces">
+        <i data-lucide="maximize-2" class="w-8 h-8 text-emerald-400"></i>
       </button>
       
       <!-- Centrer sur ma position GPS -->
@@ -133,49 +118,7 @@
     <div id="drawer-backdrop" class="hidden fixed inset-0 z-40 bg-slate-950/80 backdrop-blur-xs transition-opacity"></div>
 
     <!-- ================================================================= -->
-    <!-- TIROIR : TRACES GPX (JUSQU'À 5 TRACES) -->
-    <!-- ================================================================= -->
-    <aside id="tracks-panel" class="mobile-drawer drawer-closed absolute top-4 bottom-28 left-4 w-full sm:w-[460px] bg-slate-900/98 backdrop-blur-xl border-2 border-slate-700 sm:rounded-3xl shadow-2xl flex flex-col z-45 overflow-hidden">
-      <!-- En-tête Tiroir -->
-      <div class="p-5 border-b-2 border-slate-800 flex items-center justify-between bg-slate-900">
-        <div class="flex items-center gap-3">
-          <i data-lucide="route" class="w-8 h-8 text-emerald-400"></i>
-          <div>
-            <h2 class="font-black text-xl sm:text-2xl text-white">Traces GPX</h2>
-            <div class="text-xs text-slate-400 font-bold">Jusqu'à 5 traces simultanées</div>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <span id="tracks-badge" class="text-sm font-black px-3 py-1 rounded-full bg-slate-800 text-emerald-300 border-2 border-slate-700">3/5</span>
-          <button id="close-tracks-panel-btn" class="w-12 h-12 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 active:scale-90 bg-slate-800/80 border border-slate-700">
-            <i data-lucide="x" class="w-7 h-7"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- Grand Bouton d'Importation GPX (Multifichiers 1 à 5) -->
-      <div class="p-5 bg-slate-850 border-b-2 border-slate-800 flex flex-col gap-3">
-        <label for="gpx-file-input" class="w-full cursor-pointer py-4 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base sm:text-lg flex items-center justify-center gap-3 shadow-2xl shadow-emerald-600/40 transition active:scale-95">
-          <i data-lucide="upload" class="w-7 h-7"></i>
-          <span>📂 CHARGER GPX (1 à 5 fichiers)</span>
-          <input type="file" id="gpx-file-input" accept=".gpx" class="hidden" multiple />
-        </label>
-        <div class="flex gap-2.5">
-          <button id="load-sample-tracks-btn" class="flex-1 py-3 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-black text-sm flex items-center justify-center gap-2 border-2 border-slate-700 transition active:scale-95" title="Recharger les 3 traces d'exemple">
-            <i data-lucide="refresh-cw" class="w-4 h-4 text-emerald-400"></i>
-            <span>Recharger Traces Démo</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Liste Déroulante des Traces Agrandie -->
-      <div id="tracks-list-container" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 max-h-[60vh] sm:max-h-none">
-        <!-- Injected via JavaScript -->
-      </div>
-    </aside>
-
-    <!-- ================================================================= -->
-    <!-- TIROIR : PARTICIPANTS 4G & INVITATION -->
+    <!-- TIROIR : LISTE DES PARTICIPANTS (Nom, Vitesse, Écart, SOS) -->
     <!-- ================================================================= -->
     <aside id="users-panel" class="mobile-drawer drawer-closed absolute top-4 bottom-28 right-4 w-full sm:w-[460px] bg-slate-900/98 backdrop-blur-xl border-2 border-slate-700 sm:rounded-3xl shadow-2xl flex flex-col z-45 overflow-hidden">
       <!-- En-tête Tiroir -->
@@ -183,8 +126,14 @@
         <div class="flex items-center gap-3">
           <i data-lucide="users" class="w-8 h-8 text-blue-400"></i>
           <div>
-            <h2 class="font-black text-xl sm:text-2xl text-white">Groupe 4G Live</h2>
-            <div class="text-xs text-slate-400 font-bold">Suivi jusqu'à 10 marcheurs</div>
+            <h2 class="font-black text-xl sm:text-2xl text-white">Participants</h2>
+            <div class="text-xs text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
+              <span>Salon :</span>
+              <button id="open-room-btn" class="text-emerald-400 hover:text-emerald-300 underline font-mono font-black inline-flex items-center gap-1" title="Changer de salon">
+                <span id="active-room-name">RANDO-2026</span>
+                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -197,9 +146,9 @@
 
       <!-- Bouton Inviter des Participants -->
       <div class="p-4 bg-slate-850 border-b-2 border-slate-800">
-        <button id="drawer-invite-btn" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-base flex items-center justify-center gap-3 shadow-xl transition active:scale-95">
+        <button id="drawer-invite-btn" class="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-base flex items-center justify-center gap-3 shadow-xl transition active:scale-95">
           <i data-lucide="qr-code" class="w-6 h-6"></i>
-          <span>📲 INVITER DES PARTICIPANTS (QR / LIEN)</span>
+          <span>📲 INVITER UN MARCHEUR (QR CODE)</span>
         </button>
       </div>
 
@@ -250,10 +199,16 @@
 
       <!-- Liste des Autres Marcheurs -->
       <div class="p-3.5 bg-slate-950/80 text-xs font-black text-slate-400 uppercase tracking-wider flex items-center justify-between">
-        <span>Autres Marcheurs Connectés</span>
-        <button id="clear-sim-users-btn" class="text-sm font-bold text-slate-400 hover:text-red-400 transition" title="Vider les randonneurs simulés">
-          <i data-lucide="trash-2" class="w-5 h-5"></i>
-        </button>
+        <span>Autres Marcheurs du Groupe</span>
+        <div class="flex items-center gap-2">
+          <button id="simulate-users-btn" class="text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/40 flex items-center gap-1 active:scale-95" title="Simuler 3 marcheurs pour tester le groupe">
+            <i data-lucide="play" class="w-3.5 h-3.5"></i>
+            <span>Test Démo</span>
+          </button>
+          <button id="clear-sim-users-btn" class="text-sm font-bold text-slate-400 hover:text-red-400 p-1 rounded-lg hover:bg-slate-800 transition" title="Vider les randonneurs simulés">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
 
       <div id="users-list-container" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 max-h-[50vh] sm:max-h-none">
@@ -262,7 +217,7 @@
     </aside>
 
     <!-- ================================================================= -->
-    <!-- TIROIR PROFIL ALTIMÉTRIQUE (Grand Format) -->
+    <!-- TIROIR PROFIL ALTIMÉTRIQUE -->
     <!-- ================================================================= -->
     <div id="elevation-drawer" class="hidden fixed bottom-28 left-3 right-3 sm:left-auto sm:right-auto sm:bottom-8 sm:left-96 sm:right-96 bg-slate-900/98 backdrop-blur-xl border-2 border-slate-700/90 rounded-3xl shadow-2xl p-5 z-40 flex flex-col">
       <div class="flex items-center justify-between mb-3">
@@ -285,36 +240,36 @@
   </main>
 
   <!-- ================================================================= -->
-  <!-- GRANDE BARRE DE NAVIGATION DU BAS (Hauteur 112px, Gros Boutons) -->
+  <!-- BARRE DU BAS : 3 BOUTONS DIRECTS & GÉANTS (Hauteur 100px) -->
   <!-- ================================================================= -->
-  <nav class="h-28 bg-slate-900/98 border-t-2 border-slate-800 grid grid-cols-4 items-center z-30 shrink-0 safe-bottom shadow-2xl">
-    <!-- Onglet 1: Carte -->
-    <button id="nav-btn-map" class="nav-tab active flex flex-col items-center justify-center gap-2 text-emerald-400 hover:text-emerald-300 transition active:scale-90 py-2">
-      <i data-lucide="map" class="w-8 h-8"></i>
-      <span class="text-sm font-black">Carte</span>
-    </button>
-
-    <!-- Onglet 2: Traces GPX -->
-    <button id="nav-btn-tracks" class="nav-tab flex flex-col items-center justify-center gap-2 text-slate-200 hover:text-white transition relative active:scale-90 py-2">
-      <i data-lucide="route" class="w-8 h-8"></i>
-      <span class="text-sm font-black">Traces</span>
-      <span id="nav-tracks-badge" class="absolute top-1 right-6 w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-black flex items-center justify-center shadow-lg">3</span>
-    </button>
-
-    <!-- Onglet 3: GPS Live Central (GROS BOUTON 64px) -->
-    <button id="nav-btn-gps" class="nav-tab flex flex-col items-center justify-center gap-1.5 text-slate-200 hover:text-white transition active:scale-90 py-1">
-      <div id="nav-gps-bubble" class="w-16 h-16 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center shadow-2xl transition animate-pulse">
-        <i data-lucide="navigation" class="w-8 h-8 text-white" id="nav-gps-icon"></i>
+  <nav class="h-26 bg-slate-900/98 border-t-2 border-slate-800 grid grid-cols-3 items-center z-30 shrink-0 safe-bottom shadow-2xl px-2 sm:px-6">
+    
+    <!-- Bouton 1 : 📂 CHARGER GPX (UN CLIC OUVRE DIRECTEMENT LE CHOIX DES FICHIERS !) -->
+    <label for="gpx-file-input" class="cursor-pointer flex flex-col items-center justify-center gap-1.5 text-slate-200 hover:text-emerald-400 transition active:scale-95 py-2">
+      <div class="w-13 h-13 rounded-2xl bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-lg">
+        <i data-lucide="upload-cloud" class="w-7 h-7 text-emerald-400"></i>
       </div>
-      <span class="text-xs sm:text-sm font-black" id="nav-gps-label">Mon GPS</span>
+      <span class="text-xs sm:text-sm font-black">Charger GPX</span>
+      <input type="file" id="gpx-file-input" accept=".gpx" class="hidden" multiple />
+    </label>
+
+    <!-- Bouton 2 : 📍 MA POSITION GPS (GROS BOUTON VERT CENTRAL 72px) -->
+    <button id="nav-btn-gps" class="flex flex-col items-center justify-center gap-1 text-white transition active:scale-95 py-1">
+      <div id="nav-gps-bubble" class="w-18 h-18 rounded-full bg-emerald-600 border-4 border-white flex items-center justify-center shadow-2xl transition animate-pulse">
+        <i data-lucide="navigation" class="w-9 h-9 text-white" id="nav-gps-icon"></i>
+      </div>
+      <span class="text-xs sm:text-sm font-black text-emerald-300" id="nav-gps-label">Mon GPS</span>
     </button>
 
-    <!-- Onglet 4: Groupe 4G -->
-    <button id="nav-btn-users" class="nav-tab flex flex-col items-center justify-center gap-2 text-slate-200 hover:text-white transition relative active:scale-90 py-2">
-      <i data-lucide="users" class="w-8 h-8"></i>
-      <span class="text-sm font-black">Groupe 4G</span>
-      <span id="nav-users-badge" class="absolute top-1 right-6 w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-black flex items-center justify-center shadow-lg">1</span>
+    <!-- Bouton 3 : 👥 PARTICIPANTS (LISTE DES MARCHEURS) -->
+    <button id="nav-btn-users" class="flex flex-col items-center justify-center gap-1.5 text-slate-200 hover:text-blue-400 transition relative active:scale-95 py-2">
+      <div class="w-13 h-13 rounded-2xl bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-lg relative">
+        <i data-lucide="users" class="w-7 h-7 text-blue-400"></i>
+        <span id="nav-users-badge" class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-black flex items-center justify-center shadow-md">1</span>
+      </div>
+      <span class="text-xs sm:text-sm font-black">Participants</span>
     </button>
+
   </nav>
 
   <!-- ================================================================= -->
@@ -325,7 +280,7 @@
       <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4">
         <h3 class="font-black text-xl text-white flex items-center gap-3">
           <i data-lucide="qr-code" class="w-7 h-7 text-blue-400"></i>
-          Inviter à la Randonnée
+          Inviter des Participants
         </h3>
         <button id="close-invite-modal-btn" class="w-11 h-11 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white bg-slate-800 border border-slate-700">
           <i data-lucide="x" class="w-6 h-6"></i>
@@ -334,30 +289,25 @@
 
       <div class="flex flex-col items-center gap-4 text-center">
         <p class="text-sm text-slate-300 font-semibold">
-          Faites scanner ce QR Code par les autres marcheurs ou envoyez-leur le lien par message :
+          Faites scanner ce QR Code au départ ou envoyez le lien par WhatsApp :
         </p>
 
-        <!-- QR Code Container -->
         <div class="p-4 bg-white rounded-3xl shadow-2xl flex items-center justify-center" id="qrcode-container">
           <div id="qrcode"></div>
         </div>
 
-        <div class="text-xs font-mono font-bold text-emerald-400 bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700" id="invite-room-url">
-          <!-- Injected JS URL -->
+        <div class="text-xs font-mono font-bold text-emerald-400 bg-slate-800/80 px-4 py-2 rounded-xl border border-slate-700 break-all" id="invite-room-url">
         </div>
 
-        <!-- Boutons d'Action Partage -->
         <div class="w-full flex flex-col gap-3">
-          <!-- Partager WhatsApp / SMS natif -->
           <button id="share-native-btn" class="w-full py-4 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base flex items-center justify-center gap-3 shadow-xl transition active:scale-95">
             <i data-lucide="share-2" class="w-6 h-6"></i>
-            <span>💬 Envoyer par WhatsApp / SMS</span>
+            <span>💬 Partager sur WhatsApp / SMS</span>
           </button>
 
-          <!-- Copier le lien -->
           <button id="copy-link-btn" class="w-full py-3.5 px-5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm flex items-center justify-center gap-2 border-2 border-slate-700 transition active:scale-95">
             <i data-lucide="copy" class="w-5 h-5"></i>
-            <span>Copier le lien d'invitation</span>
+            <span>Copier le lien</span>
           </button>
         </div>
       </div>
@@ -365,7 +315,7 @@
   </div>
 
   <!-- ================================================================= -->
-  <!-- MODAL : SÉLECTEUR DE FOND DE CARTE (Grands Boutons) -->
+  <!-- MODAL : SÉLECTEUR DE FOND DE CARTE -->
   <!-- ================================================================= -->
   <div id="layer-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
@@ -416,14 +366,14 @@
   </div>
 
   <!-- ================================================================= -->
-  <!-- MODAL : CODE DE SALON 4G -->
+  <!-- MODAL : CODE DE SALON -->
   <!-- ================================================================= -->
   <div id="room-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
       <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4">
         <h3 class="font-black text-xl text-white flex items-center gap-3">
           <i data-lucide="radio" class="w-7 h-7 text-emerald-400"></i>
-          Code de la Randonnée 4G
+          Code de la Randonnée
         </h3>
         <button id="close-room-modal-btn" class="w-11 h-11 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white bg-slate-800 border border-slate-700">
           <i data-lucide="x" class="w-6 h-6"></i>
@@ -432,7 +382,7 @@
 
       <div class="space-y-3.5 text-sm text-slate-300">
         <p>
-          Pour que tous les marcheurs se voient mutuellement en direct en 4G, tapez le même <b>Code de Sortie</b> sur tous les téléphones :
+          Pour que tous les marcheurs se voient mutuellement en direct, tapez le même <b>Code de Sortie</b> sur tous les téléphones :
         </p>
         <div>
           <label class="block text-xs font-black text-slate-400 mb-2 uppercase">Code de Sortie (ex: ALPES-74)</label>
@@ -445,7 +395,7 @@
           Annuler
         </button>
         <button id="save-room-btn" class="px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black shadow-xl shadow-emerald-600/30">
-          Valider & Connecter
+          Valider
         </button>
       </div>
     </div>
@@ -506,7 +456,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v5 -->
-  <script src="app.js?v=5"></script>
+  <!-- Main Application Script with Cache-Busting v6 -->
+  <script src="app.js?v=6"></script>
 </body>
 </html>
