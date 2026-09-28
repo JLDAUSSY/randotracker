@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="RandoTracker" />
-  <link rel="icon" type="image/png" href="favicon.png?v=14" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=14" />
+  <link rel="icon" type="image/png" href="favicon.png?v=15" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=15" />
   <link rel="manifest" href="manifest.json" />
 
   <title>RandoTracker - Suivi de Randonnée & Cartes IGN</title>
@@ -49,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v14 -->
-  <link rel="stylesheet" href="styles.css?v=14" />
+  <!-- Custom Styles with Cache-Busting v15 -->
+  <link rel="stylesheet" href="styles.css?v=15" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -58,12 +58,17 @@
   <!-- TOP HEADER SIMPLE & TRÈS GRAND (76px) -->
   <!-- ================================================================= -->
   <header class="h-20 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-3 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
-    <!-- Logo & Nom -->
-    <div class="flex items-center gap-3">
-      <img src="logo.png?v=14" alt="Logo RandoTracker" class="w-12 h-12 rounded-2xl shadow-xl border-2 border-emerald-500/30 shrink-0 bg-slate-900 object-contain p-0.5" />
-      <div class="flex items-center gap-2">
-        <span class="font-black text-xl sm:text-2xl tracking-tight text-white">RandoTracker</span>
-        <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40">v14</span>
+    <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
+    <div id="brand-header-btn" class="flex items-center gap-3 cursor-pointer select-none group active:scale-95 transition" title="Jean-Luc DAUSSY 2026">
+      <img src="logo.png?v=15" alt="Logo RandoTracker" class="w-12 h-12 rounded-2xl shadow-xl border-2 border-emerald-500/40 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+      <div class="flex flex-col justify-center">
+        <div class="flex items-center gap-2">
+          <span class="font-black text-xl sm:text-2xl tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40 inline-flex items-center leading-none">v15</span>
+        </div>
+        <span class="text-[11px] text-slate-400 group-hover:text-slate-200 font-bold tracking-wider mt-1 transition flex items-center gap-1 leading-none">
+          <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-300 group-hover:text-emerald-400">JLD</span>
+        </span>
       </div>
     </div>
 
@@ -169,7 +174,10 @@
                 <span id="my-name-display" class="font-black text-lg sm:text-xl text-white">Jean-Luc</span>
                 <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/40">Moi</span>
               </div>
-              <span id="my-role-display" class="text-sm text-slate-300 font-bold">Guide de tête</span>
+              <div class="flex items-center gap-2 mt-0.5 text-xs sm:text-sm">
+                <span id="my-role-display" class="text-slate-300 font-bold">Guide de tête</span>
+                <span id="my-name-eta" class="text-amber-400 font-black flex items-center gap-1">• ETA --:--</span>
+              </div>
             </div>
           </div>
           <button id="edit-profile-btn" class="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border-2 border-slate-700 active:scale-90" title="Modifier mon profil">
@@ -510,7 +518,44 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v14 -->
-  <script src="app.js?v=14"></script>
+  <!-- ================================================================= -->
+  <!-- MODAL FLOTTANTE : JEAN-LUC DAUSSY 2026 -->
+  <!-- ================================================================= -->
+  <div id="about-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl p-6 sm:p-7 w-full max-w-sm shadow-2xl space-y-5 text-center relative">
+      <button id="close-about-modal-btn" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 active:scale-90 transition">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <div class="flex justify-center pt-2">
+        <img src="logo.png?v=15" alt="Logo RandoTracker by JLD" class="w-20 h-20 rounded-3xl shadow-2xl border-2 border-emerald-500/40 bg-slate-950 p-1.5" />
+      </div>
+
+      <div>
+        <h3 class="font-black text-2xl text-white tracking-tight">RandoTracker</h3>
+        <p class="text-xs text-emerald-400 font-bold mt-1">Application de Suivi de Randonnée & Cartes IGN</p>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1.5">
+        <div class="text-xl font-black text-white tracking-wide">
+          Jean-Luc DAUSSY
+        </div>
+        <div class="text-sm font-mono font-black text-emerald-400">
+          2026
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-400 leading-relaxed font-semibold">
+        Cartographie Officielle IGN Géoplateforme & OpenTopoMap • Multi-traces GPX • Synchronisation 4G en direct & Calcul d'ETA.
+      </p>
+
+      <button id="ok-about-modal-btn" class="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base shadow-xl shadow-emerald-600/30 active:scale-95 transition">
+        OK
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Application Script with Cache-Busting v15 -->
+  <script src="app.js?v=15"></script>
 </body>
 </html>

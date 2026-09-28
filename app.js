@@ -174,6 +174,7 @@ function computeTrackProgress(user) {
     durationStr = `~${h}h${m.toString().padStart(2, '0')}`;
   }
 
+  const etaShort = (progressPct >= 99 || remainingDist < 0.05) ? 'Arrivé' : `${etaHours}:${etaMins}`;
   let etaFormatted = `${etaHours}h${etaMins} (${durationStr})`;
   if (progressPct >= 99 || remainingDist < 0.05) {
     etaFormatted = '🏁 Arrivé';
@@ -188,6 +189,7 @@ function computeTrackProgress(user) {
     remainingDist: remainingDist,
     remainingEleGain: remainingEleGain,
     etaString: etaFormatted,
+    etaShort: etaShort,
     walkingSpeed: walkingSpeed
   };
 }
@@ -402,9 +404,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=14')
+    navigator.serviceWorker.register('./sw.js?v=15')
       .then((reg) => {
-        console.log('[PWA] Service Worker v14 actif:', reg.scope);
+        console.log('[PWA] Service Worker v15 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -1028,7 +1030,10 @@ function createOrUpdateUserMarker(user) {
         </div>
         <div>
           <div class="font-black text-base text-white">${user.name} ${isMe ? '(Moi)' : ''}</div>
-          <div class="text-xs text-emerald-400 font-bold">${user.role}</div>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span class="text-xs text-slate-300 font-bold">${user.role}</span>
+            ${progress ? `<span class="text-xs text-amber-400 font-black">• ETA ${progress.etaShort}</span>` : ''}
+          </div>
         </div>
       </div>
 
@@ -1110,8 +1115,17 @@ function renderUsersList() {
   if (myEleStat) myEleStat.textContent = `${Math.round(state.myUser.ele || 0)} m`;
   if (myBatteryStat) myBatteryStat.textContent = `${state.myUser.battery || 95}%`;
 
-  // Mettre à jour l'ETA de "Moi"
+  // Mettre à jour l'ETA de "Moi" (Jean-Luc)
   const myProgress = computeTrackProgress(state.myUser);
+  const myNameEta = document.getElementById('my-name-eta');
+  if (myNameEta) {
+    if (myProgress) {
+      myNameEta.textContent = `• ETA ${myProgress.etaShort}`;
+    } else {
+      myNameEta.textContent = '• ETA --:--';
+    }
+  }
+
   const myEtaCard = document.getElementById('my-eta-card');
   if (myEtaCard) {
     if (myProgress) {
@@ -1171,7 +1185,10 @@ function renderUsersList() {
                 ${u.isSos ? '<span class="text-xs font-black px-2 py-0.5 rounded-full bg-red-600 text-white animate-pulse">SOS</span>' : ''}
                 ${isStale ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Signal Ancien</span>' : ''}
               </div>
-              <div class="text-xs text-slate-300 font-semibold truncate">${u.role}</div>
+              <div class="flex items-center gap-2 text-xs mt-0.5">
+                <span class="text-slate-300 font-semibold truncate">${u.role}</span>
+                <span class="text-amber-400 font-black shrink-0">• ETA ${progress ? progress.etaShort : '--:--'}</span>
+              </div>
             </div>
           </div>
 
@@ -1843,11 +1860,33 @@ function setupEventListeners() {
       if (val) {
         state.roomCode = val;
         updateRoomDisplay();
-        initPeerJS();
+        initMqttSync();
         saveHikeSessionToStorage();
         roomModal.classList.add('hidden');
         showToast(`Salon connecté : ${state.roomCode}`, 'success');
       }
+    });
+  }
+
+  // Modal À Propos : Jean-Luc DAUSSY 2026
+  const aboutModal = document.getElementById('about-modal');
+  const brandHeaderBtn = document.getElementById('brand-header-btn');
+  const closeAboutBtn = document.getElementById('close-about-modal-btn');
+  const okAboutBtn = document.getElementById('ok-about-modal-btn');
+
+  if (brandHeaderBtn && aboutModal) {
+    brandHeaderBtn.addEventListener('click', () => {
+      aboutModal.classList.remove('hidden');
+    });
+  }
+  if (closeAboutBtn && aboutModal) {
+    closeAboutBtn.addEventListener('click', () => {
+      aboutModal.classList.add('hidden');
+    });
+  }
+  if (okAboutBtn && aboutModal) {
+    okAboutBtn.addEventListener('click', () => {
+      aboutModal.classList.add('hidden');
     });
   }
 
