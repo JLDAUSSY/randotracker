@@ -1,5 +1,5 @@
-// Service Worker pour RandoTracker PWA - Version 8
-const CACHE_NAME = 'rando-tracker-v8';
+// Service Worker pour RandoTracker PWA - Version 9
+const CACHE_NAME = 'rando-tracker-v9';
 
 const STATIC_ASSETS = [
   './',
@@ -10,7 +10,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v8...');
+  console.log('[SW] Installation v9...');
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
@@ -18,7 +18,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation v8...');
+  console.log('[SW] Activation v9...');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(

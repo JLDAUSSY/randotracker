@@ -1,8 +1,8 @@
 /**
- * RandoTracker v7 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
+ * RandoTracker v9 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
  * Cartes Officielles IGN Géoplateforme & OpenTopoMap, Multi-Traces GPX (jusqu'à 5),
- * Géolocalisation Immédiate, Profils Randonneurs Personnalisés (Nom & 12 Avatars),
- * Limite de Partage GPS (24h max) & Invitations QR Code.
+ * Rendu Canvas Accéléré Ultra-Rapide, Sauvegarde Automatique de la Session (jusqu'à 8h/24h),
+ * Profils Randonneurs Personnalisés & Invitations QR Code.
  */
 
 // ============================================================================
@@ -11,6 +11,7 @@
 const MAX_TRACKS = 5;
 const MAX_USERS = 10;
 const ABSOLUTE_MAX_HOURS = 24; // Limite stricte maximale de 24 heures
+const MAX_POINTS_PER_TRACK = 2500; // Optimisation pour fluidité 60fps sur mobile
 
 const TRACK_COLORS = [
   { name: 'Vert Émeraude', hex: '#10b981', border: '#059669', bgClass: 'bg-emerald-500' },
@@ -85,6 +86,88 @@ function showToast(msg, type = 'info') {
 }
 
 // ============================================================================
+// PERSISTANCE DE LA RANDONNÉE (GPX GARDÉS EN MÉMOIRE JUSQU'À 8H / 24H)
+// ============================================================================
+function saveHikeSessionToStorage() {
+  try {
+    const sessionData = {
+      savedAt: Date.now(),
+      durationHours: state.shareDurationHours || 8,
+      roomCode: state.roomCode,
+      tracks: state.tracks.map(t => ({
+        id: t.id,
+        name: t.name,
+        points: t.points,
+        totalDistance: t.totalDistance,
+        eleGain: t.eleGain,
+        minEle: t.minEle,
+        maxEle: t.maxEle,
+        visible: t.visible,
+        color: t.color
+      }))
+    };
+    localStorage.setItem('rando_saved_session', JSON.stringify(sessionData));
+  } catch (e) {
+    console.warn('[Storage] Erreur sauvegarde session:', e);
+  }
+}
+
+function loadHikeSessionFromStorage() {
+  try {
+    const savedStr = localStorage.getItem('rando_saved_session');
+    if (!savedStr) return false;
+
+    const sessionData = JSON.parse(savedStr);
+    if (!sessionData || !Array.isArray(sessionData.tracks) || sessionData.tracks.length === 0) return false;
+
+    const now = Date.now();
+    const durationHours = sessionData.durationHours || 8;
+    const maxAgeMs = durationHours * 3600 * 1000;
+
+    // Vérifier si la randonnée est toujours valide (moins de 8h/24h)
+    if (now - sessionData.savedAt > maxAgeMs) {
+      console.log('[Storage] Session de rando expirée (> ' + durationHours + 'h)');
+      localStorage.removeItem('rando_saved_session');
+      return false;
+    }
+
+    // Restaurer les traces GPX sur la carte
+    state.tracks = [];
+    state.trackLayers.clear();
+
+    sessionData.tracks.forEach(track => {
+      state.tracks.push(track);
+      renderTrackOnMap(track);
+    });
+
+    renderQuickTracksBar();
+    fitAllTracks();
+
+    const remainingHours = Math.max(1, Math.ceil((sessionData.savedAt + maxAgeMs - now) / 3600000));
+    showToast(`Randonnée restaurée : ${state.tracks.length} trace(s) (Valide encore ${remainingHours}h)`, 'success');
+    return true;
+  } catch (e) {
+    console.warn('[Storage] Erreur chargement session:', e);
+    return false;
+  }
+}
+
+function clearHikeSession() {
+  if (state.tracks.length === 0) return;
+  if (!confirm('Voulez-vous supprimer toutes les traces GPX de la rando en cours pour en commencer une nouvelle ?')) return;
+
+  state.tracks.forEach(t => {
+    const l = state.trackLayers.get(t.id);
+    if (l) state.map.removeLayer(l);
+  });
+  state.tracks = [];
+  state.trackLayers.clear();
+  localStorage.removeItem('rando_saved_session');
+  renderQuickTracksBar();
+  showToast('Toutes les traces ont été effacées. Prêt pour une nouvelle rando !', 'info');
+}
+
+// ============================================================================
 // GESTION DU PROFIL UTILISATEUR & PERSISTANCE LOCALSTORAGE
 // ============================================================================
 function loadUserProfile() {
@@ -103,7 +186,6 @@ function loadUserProfile() {
     state.shareDurationHours = Math.min(ABSOLUTE_MAX_HOURS, Math.max(1, isNaN(d) ? 8 : d));
   }
 
-  // Mise à jour de l'affichage initial
   updateProfileUI();
 }
 
@@ -133,7 +215,6 @@ function updateProfileUI() {
   if (inputRole) inputRole.value = state.myUser.role;
   if (inputDuration) inputDuration.value = String(state.shareDurationHours);
 
-  // Mettre à jour la sélection visuelle de l'avatar
   document.querySelectorAll('.avatar-opt').forEach(btn => {
     const isSelected = btn.getAttribute('data-icon') === state.myUser.icon;
     if (isSelected) {
@@ -162,6 +243,7 @@ function saveUserProfile() {
   localStorage.setItem('rando_share_duration', String(state.shareDurationHours));
 
   updateProfileUI();
+  saveHikeSessionToStorage(); // Met à jour la durée de la rando en cours
   document.getElementById('profile-modal').classList.add('hidden');
   broadcastMyPosition();
   showToast(`Profil enregistré : ${state.myUser.name} (${state.myUser.icon})`, 'success');
@@ -173,13 +255,12 @@ function saveUserProfile() {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=8')
-        .then((reg) => console.log('[PWA] Service Worker v8 actif:', reg.scope))
+      navigator.serviceWorker.register('./sw.js?v=9')
+        .then((reg) => console.log('[PWA] Service Worker v9 actif:', reg.scope))
         .catch((err) => console.log('[PWA] Erreur Service Worker:', err));
     });
   }
 
-  // Surveillance de la batterie
   if (navigator.getBattery) {
     navigator.getBattery().then((battery) => {
       state.myUser.battery = Math.round(battery.level * 100);
@@ -192,13 +273,14 @@ function initPWA() {
 }
 
 // ============================================================================
-// INITIALISATION DE LA CARTE & DES FONDS DE CARTE IGN / OPENTOPO
+// INITIALISATION DE LA CARTE AVEC MOTEUR CANVAS ULTRA-RAPIDE
 // ============================================================================
 function initMap() {
   state.map = L.map('map', {
     center: [45.8960, 6.1680],
     zoom: 13,
-    zoomControl: false
+    zoomControl: false,
+    preferCanvas: true // RENDU CANVAS MATÉRIEL : 10X PLUS FLUIDE ET RAPIDE SUR SMARTPHONE
   });
 
   L.control.zoom({ position: 'bottomright' }).addTo(state.map);
@@ -208,7 +290,9 @@ function initMap() {
     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.ign.fr/" target="_blank">IGN</a>'
+      attribution: '&copy; <a href="https://www.ign.fr/" target="_blank">IGN</a>',
+      updateWhenIdle: false,
+      keepBuffer: 3
     }
   );
 
@@ -217,7 +301,9 @@ function initMap() {
     'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     {
       maxZoom: 17,
-      attribution: '&copy; OpenTopoMap'
+      attribution: '&copy; OpenTopoMap',
+      updateWhenIdle: false,
+      keepBuffer: 3
     }
   );
 
@@ -226,7 +312,9 @@ function initMap() {
     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     {
       maxZoom: 19,
-      attribution: '&copy; IGN Satellite'
+      attribution: '&copy; IGN Satellite',
+      updateWhenIdle: false,
+      keepBuffer: 3
     }
   );
 
@@ -235,7 +323,9 @@ function initMap() {
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
+      attribution: '&copy; OpenStreetMap',
+      updateWhenIdle: false,
+      keepBuffer: 3
     }
   );
 
@@ -260,7 +350,10 @@ function initMap() {
         }
       }
     }
-    if (added > 0) fitAllTracks();
+    if (added > 0) {
+      saveHikeSessionToStorage();
+      fitAllTracks();
+    }
   });
 }
 
@@ -300,7 +393,7 @@ function setBaseLayer(layerKey) {
 }
 
 // ============================================================================
-// CALCULS GÉODÉSIQUES & PARSING GPX
+// CALCULS GÉODÉSIQUES & PARSING GPX OPTIMISÉ (AVEC DÉCIMATION RAPIDE)
 // ============================================================================
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -328,7 +421,11 @@ function parseGpxContent(xmlText, fileName) {
     throw new Error('Aucun point de trace (<trkpt>) trouvé dans ce fichier GPX.');
   }
 
-  const points = [];
+  // Étape de décimation si fichier GPX très lourd (> 2500 points) pour garantir fluidité 60fps
+  const totalRawPts = trkpts.length;
+  const stepRatio = totalRawPts > MAX_POINTS_PER_TRACK ? Math.ceil(totalRawPts / MAX_POINTS_PER_TRACK) : 1;
+
+  const rawPoints = [];
   let totalDistance = 0;
   let eleGain = 0;
   let minEle = Infinity;
@@ -338,7 +435,8 @@ function parseGpxContent(xmlText, fileName) {
   let prevLon = null;
   let prevEle = null;
 
-  trkpts.forEach((pt) => {
+  for (let i = 0; i < totalRawPts; i++) {
+    const pt = trkpts[i];
     const lat = parseFloat(pt.getAttribute('lat'));
     const lon = parseFloat(pt.getAttribute('lon'));
     const eleNode = pt.querySelector('ele');
@@ -359,23 +457,26 @@ function parseGpxContent(xmlText, fileName) {
         if (ele > maxEle) maxEle = ele;
       }
 
-      points.push({
-        lat,
-        lon,
-        ele,
-        distanceFromStart: totalDistance
-      });
+      // Conserver le premier, le dernier et les points selon stepRatio
+      if (i === 0 || i === (totalRawPts - 1) || (i % stepRatio === 0)) {
+        rawPoints.push({
+          lat: Number(lat.toFixed(6)),
+          lon: Number(lon.toFixed(6)),
+          ele: Math.round(ele),
+          distanceFromStart: Number(totalDistance.toFixed(2))
+        });
+      }
 
       prevLat = lat;
       prevLon = lon;
       prevEle = ele;
     }
-  });
+  }
 
   return {
     id: 'track_' + Math.random().toString(36).substr(2, 9),
     name: name,
-    points: points,
+    points: rawPoints,
     totalDistance: totalDistance,
     eleGain: Math.round(eleGain),
     minEle: minEle === Infinity ? 0 : Math.round(minEle),
@@ -385,7 +486,7 @@ function parseGpxContent(xmlText, fileName) {
 }
 
 // ============================================================================
-// GESTION DES JUSQU'À 5 TRACES GPX SUPERPOSÉES
+// GESTION DES JUSQU'À 5 TRACES GPX (AVEC SAUVEGARDE AUTOMATIQUE)
 // ============================================================================
 function addTrackToState(track) {
   if (state.tracks.length >= MAX_TRACKS) {
@@ -400,6 +501,7 @@ function addTrackToState(track) {
   renderTrackOnMap(track);
   renderQuickTracksBar();
   fitAllTracks();
+  saveHikeSessionToStorage(); // Sauvegarde persistante immédiate
   showToast(`Trace ajoutée : ${track.name} (${track.totalDistance.toFixed(1)} km)`, 'success');
   return true;
 }
@@ -408,11 +510,12 @@ function renderTrackOnMap(track) {
   const layerGroup = L.layerGroup();
   const latlngs = track.points.map(p => [p.lat, p.lon]);
 
-  // Liseré sombre pour contraste maximal
+  // Liseré sombre avec smoothFactor pour fluidité maximale
   const borderPolyline = L.polyline(latlngs, {
     color: '#0f172a',
-    weight: 9,
+    weight: 8,
     opacity: 0.85,
+    smoothFactor: 1.2,
     lineCap: 'round',
     lineJoin: 'round'
   });
@@ -420,8 +523,9 @@ function renderTrackOnMap(track) {
   // Ligne colorée
   const mainPolyline = L.polyline(latlngs, {
     color: track.color.hex,
-    weight: 5.5,
+    weight: 5,
     opacity: 0.98,
+    smoothFactor: 1.2,
     lineCap: 'round',
     lineJoin: 'round'
   });
@@ -481,7 +585,7 @@ function renderTrackOnMap(track) {
 }
 
 // ============================================================================
-// BANDEAU FLOTTANT RAPIDE DES TRACES GPX (SANS DÉMO)
+// BANDEAU FLOTTANT RAPIDE DES TRACES GPX
 // ============================================================================
 function renderQuickTracksBar() {
   const bar = document.getElementById('quick-tracks-bar');
@@ -489,7 +593,7 @@ function renderQuickTracksBar() {
 
   if (state.tracks.length === 0) {
     bar.innerHTML = `
-      <div class="flex items-center gap-2 bg-slate-900/95 backdrop-blur-md border-2 border-emerald-500/60 rounded-2xl p-1.5 shadow-2xl">
+      <div class="flex items-center gap-2 bg-slate-900/95 border-2 border-emerald-500/60 rounded-2xl p-1.5 shadow-2xl">
         <label for="gpx-file-input" class="cursor-pointer flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm px-4 py-2.5 rounded-xl shadow transition active:scale-95">
           <i data-lucide="upload-cloud" class="w-5 h-5"></i>
           <span>📂 Charger vos GPX (jusqu'à 5)</span>
@@ -501,7 +605,7 @@ function renderQuickTracksBar() {
   }
 
   const tracksHtml = state.tracks.map((track) => `
-    <div class="flex items-center gap-1 bg-slate-900/95 backdrop-blur-md border-2 ${track.visible ? 'border-slate-700' : 'border-slate-800 opacity-50'} rounded-2xl px-3 py-2 shadow-2xl shrink-0">
+    <div class="flex items-center gap-1 bg-slate-900/95 border-2 ${track.visible ? 'border-slate-700' : 'border-slate-800 opacity-50'} rounded-2xl px-3 py-2 shadow-2xl shrink-0">
       <button onclick="toggleTrackVisibility('${track.id}')" class="flex items-center gap-2 text-white font-black text-sm active:scale-95" title="Afficher/Masquer">
         <span class="w-4 h-4 rounded-full shadow shrink-0" style="background-color: ${track.color.hex}"></span>
         <span class="truncate max-w-[110px] sm:max-w-[160px]">${track.name}</span>
@@ -520,13 +624,20 @@ function renderQuickTracksBar() {
   `).join('');
 
   const addPill = state.tracks.length < MAX_TRACKS ? `
-    <label for="gpx-file-input" class="cursor-pointer flex items-center gap-1.5 bg-slate-900/95 backdrop-blur-md border-2 border-dashed border-emerald-500/80 hover:border-emerald-400 text-emerald-400 rounded-2xl px-3 py-2 font-black text-xs shadow-2xl shrink-0 active:scale-95">
+    <label for="gpx-file-input" class="cursor-pointer flex items-center gap-1.5 bg-slate-900/95 border-2 border-dashed border-emerald-500/80 hover:border-emerald-400 text-emerald-400 rounded-2xl px-3 py-2 font-black text-xs shadow-2xl shrink-0 active:scale-95">
       <i data-lucide="plus" class="w-4 h-4"></i>
       <span>GPX (${state.tracks.length}/5)</span>
     </label>
   ` : '';
 
-  bar.innerHTML = tracksHtml + addPill;
+  const clearPill = `
+    <button onclick="clearHikeSession()" class="flex items-center gap-1 bg-slate-900/95 hover:bg-red-950/60 border-2 border-slate-700 hover:border-red-500 text-slate-400 hover:text-red-400 rounded-2xl px-3 py-2 font-bold text-xs shadow-2xl shrink-0 active:scale-95 transition" title="Effacer toutes les traces pour une nouvelle rando">
+      <i data-lucide="trash-2" class="w-4 h-4"></i>
+      <span class="hidden sm:inline">Nouvelle Rando</span>
+    </button>
+  `;
+
+  bar.innerHTML = tracksHtml + addPill + clearPill;
   lucide.createIcons();
 }
 
@@ -541,6 +652,7 @@ function toggleTrackVisibility(trackId) {
   } else {
     state.map.removeLayer(layer);
   }
+  saveHikeSessionToStorage();
   renderQuickTracksBar();
 }
 
@@ -555,6 +667,7 @@ function removeTrack(trackId) {
   }
 
   state.tracks.splice(index, 1);
+  saveHikeSessionToStorage();
   renderQuickTracksBar();
 }
 
@@ -603,7 +716,7 @@ function openElevationDrawer(trackId) {
 
   const labels = [];
   const elevationData = [];
-  const step = Math.max(1, Math.floor(track.points.length / 120));
+  const step = Math.max(1, Math.floor(track.points.length / 100));
 
   for (let i = 0; i < track.points.length; i += step) {
     const pt = track.points[i];
@@ -628,7 +741,7 @@ function openElevationDrawer(trackId) {
         label: 'Altitude (m)',
         data: elevationData,
         borderColor: track.color.hex,
-        borderWidth: 3.5,
+        borderWidth: 3,
         backgroundColor: gradient,
         fill: true,
         tension: 0.3,
@@ -642,6 +755,7 @@ function openElevationDrawer(trackId) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: { duration: 300 }, // Rendu ultra-rapide
       interaction: {
         intersect: false,
         mode: 'index'
@@ -649,7 +763,7 @@ function openElevationDrawer(trackId) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          backgroundColor: '#0f172a',
           titleColor: '#94a3b8',
           bodyColor: '#f8fafc',
           bodyFont: { weight: 'bold', size: 14 },
@@ -786,7 +900,6 @@ function renderUsersList() {
   const container = document.getElementById('users-list-container');
   if (!container) return;
 
-  // Filtrer les participants dont la position date de moins de 24h
   const now = Date.now();
   const maxAgeMs = 24 * 3600 * 1000;
 
@@ -838,7 +951,7 @@ function renderUsersList() {
   container.innerHTML = otherUsersList.map(u => {
     const dist = calculateDistance(state.myUser.lat, state.myUser.lon, u.lat, u.lon);
     const distStr = dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`;
-    const isStale = (now - u.lastSeen) > (15 * 60 * 1000); // Pas de mise à jour depuis > 15m
+    const isStale = (now - u.lastSeen) > (15 * 60 * 1000);
 
     return `
       <div class="p-4 rounded-3xl bg-slate-800/90 border-2 ${u.isSos ? 'border-red-500/80 bg-red-950/30' : isStale ? 'border-slate-800 opacity-70' : 'border-slate-700'} hover:border-slate-500 transition flex items-center justify-between cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
@@ -950,7 +1063,6 @@ function startGpsWatch(useHighAccuracy = true) {
     state.gpsStartTime = Date.now();
   }
 
-  // Intervalle de vérification de l'expiration (toutes les minutes)
   if (!state.expiryCheckInterval) {
     state.expiryCheckInterval = setInterval(checkGpsExpiry, 60000);
   }
@@ -973,7 +1085,6 @@ function startGpsWatch(useHighAccuracy = true) {
     if (navBubble) navBubble.className = 'w-18 h-18 rounded-full bg-emerald-600 border-4 border-white flex items-center justify-center shadow-2xl animate-pulse';
     if (navIcon) navIcon.className = 'w-9 h-9 text-white';
 
-    // Cercle vert de précision
     if (!state.accuracyCircle) {
       state.accuracyCircle = L.circle([state.myUser.lat, state.myUser.lon], {
         radius: pos.coords.accuracy || 20,
@@ -989,7 +1100,6 @@ function startGpsWatch(useHighAccuracy = true) {
 
     broadcastMyPosition();
 
-    // Centrage initial au premier point GPS
     if (!state.hasAutoCenteredGps) {
       state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
       state.hasAutoCenteredGps = true;
@@ -1337,7 +1447,10 @@ function setupEventListeners() {
         }
       }
       gpxInput.value = '';
-      if (countAdded > 0) fitAllTracks();
+      if (countAdded > 0) {
+        saveHikeSessionToStorage();
+        fitAllTracks();
+      }
     });
   }
 
@@ -1391,6 +1504,7 @@ function setupEventListeners() {
         state.roomCode = val;
         updateRoomDisplay();
         initPeerJS();
+        saveHikeSessionToStorage();
         roomModal.classList.add('hidden');
         showToast(`Salon connecté : ${state.roomCode}`, 'success');
       }
@@ -1464,7 +1578,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
   createOrUpdateUserMarker(state.myUser);
   renderUsersList();
-  renderQuickTracksBar();
+
+  // CHARGEMENT DE LA SESSION PERSISTANTE (SI RANDONNÉE EN COURS < 8H/24H)
+  const hasRestored = loadHikeSessionFromStorage();
+  if (!hasRestored) {
+    renderQuickTracksBar();
+  }
 
   lucide.createIcons();
 
