@@ -32,7 +32,7 @@ const state = {
   roomCode: 'RANDO-2026',
   myUser: {
     id: 'u_' + Math.random().toString(36).substr(2, 7),
-    name: 'Jean',
+    name: 'Jean-Luc',
     role: 'Randonneur',
     icon: '🌲',
     color: '#059669',
@@ -227,6 +227,13 @@ function loadHikeSessionFromStorage() {
     const sessionData = JSON.parse(savedStr);
     if (!sessionData || !Array.isArray(sessionData.tracks) || sessionData.tracks.length === 0) return false;
 
+    // Filtrer et supprimer toute ancienne trace exemple
+    const realTracks = sessionData.tracks.filter(t => t.id && !t.id.startsWith('track_sample_') && !t.name.includes('Exemple') && !t.name.includes('Boucle Découverte'));
+    if (realTracks.length === 0) {
+      localStorage.removeItem('rando_saved_session');
+      return false;
+    }
+
     const now = Date.now();
     const durationHours = sessionData.durationHours || 8;
     const maxAgeMs = durationHours * 3600 * 1000;
@@ -240,7 +247,7 @@ function loadHikeSessionFromStorage() {
     state.tracks = [];
     state.trackLayers.clear();
 
-    sessionData.tracks.forEach(track => {
+    realTracks.forEach(track => {
       state.tracks.push(track);
       renderTrackOnMap(track);
     });
@@ -267,6 +274,7 @@ function clearHikeSession() {
   });
   state.tracks = [];
   state.trackLayers.clear();
+  state.myUser.assignedTrackId = 'auto';
   localStorage.removeItem('rando_saved_session');
   renderQuickTracksBar();
   renderUsersList();
@@ -284,11 +292,24 @@ function loadUserProfile() {
   const savedTrack = localStorage.getItem('rando_user_track');
   const savedDuration = localStorage.getItem('rando_share_duration');
 
-  if (savedName) state.myUser.name = savedName;
+  if (savedName && savedName !== 'Jean') {
+    state.myUser.name = savedName;
+  } else {
+    state.myUser.name = 'Jean-Luc';
+    localStorage.setItem('rando_user_name', 'Jean-Luc');
+  }
+
   if (savedRole) state.myUser.role = savedRole;
   if (savedIcon) state.myUser.icon = savedIcon;
   if (savedColor) state.myUser.color = savedColor;
-  if (savedTrack) state.myUser.assignedTrackId = savedTrack;
+  
+  if (savedTrack && !savedTrack.startsWith('track_sample_')) {
+    state.myUser.assignedTrackId = savedTrack;
+  } else {
+    state.myUser.assignedTrackId = 'auto';
+    localStorage.setItem('rando_user_track', 'auto');
+  }
+
   if (savedDuration) {
     const d = parseFloat(savedDuration);
     state.shareDurationHours = Math.min(ABSOLUTE_MAX_HOURS, Math.max(1, isNaN(d) ? 8 : d));
@@ -376,9 +397,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=12')
+    navigator.serviceWorker.register('./sw.js?v=13')
       .then((reg) => {
-        console.log('[PWA] Service Worker v12 actif:', reg.scope);
+        console.log('[PWA] Service Worker v13 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -705,63 +726,6 @@ function renderTrackOnMap(track) {
   state.trackLayers.set(track.id, layerGroup);
 }
 
-function loadSampleHike() {
-  const centerLat = state.myUser.lat || 45.8920;
-  const centerLon = state.myUser.lon || 6.1550;
-  const baseEle = state.myUser.ele || 250;
-
-  const points = [];
-  let totalDist = 0;
-  let eleGain = 0;
-  let minEle = baseEle;
-  let maxEle = baseEle;
-  let prevLat = null, prevLon = null, prevEle = null;
-
-  const numPoints = 80;
-  for (let i = 0; i <= numPoints; i++) {
-    const angle = (i / numPoints) * 2 * Math.PI;
-    const rLat = 0.015 * Math.sin(angle) + 0.003 * Math.sin(3 * angle);
-    const rLon = 0.022 * Math.cos(angle) + 0.004 * Math.sin(2 * angle);
-    const lat = Number((centerLat + rLat).toFixed(6));
-    const lon = Number((centerLon + rLon).toFixed(6));
-    const ele = Math.round(baseEle + 180 * Math.sin(angle) + 40 * Math.cos(2 * angle));
-
-    if (prevLat !== null) {
-      const d = calculateDistance(prevLat, prevLon, lat, lon);
-      totalDist += d;
-      const diff = ele - prevEle;
-      if (diff > 0.5) eleGain += diff;
-    }
-
-    if (ele < minEle) minEle = ele;
-    if (ele > maxEle) maxEle = ele;
-
-    points.push({
-      lat: lat,
-      lon: lon,
-      ele: ele,
-      distanceFromStart: Number(totalDist.toFixed(2))
-    });
-
-    prevLat = lat;
-    prevLon = lon;
-    prevEle = ele;
-  }
-
-  const sampleTrack = {
-    id: 'track_sample_' + Date.now(),
-    name: 'Boucle Découverte (Exemple 6 km)',
-    points: points,
-    totalDistance: Number(totalDist.toFixed(2)),
-    eleGain: Math.round(eleGain),
-    minEle: minEle,
-    maxEle: maxEle,
-    visible: true
-  };
-
-  addTrackToState(sampleTrack);
-}
-
 // ============================================================================
 // BANDEAU FLOTTANT RAPIDE DES TRACES GPX
 // ============================================================================
@@ -783,10 +747,6 @@ function renderQuickTracksBar() {
           <i data-lucide="upload-cloud" class="w-5 h-5"></i>
           <span>📂 Charger vos GPX (jusqu'à 5)</span>
         </label>
-        <button onclick="loadSampleHike()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 font-bold text-xs px-3 py-2.5 rounded-xl transition active:scale-95" title="Tester immédiatement avec un exemple">
-          <i data-lucide="sparkles" class="w-4 h-4"></i>
-          <span>⚡ Exemple</span>
-        </button>
       </div>
     `;
     lucide.createIcons();
