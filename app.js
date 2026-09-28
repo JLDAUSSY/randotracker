@@ -173,8 +173,8 @@ function saveUserProfile() {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=7')
-        .then((reg) => console.log('[PWA] Service Worker v7 actif:', reg.scope))
+      navigator.serviceWorker.register('./sw.js?v=8')
+        .then((reg) => console.log('[PWA] Service Worker v8 actif:', reg.scope))
         .catch((err) => console.log('[PWA] Erreur Service Worker:', err));
     });
   }
@@ -817,10 +817,18 @@ function renderUsersList() {
 
   if (otherUsersList.length === 0) {
     container.innerHTML = `
-      <div class="text-center py-8 text-slate-400 text-sm font-semibold">
-        <i data-lucide="user-x" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
-        Aucun autre marcheur connecté sur ce salon.<br/>
-        Cliquez sur <b class="text-blue-400">« Inviter »</b> pour afficher le QR Code ou partager le lien WhatsApp.
+      <div class="text-center py-6 px-4 bg-slate-800/60 rounded-3xl border border-slate-700/80 text-slate-300 text-sm flex flex-col items-center gap-3 shadow-xl">
+        <div class="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-400/40 text-blue-400 flex items-center justify-center shadow-inner">
+          <i data-lucide="users" class="w-8 h-8"></i>
+        </div>
+        <div>
+          <div class="font-black text-white text-base">Vous êtes seul sur ce salon</div>
+          <div class="text-xs text-slate-400 mt-1 font-semibold">Invitez vos compagnons pour les voir en direct sur la carte avec leur vitesse et position.</div>
+        </div>
+        <button onclick="openInviteModal()" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg active:scale-95 transition">
+          <i data-lucide="qr-code" class="w-5 h-5"></i>
+          <span>📲 Afficher le QR Code d'invitation</span>
+        </button>
       </div>
     `;
     lucide.createIcons();
@@ -875,32 +883,42 @@ function centerOnUser(userId) {
 }
 
 // ============================================================================
-// TIROIR DES PARTICIPANTS
+// TIROIR DES PARTICIPANTS (SANS VOILE NOIR SUR LA CARTE)
 // ============================================================================
+function toggleUsersDrawer() {
+  const usersPanel = document.getElementById('users-panel');
+  if (!usersPanel) return;
+
+  if (state.activeDrawer === 'users') {
+    closeAllDrawers();
+  } else {
+    usersPanel.classList.remove('drawer-closed');
+    usersPanel.classList.add('drawer-open');
+    state.activeDrawer = 'users';
+    const navUsers = document.getElementById('nav-btn-users');
+    if (navUsers) navUsers.classList.add('text-blue-400');
+  }
+}
+
 function openDrawer(panelName) {
   const usersPanel = document.getElementById('users-panel');
-  const backdrop = document.getElementById('drawer-backdrop');
-
-  if (panelName === 'users') {
-    if (usersPanel) {
-      usersPanel.classList.remove('drawer-closed');
-      usersPanel.classList.add('drawer-open');
-    }
+  if (panelName === 'users' && usersPanel) {
+    usersPanel.classList.remove('drawer-closed');
+    usersPanel.classList.add('drawer-open');
     state.activeDrawer = 'users';
-    if (backdrop) backdrop.classList.remove('hidden');
+    const navUsers = document.getElementById('nav-btn-users');
+    if (navUsers) navUsers.classList.add('text-blue-400');
   }
 }
 
 function closeAllDrawers() {
   const usersPanel = document.getElementById('users-panel');
-  const backdrop = document.getElementById('drawer-backdrop');
-
   if (usersPanel) {
     usersPanel.classList.add('drawer-closed');
     usersPanel.classList.remove('drawer-open');
   }
-  if (backdrop) backdrop.classList.add('hidden');
-
+  const navUsers = document.getElementById('nav-btn-users');
+  if (navUsers) navUsers.classList.remove('text-blue-400');
   state.activeDrawer = null;
 }
 
@@ -1261,12 +1279,7 @@ function setupEventListeners() {
   if (navGps) navGps.addEventListener('click', toggleGps);
 
   const navUsers = document.getElementById('nav-btn-users');
-  if (navUsers) {
-    navUsers.addEventListener('click', () => {
-      if (state.activeDrawer === 'users') closeAllDrawers();
-      else openDrawer('users');
-    });
-  }
+  if (navUsers) navUsers.addEventListener('click', toggleUsersDrawer);
 
   // Boutons flottants sur la carte
   const centerBtn = document.getElementById('center-my-gps-btn');
@@ -1302,9 +1315,6 @@ function setupEventListeners() {
   // Fermetures tiroirs
   const closeUsers = document.getElementById('close-users-panel-btn');
   if (closeUsers) closeUsers.addEventListener('click', closeAllDrawers);
-
-  const backdrop = document.getElementById('drawer-backdrop');
-  if (backdrop) backdrop.addEventListener('click', closeAllDrawers);
 
   // Import GPX Multifichiers (1 à 5 fichiers sélectionnés d'un coup)
   const gpxInput = document.getElementById('gpx-file-input');
