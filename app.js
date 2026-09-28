@@ -1,8 +1,8 @@
 /**
- * RandoTracker v11 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
+ * RandoTracker v16 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
  * Cartes Officielles IGN Géoplateforme & OpenTopoMap, Multi-Traces GPX (jusqu'à 5),
  * Calcul Automatique de Progression & Heure d'Arrivée Estimée (ETA),
- * Rendu Canvas Accéléré Ultra-Rapide & Sauvegarde Automatique de Session (8h/24h).
+ * Synchronisation Temps Réel MQTT 4G/5G, Zero-Config QR Code.
  */
 
 // ============================================================================
