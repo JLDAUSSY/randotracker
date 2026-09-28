@@ -7,7 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="RandoTracker" />
-  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="icon" type="image/png" href="favicon.png?v=12" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=12" />
   <link rel="manifest" href="manifest.json" />
 
   <title>RandoTracker - Suivi de Randonnée & Cartes IGN</title>
@@ -48,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v11 -->
-  <link rel="stylesheet" href="styles.css?v=11" />
+  <!-- Custom Styles with Cache-Busting v12 -->
+  <link rel="stylesheet" href="styles.css?v=12" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -59,12 +60,10 @@
   <header class="h-20 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-3 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
     <!-- Logo & Nom -->
     <div class="flex items-center gap-3">
-      <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-xl shadow-emerald-500/30 shrink-0">
-        <i data-lucide="mountain-snow" class="w-8 h-8 text-white"></i>
-      </div>
+      <img src="logo.png?v=12" alt="Logo RandoTracker" class="w-12 h-12 rounded-2xl shadow-xl border-2 border-emerald-500/30 shrink-0 bg-slate-900 object-contain p-0.5" />
       <div class="flex items-center gap-2">
         <span class="font-black text-xl sm:text-2xl tracking-tight text-white">RandoTracker</span>
-        <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40">v11</span>
+        <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40">v12</span>
       </div>
     </div>
 
@@ -511,7 +510,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v11 -->
-  <script src="app.js?v=11"></script>
+  <!-- Main Application Script with Cache-Busting v12 -->
+  <script src="app.js?v=12"></script>
 </body>
 </html>
