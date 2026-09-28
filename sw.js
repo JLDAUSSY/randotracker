@@ -1,19 +1,16 @@
-// Service Worker pour RandoTracker PWA - Version 6
-const CACHE_NAME = 'rando-tracker-v6';
+// Service Worker pour RandoTracker PWA - Version 7
+const CACHE_NAME = 'rando-tracker-v7';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
-  './manifest.json',
-  './tracks/parcours_1_vert_6km.gpx',
-  './tracks/parcours_2_bleu_12km.gpx',
-  './tracks/parcours_3_rouge_18km.gpx'
+  './manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v6...');
+  console.log('[SW] Installation v7...');
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
@@ -21,7 +18,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation v6...');
+  console.log('[SW] Activation v7...');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(

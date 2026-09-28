@@ -48,8 +48,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v6 -->
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <!-- Custom Styles with Cache-Busting v7 -->
+  <link rel="stylesheet" href="styles.css?v=7" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -200,15 +200,7 @@
       <!-- Liste des Autres Marcheurs -->
       <div class="p-3.5 bg-slate-950/80 text-xs font-black text-slate-400 uppercase tracking-wider flex items-center justify-between">
         <span>Autres Marcheurs du Groupe</span>
-        <div class="flex items-center gap-2">
-          <button id="simulate-users-btn" class="text-xs font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/40 flex items-center gap-1 active:scale-95" title="Simuler 3 marcheurs pour tester le groupe">
-            <i data-lucide="play" class="w-3.5 h-3.5"></i>
-            <span>Test Démo</span>
-          </button>
-          <button id="clear-sim-users-btn" class="text-sm font-bold text-slate-400 hover:text-red-400 p-1 rounded-lg hover:bg-slate-800 transition" title="Vider les randonneurs simulés">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
-          </button>
-        </div>
+        <span class="text-xs text-slate-400 font-bold" id="group-status-hint">Direct</span>
       </div>
 
       <div id="users-list-container" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 max-h-[50vh] sm:max-h-none">
@@ -405,7 +397,7 @@
   <!-- MODAL : USER PROFILE EDIT -->
   <!-- ================================================================= -->
   <div id="profile-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
+    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4">
         <h3 class="font-black text-xl text-white flex items-center gap-3">
           <i data-lucide="user-cog" class="w-7 h-7 text-emerald-400"></i>
@@ -417,11 +409,14 @@
       </div>
 
       <div class="space-y-4">
+        <!-- Prénom / Nom -->
         <div>
-          <label class="block text-xs font-black text-slate-400 uppercase mb-2">Prénom & Nom</label>
-          <input type="text" id="input-user-name" value="Jean Dupont" class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-4 py-3.5 text-base text-white font-bold focus:outline-none focus:border-emerald-500 shadow-inner" />
+          <label class="block text-xs font-black text-slate-400 uppercase mb-2">Votre Prénom & Nom</label>
+          <input type="text" id="input-user-name" value="Jean" placeholder="Ex: Jean, Sophie, Marc..." class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-4 py-3.5 text-base text-white font-bold focus:outline-none focus:border-emerald-500 shadow-inner" />
+          <span class="text-[11px] text-slate-400 font-semibold mt-1 block">Ce nom sera affiché à tous les autres marcheurs sur la carte.</span>
         </div>
 
+        <!-- Rôle -->
         <div>
           <label class="block text-xs font-black text-slate-400 uppercase mb-2">Rôle dans la Randonnée</label>
           <select id="input-user-role" class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-4 py-3.5 text-base text-white font-bold focus:outline-none focus:border-emerald-500 shadow-inner">
@@ -432,15 +427,39 @@
           </select>
         </div>
 
+        <!-- Durée limite de partage GPS (max 24h) -->
         <div>
-          <label class="block text-xs font-black text-slate-400 uppercase mb-2">Avatar & Couleur</label>
-          <div class="grid grid-cols-6 gap-3" id="avatar-color-picker">
-            <button type="button" class="avatar-opt w-13 h-13 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-xl font-black text-white shadow-lg p-2" data-color="#059669" data-icon="🌲">🌲</button>
-            <button type="button" class="avatar-opt w-13 h-13 rounded-full bg-blue-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg p-2" data-color="#2563eb" data-icon="🦅">🦅</button>
-            <button type="button" class="avatar-opt w-13 h-13 rounded-full bg-red-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg p-2" data-color="#dc2626" data-icon="🦊">🦊</button>
-            <button type="button" class="avatar-opt w-13 h-13 rounded-full bg-amber-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg p-2" data-color="#d97706" data-icon="🐻">🐻</button>
-            <button type="button" class="avatar-opt w-13 h-13 rounded-full bg-purple-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg p-2" data-color="#9333ea" data-icon="🐺">🐺</button>
-            <button type="button" class="avatar-opt w-13 h-13 rounded-full bg-teal-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg p-2" data-color="#0d9488" data-icon="🏔️">🏔️</button>
+          <label class="block text-xs font-black text-slate-400 uppercase mb-2 flex items-center justify-between">
+            <span>Durée limite de partage GPS</span>
+            <span class="text-emerald-400 font-bold text-xs">Max 24h</span>
+          </label>
+          <select id="input-share-duration" class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-4 py-3.5 text-base text-white font-bold focus:outline-none focus:border-emerald-500 shadow-inner">
+            <option value="2">⏱️ 2 heures (Petite balade)</option>
+            <option value="4">⏱️ 4 heures (Demi-journée)</option>
+            <option value="8" selected>⏱️ 8 heures (Journée complète)</option>
+            <option value="12">⏱️ 12 heures (Grande randonnée)</option>
+            <option value="24">⏱️ 24 heures (Limite maximale)</option>
+          </select>
+          <span class="text-[11px] text-slate-400 font-semibold mt-1 block">Passé ce délai, le partage GPS s'arrête automatiquement pour préserver votre batterie.</span>
+        </div>
+
+        <!-- Avatar & Couleur (12 choix outdoor) -->
+        <div>
+          <label class="block text-xs font-black text-slate-400 uppercase mb-2">Votre Avatar & Couleur</label>
+          <div class="grid grid-cols-6 gap-2.5" id="avatar-color-picker">
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#059669" data-icon="🌲" title="Sapin">🌲</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-blue-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#2563eb" data-icon="🦅" title="Aigle">🦅</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-red-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#dc2626" data-icon="🦊" title="Renard">🦊</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-amber-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#d97706" data-icon="🐻" title="Ours">🐻</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-purple-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#9333ea" data-icon="🐺" title="Loup">🐺</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-teal-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#0d9488" data-icon="🏔️" title="Sommet">🏔️</button>
+            
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-yellow-700 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#a16207" data-icon="🦌" title="Cerf">🦌</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-slate-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#475569" data-icon="🐗" title="Sanglier">🐗</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-orange-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#ea580c" data-icon="🥾" title="Marcheur">🥾</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-pink-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#db2777" data-icon="🧗" title="Grimpeur">🧗</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-lime-700 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#4d7c0f" data-icon="🏕️" title="Bivouac">🏕️</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-rose-700 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#be123c" data-icon="🚑" title="Secours">🚑</button>
           </div>
         </div>
       </div>
@@ -456,7 +475,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v6 -->
-  <script src="app.js?v=6"></script>
+  <!-- Main Application Script with Cache-Busting v7 -->
+  <script src="app.js?v=7"></script>
 </body>
 </html>

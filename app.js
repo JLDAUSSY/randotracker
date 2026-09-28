@@ -1,7 +1,8 @@
 /**
- * RandoTracker v6 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
+ * RandoTracker v7 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
  * Cartes Officielles IGN Géoplateforme & OpenTopoMap, Multi-Traces GPX (jusqu'à 5),
- * Géolocalisation Immédiate, Suivi des Participants en Direct & Invitations QR Code.
+ * Géolocalisation Immédiate, Profils Randonneurs Personnalisés (Nom & 12 Avatars),
+ * Limite de Partage GPS (24h max) & Invitations QR Code.
  */
 
 // ============================================================================
@@ -9,6 +10,7 @@
 // ============================================================================
 const MAX_TRACKS = 5;
 const MAX_USERS = 10;
+const ABSOLUTE_MAX_HOURS = 24; // Limite stricte maximale de 24 heures
 
 const TRACK_COLORS = [
   { name: 'Vert Émeraude', hex: '#10b981', border: '#059669', bgClass: 'bg-emerald-500' },
@@ -29,8 +31,8 @@ const state = {
   roomCode: 'RANDO-2026',
   myUser: {
     id: 'u_' + Math.random().toString(36).substr(2, 7),
-    name: 'Jean Dupont',
-    role: 'Guide de tête',
+    name: 'Jean',
+    role: 'Randonneur',
     icon: '🌲',
     color: '#059669',
     lat: 45.8920,
@@ -41,6 +43,9 @@ const state = {
     isSos: false,
     lastSeen: Date.now()
   },
+  shareDurationHours: 8, // Par défaut 8h, max 24h
+  gpsStartTime: null,
+  expiryCheckInterval: null,
   otherUsers: new Map(),
   userMarkers: new Map(),
   trackLayers: new Map(),
@@ -48,8 +53,6 @@ const state = {
   isTrackingGps: false,
   gpsWatchId: null,
   accuracyCircle: null,
-  isSimulating: false,
-  simulationInterval: null,
   ws: null,
   broadcastChannel: null,
   peer: null,
@@ -82,18 +85,101 @@ function showToast(msg, type = 'info') {
 }
 
 // ============================================================================
+// GESTION DU PROFIL UTILISATEUR & PERSISTANCE LOCALSTORAGE
+// ============================================================================
+function loadUserProfile() {
+  const savedName = localStorage.getItem('rando_user_name');
+  const savedRole = localStorage.getItem('rando_user_role');
+  const savedIcon = localStorage.getItem('rando_user_icon');
+  const savedColor = localStorage.getItem('rando_user_color');
+  const savedDuration = localStorage.getItem('rando_share_duration');
+
+  if (savedName) state.myUser.name = savedName;
+  if (savedRole) state.myUser.role = savedRole;
+  if (savedIcon) state.myUser.icon = savedIcon;
+  if (savedColor) state.myUser.color = savedColor;
+  if (savedDuration) {
+    const d = parseFloat(savedDuration);
+    state.shareDurationHours = Math.min(ABSOLUTE_MAX_HOURS, Math.max(1, isNaN(d) ? 8 : d));
+  }
+
+  // Mise à jour de l'affichage initial
+  updateProfileUI();
+}
+
+function updateProfileUI() {
+  const headerBadge = document.getElementById('header-avatar-badge');
+  if (headerBadge) {
+    headerBadge.textContent = state.myUser.icon;
+    headerBadge.style.backgroundColor = state.myUser.color;
+  }
+
+  const myName = document.getElementById('my-name-display');
+  const myRole = document.getElementById('my-role-display');
+  const myAvatar = document.getElementById('my-avatar-display');
+
+  if (myName) myName.textContent = state.myUser.name;
+  if (myRole) myRole.textContent = state.myUser.role;
+  if (myAvatar) {
+    myAvatar.textContent = state.myUser.icon;
+    myAvatar.style.backgroundColor = state.myUser.color;
+  }
+
+  const inputName = document.getElementById('input-user-name');
+  const inputRole = document.getElementById('input-user-role');
+  const inputDuration = document.getElementById('input-share-duration');
+
+  if (inputName) inputName.value = state.myUser.name;
+  if (inputRole) inputRole.value = state.myUser.role;
+  if (inputDuration) inputDuration.value = String(state.shareDurationHours);
+
+  // Mettre à jour la sélection visuelle de l'avatar
+  document.querySelectorAll('.avatar-opt').forEach(btn => {
+    const isSelected = btn.getAttribute('data-icon') === state.myUser.icon;
+    if (isSelected) {
+      btn.classList.add('border-white', 'scale-110');
+      btn.classList.remove('border-transparent');
+    } else {
+      btn.classList.remove('border-white', 'scale-110');
+      btn.classList.add('border-transparent');
+    }
+  });
+}
+
+function saveUserProfile() {
+  const name = document.getElementById('input-user-name').value.trim();
+  const role = document.getElementById('input-user-role').value;
+  const duration = parseFloat(document.getElementById('input-share-duration').value);
+
+  if (name) state.myUser.name = name;
+  if (role) state.myUser.role = role;
+  state.shareDurationHours = Math.min(ABSOLUTE_MAX_HOURS, Math.max(1, isNaN(duration) ? 8 : duration));
+
+  localStorage.setItem('rando_user_name', state.myUser.name);
+  localStorage.setItem('rando_user_role', state.myUser.role);
+  localStorage.setItem('rando_user_icon', state.myUser.icon);
+  localStorage.setItem('rando_user_color', state.myUser.color);
+  localStorage.setItem('rando_share_duration', String(state.shareDurationHours));
+
+  updateProfileUI();
+  document.getElementById('profile-modal').classList.add('hidden');
+  broadcastMyPosition();
+  showToast(`Profil enregistré : ${state.myUser.name} (${state.myUser.icon})`, 'success');
+}
+
+// ============================================================================
 // SERVICE WORKER & PWA
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=6')
-        .then((reg) => console.log('[PWA] Service Worker v6 actif:', reg.scope))
+      navigator.serviceWorker.register('./sw.js?v=7')
+        .then((reg) => console.log('[PWA] Service Worker v7 actif:', reg.scope))
         .catch((err) => console.log('[PWA] Erreur Service Worker:', err));
     });
   }
 
-  // Surveillance du niveau de batterie réel
+  // Surveillance de la batterie
   if (navigator.getBattery) {
     navigator.getBattery().then((battery) => {
       state.myUser.battery = Math.round(battery.level * 100);
@@ -322,7 +408,7 @@ function renderTrackOnMap(track) {
   const layerGroup = L.layerGroup();
   const latlngs = track.points.map(p => [p.lat, p.lon]);
 
-  // Liseré noir sous la trace pour contraste maximal sur IGN et Satellite
+  // Liseré sombre pour contraste maximal
   const borderPolyline = L.polyline(latlngs, {
     color: '#0f172a',
     weight: 9,
@@ -331,7 +417,7 @@ function renderTrackOnMap(track) {
     lineJoin: 'round'
   });
 
-  // Ligne colorée principale
+  // Ligne colorée
   const mainPolyline = L.polyline(latlngs, {
     color: track.color.hex,
     weight: 5.5,
@@ -395,7 +481,7 @@ function renderTrackOnMap(track) {
 }
 
 // ============================================================================
-// BANDEAU FLOTTANT RAPIDE DES TRACES GPX
+// BANDEAU FLOTTANT RAPIDE DES TRACES GPX (SANS DÉMO)
 // ============================================================================
 function renderQuickTracksBar() {
   const bar = document.getElementById('quick-tracks-bar');
@@ -403,15 +489,11 @@ function renderQuickTracksBar() {
 
   if (state.tracks.length === 0) {
     bar.innerHTML = `
-      <div class="flex items-center gap-2 bg-slate-900/95 backdrop-blur-md border-2 border-emerald-500/50 rounded-2xl p-1.5 shadow-2xl">
+      <div class="flex items-center gap-2 bg-slate-900/95 backdrop-blur-md border-2 border-emerald-500/60 rounded-2xl p-1.5 shadow-2xl">
         <label for="gpx-file-input" class="cursor-pointer flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm px-4 py-2.5 rounded-xl shadow transition active:scale-95">
           <i data-lucide="upload-cloud" class="w-5 h-5"></i>
-          <span>Charger GPX</span>
+          <span>📂 Charger vos GPX (jusqu'à 5)</span>
         </label>
-        <button id="quick-demo-btn" onclick="loadDemoTracks()" class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-3 py-2.5 rounded-xl border border-slate-700 active:scale-95">
-          <i data-lucide="sparkles" class="w-4 h-4 text-amber-400"></i>
-          <span>Démo 3 Parcours</span>
-        </button>
       </div>
     `;
     lucide.createIcons();
@@ -502,7 +584,7 @@ function fitAllTracks() {
 }
 
 // ============================================================================
-// PROFIL ALTIMÉTRIQUE INTERACTIF (Chart.js)
+// PROFIL ALTIMÉTRIQUE (Chart.js)
 // ============================================================================
 function openElevationDrawer(trackId) {
   const track = state.tracks.find(t => t.id === trackId);
@@ -619,7 +701,7 @@ function updateHoverMapMarker(lat, lon) {
 }
 
 // ============================================================================
-// SUIVI DES RANDONNEURS & MARQUEURS SUR LA CARTE (Jusqu'à 10)
+// SUIVI DES RANDONNEURS SUR LA CARTE (RÉELS UNIQUEMENT)
 // ============================================================================
 function createOrUpdateUserMarker(user) {
   let marker = state.userMarkers.get(user.id);
@@ -704,6 +786,17 @@ function renderUsersList() {
   const container = document.getElementById('users-list-container');
   if (!container) return;
 
+  // Filtrer les participants dont la position date de moins de 24h
+  const now = Date.now();
+  const maxAgeMs = 24 * 3600 * 1000;
+
+  state.otherUsers.forEach((user, id) => {
+    if (now - user.lastSeen > maxAgeMs) {
+      removeUserMarker(id);
+      state.otherUsers.delete(id);
+    }
+  });
+
   const allUsers = [state.myUser, ...Array.from(state.otherUsers.values())].slice(0, MAX_USERS);
   const totalCount = allUsers.length;
 
@@ -726,8 +819,8 @@ function renderUsersList() {
     container.innerHTML = `
       <div class="text-center py-8 text-slate-400 text-sm font-semibold">
         <i data-lucide="user-x" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
-        Aucun autre marcheur connecté pour le moment.<br/>
-        Cliquez sur <b class="text-blue-400">« Inviter »</b> pour partager le QR Code ou sur <b class="text-emerald-400">« Test Démo »</b>.
+        Aucun autre marcheur connecté sur ce salon.<br/>
+        Cliquez sur <b class="text-blue-400">« Inviter »</b> pour afficher le QR Code ou partager le lien WhatsApp.
       </div>
     `;
     lucide.createIcons();
@@ -737,9 +830,10 @@ function renderUsersList() {
   container.innerHTML = otherUsersList.map(u => {
     const dist = calculateDistance(state.myUser.lat, state.myUser.lon, u.lat, u.lon);
     const distStr = dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`;
+    const isStale = (now - u.lastSeen) > (15 * 60 * 1000); // Pas de mise à jour depuis > 15m
 
     return `
-      <div class="p-4 rounded-3xl bg-slate-800/90 border-2 ${u.isSos ? 'border-red-500/80 bg-red-950/30' : 'border-slate-700'} hover:border-slate-500 transition flex items-center justify-between cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
+      <div class="p-4 rounded-3xl bg-slate-800/90 border-2 ${u.isSos ? 'border-red-500/80 bg-red-950/30' : isStale ? 'border-slate-800 opacity-70' : 'border-slate-700'} hover:border-slate-500 transition flex items-center justify-between cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
         <div class="flex items-center gap-3.5 min-w-0">
           <div class="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-lg relative border-2 border-white/90" style="background-color: ${u.color || '#3b82f6'}">
             ${u.icon || '🥾'}
@@ -749,6 +843,7 @@ function renderUsersList() {
             <div class="flex items-center gap-2">
               <span class="font-black text-base sm:text-lg text-white truncate">${u.name}</span>
               ${u.isSos ? '<span class="text-xs font-black px-2.5 py-0.5 rounded-full bg-red-600 text-white animate-pulse">SOS</span>' : ''}
+              ${isStale ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Signal Ancien</span>' : ''}
             </div>
             <div class="text-xs sm:text-sm text-slate-300 font-semibold truncate">${u.role}</div>
           </div>
@@ -780,7 +875,7 @@ function centerOnUser(userId) {
 }
 
 // ============================================================================
-// GESTION DU TIROIR DES PARTICIPANTS
+// TIROIR DES PARTICIPANTS
 // ============================================================================
 function openDrawer(panelName) {
   const usersPanel = document.getElementById('users-panel');
@@ -810,8 +905,20 @@ function closeAllDrawers() {
 }
 
 // ============================================================================
-// GÉOLOCALISATION GPS AUTOMATIQUE & INSTANTANÉE
+// GÉOLOCALISATION GPS AUTOMATIQUE AVEC DURÉE LIMITE (MAX 24H)
 // ============================================================================
+function checkGpsExpiry() {
+  if (!state.isTrackingGps || !state.gpsStartTime) return;
+
+  const elapsedMs = Date.now() - state.gpsStartTime;
+  const maxMs = state.shareDurationHours * 3600 * 1000;
+
+  if (elapsedMs >= maxMs) {
+    stopGpsWatch();
+    showToast(`⏳ Durée de partage (${state.shareDurationHours}h max) atteinte. Partage arrêté.`, 'info');
+  }
+}
+
 function startGpsWatch(useHighAccuracy = true) {
   const navBubble = document.getElementById('nav-gps-bubble');
   const navIcon = document.getElementById('nav-gps-icon');
@@ -821,7 +928,21 @@ function startGpsWatch(useHighAccuracy = true) {
   if (navBubble) navBubble.className = 'w-18 h-18 rounded-full bg-amber-500/20 border-4 border-amber-500 flex items-center justify-center';
   if (navIcon) navIcon.className = 'w-9 h-9 text-amber-400 animate-spin';
 
+  if (!state.gpsStartTime) {
+    state.gpsStartTime = Date.now();
+  }
+
+  // Intervalle de vérification de l'expiration (toutes les minutes)
+  if (!state.expiryCheckInterval) {
+    state.expiryCheckInterval = setInterval(checkGpsExpiry, 60000);
+  }
+
   const onPositionSuccess = (pos) => {
+    checkGpsExpiry();
+    if (!state.isTrackingGps && state.gpsStartTime && (Date.now() - state.gpsStartTime >= state.shareDurationHours * 3600 * 1000)) {
+      return;
+    }
+
     state.isTrackingGps = true;
     state.myUser.lat = pos.coords.latitude;
     state.myUser.lon = pos.coords.longitude;
@@ -854,7 +975,7 @@ function startGpsWatch(useHighAccuracy = true) {
     if (!state.hasAutoCenteredGps) {
       state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
       state.hasAutoCenteredGps = true;
-      showToast(`Position GPS trouvée (${accStr})`, 'success');
+      showToast(`Position GPS trouvée (${accStr}) - Partage actif (${state.shareDurationHours}h max)`, 'success');
     }
   };
 
@@ -904,7 +1025,13 @@ function stopGpsWatch() {
     state.map.removeLayer(state.accuracyCircle);
     state.accuracyCircle = null;
   }
+  if (state.expiryCheckInterval) {
+    clearInterval(state.expiryCheckInterval);
+    state.expiryCheckInterval = null;
+  }
+
   state.isTrackingGps = false;
+  state.gpsStartTime = null;
 
   const navBubble = document.getElementById('nav-gps-bubble');
   const navIcon = document.getElementById('nav-gps-icon');
@@ -924,12 +1051,13 @@ function toggleGps() {
       alert("La géolocalisation n'est pas supportée par votre navigateur.");
       return;
     }
+    state.gpsStartTime = Date.now();
     startGpsWatch(true);
   }
 }
 
 // ============================================================================
-// INVITATION DES PARTICIPANTS (QR CODE + LIEN DIRECT WHATSAPP / SMS)
+// INVITATION DES PARTICIPANTS (QR CODE + WHATSAPP / SMS)
 // ============================================================================
 function getInviteUrl() {
   const origin = window.location.origin;
@@ -969,7 +1097,7 @@ function openInviteModal() {
 
 async function shareInviteLink() {
   const inviteUrl = getInviteUrl();
-  const title = `RandoTracker - Sortie ${state.roomCode}`;
+  const title = `RandoTracker - Salon ${state.roomCode}`;
   const text = `Rejoins notre randonnée en direct sur la carte IGN/Topo (Salon ${state.roomCode}) :`;
 
   if (navigator.share) {
@@ -1125,163 +1253,7 @@ function handleIncomingMessage(data) {
 }
 
 // ============================================================================
-// SIMULATION DE MARCHEURS DÉMO POUR TESTER LE MULTI-UTILISATEUR
-// ============================================================================
-function toggleSimulation() {
-  if (state.isSimulating) {
-    clearInterval(state.simulationInterval);
-    state.isSimulating = false;
-    const btn = document.getElementById('simulate-users-btn');
-    if (btn) btn.innerHTML = '<i data-lucide="play" class="w-3.5 h-3.5"></i><span>Test Démo</span>';
-    lucide.createIcons();
-    showToast('Simulation arrêtée', 'info');
-    return;
-  }
-
-  // Création de 3 compagnons de rando autour de ma position
-  const companions = [
-    { id: 'sim_1', name: 'Sophie L.', role: 'Serre-file', icon: '🛡️', color: '#2563eb', latOffset: -0.003, lonOffset: -0.004, speed: 3.8, battery: 88, isSos: false, angle: 0 },
-    { id: 'sim_2', name: 'Marc V.', role: 'Randonneur', icon: '🦊', color: '#dc2626', latOffset: 0.002, lonOffset: 0.003, speed: 4.5, battery: 74, isSos: false, angle: 1.2 },
-    { id: 'sim_3', name: 'Thomas D.', role: 'Randonneur', icon: '🐻', color: '#d97706', latOffset: 0.004, lonOffset: -0.002, speed: 4.1, battery: 91, isSos: false, angle: 2.5 }
-  ];
-
-  companions.forEach(c => {
-    const userObj = {
-      id: c.id,
-      name: c.name,
-      role: c.role,
-      icon: c.icon,
-      color: c.color,
-      lat: state.myUser.lat + c.latOffset,
-      lon: state.myUser.lon + c.lonOffset,
-      ele: state.myUser.ele + Math.round((Math.random() - 0.5) * 40),
-      speed: c.speed,
-      battery: c.battery,
-      isSos: c.isSos,
-      lastSeen: Date.now()
-    };
-    state.otherUsers.set(c.id, userObj);
-    createOrUpdateUserMarker(userObj);
-  });
-
-  renderUsersList();
-  state.isSimulating = true;
-
-  const btn = document.getElementById('simulate-users-btn');
-  if (btn) btn.innerHTML = '<i data-lucide="square" class="w-3.5 h-3.5 text-amber-400"></i><span>Stop Démo</span>';
-  lucide.createIcons();
-  showToast('3 randonneurs simulés en direct !', 'success');
-
-  // Animation des déplacements
-  state.simulationInterval = setInterval(() => {
-    companions.forEach(c => {
-      c.angle += 0.08;
-      const user = state.otherUsers.get(c.id);
-      if (user) {
-        user.lat = state.myUser.lat + c.latOffset + 0.0015 * Math.sin(c.angle);
-        user.lon = state.myUser.lon + c.lonOffset + 0.0015 * Math.cos(c.angle);
-        user.speed = Math.max(2.5, +(c.speed + (Math.random() - 0.5) * 0.6).toFixed(1));
-        user.lastSeen = Date.now();
-        createOrUpdateUserMarker(user);
-      }
-    });
-    renderUsersList();
-  }, 2500);
-}
-
-function clearAllSimUsers() {
-  if (state.isSimulating) {
-    clearInterval(state.simulationInterval);
-    state.isSimulating = false;
-    const btn = document.getElementById('simulate-users-btn');
-    if (btn) btn.innerHTML = '<i data-lucide="play" class="w-3.5 h-3.5"></i><span>Test Démo</span>';
-    lucide.createIcons();
-  }
-
-  state.otherUsers.forEach((_, id) => removeUserMarker(id));
-  state.otherUsers.clear();
-  renderUsersList();
-  showToast('Liste des marcheurs réinitialisée', 'info');
-}
-
-// ============================================================================
-// CHARGEMENT DES 3 PARCOURS DÉMO (ANNECY / MONT VEYRIER)
-// ============================================================================
-function generateDemoTrackPoints(centerLat, centerLon, radiusKm, numPoints, baseEle, maxEle, irregularity = 0.3) {
-  const pts = [];
-  let totalDist = 0;
-  let eleGain = 0;
-  let prevLat = null, prevLon = null, prevEle = null;
-
-  for (let i = 0; i < numPoints; i++) {
-    const t = (2 * Math.PI * i) / (numPoints - 1);
-    const r = radiusKm * (1 + irregularity * Math.sin(3 * t) + 0.18 * Math.cos(5 * t));
-    const dlat = (r * Math.cos(t)) / 111.0;
-    const dlon = (r * Math.sin(t)) / (111.0 * Math.cos((centerLat * Math.PI) / 180));
-    const lat = centerLat + dlat;
-    const lon = centerLon + dlon;
-
-    const eleRatio = 0.5 * (1 - Math.cos(2 * t)) + 0.25 * Math.sin(3 * t);
-    const ele = Math.round(baseEle + (maxEle - baseEle) * Math.max(0, Math.min(1, eleRatio)));
-
-    if (prevLat !== null) {
-      const dist = calculateDistance(prevLat, prevLon, lat, lon);
-      totalDist += dist;
-      if (ele > prevEle) eleGain += (ele - prevEle);
-    }
-
-    pts.push({ lat, lon, ele, distanceFromStart: totalDist });
-    prevLat = lat; prevLon = lon; prevEle = ele;
-  }
-
-  return { points: pts, totalDistance: totalDist, eleGain, minEle: baseEle, maxEle };
-}
-
-async function loadDemoTracks() {
-  // Supprimer les traces existantes pour rechargement propre
-  state.tracks.forEach(t => {
-    const l = state.trackLayers.get(t.id);
-    if (l) state.map.removeLayer(l);
-  });
-  state.tracks = [];
-  state.trackLayers.clear();
-
-  let loadedCount = 0;
-  const files = [
-    { url: './tracks/parcours_1_vert_6km.gpx', name: 'Niveau 1 - Boucle Découverte (6 km)' },
-    { url: './tracks/parcours_2_bleu_12km.gpx', name: 'Niveau 2 - Balcon Panoramique (12 km)' },
-    { url: './tracks/parcours_3_rouge_18km.gpx', name: 'Niveau 3 - Traversée des Crêtes (18 km)' }
-  ];
-
-  for (const item of files) {
-    try {
-      const resp = await fetch(item.url);
-      if (resp.ok) {
-        const text = await resp.text();
-        const parsed = parseGpxContent(text, item.name);
-        addTrackToState(parsed);
-        loadedCount++;
-      }
-    } catch (e) {}
-  }
-
-  // Fallback mathématique si fichiers GPX non servis
-  if (loadedCount === 0) {
-    const p1 = generateDemoTrackPoints(45.8920, 6.1550, 1.1, 90, 450, 690, 0.25);
-    addTrackToState({ id: 'demo_1', name: 'Niveau 1 - Boucle Découverte (6 km)', points: p1.points, totalDistance: p1.totalDistance, eleGain: p1.eleGain, minEle: p1.minEle, maxEle: p1.maxEle, visible: true });
-
-    const p2 = generateDemoTrackPoints(45.8960, 6.1700, 2.2, 140, 450, 1030, 0.35);
-    addTrackToState({ id: 'demo_2', name: 'Niveau 2 - Balcon Panoramique (12 km)', points: p2.points, totalDistance: p2.totalDistance, eleGain: p2.eleGain, minEle: p2.minEle, maxEle: p2.maxEle, visible: true });
-
-    const p3 = generateDemoTrackPoints(45.9010, 6.1850, 3.4, 200, 450, 1600, 0.45);
-    addTrackToState({ id: 'demo_3', name: 'Niveau 3 - Traversée des Crêtes (18 km)', points: p3.points, totalDistance: p3.totalDistance, eleGain: p3.eleGain, minEle: p3.minEle, maxEle: p3.maxEle, visible: true });
-  }
-
-  fitAllTracks();
-}
-
-// ============================================================================
-// ÉCOUTEURS D'ÉVÉNEMENTS & INTERACTIONS UTILISATEUR
+// ÉCOUTEURS D'ÉVÉNEMENTS & INTERACTIONS
 // ============================================================================
 function setupEventListeners() {
   // Navigation inférieure (3 gros boutons)
@@ -1333,13 +1305,6 @@ function setupEventListeners() {
 
   const backdrop = document.getElementById('drawer-backdrop');
   if (backdrop) backdrop.addEventListener('click', closeAllDrawers);
-
-  // Simulation
-  const simBtn = document.getElementById('simulate-users-btn');
-  if (simBtn) simBtn.addEventListener('click', toggleSimulation);
-
-  const clearSimBtn = document.getElementById('clear-sim-users-btn');
-  if (clearSimBtn) clearSimBtn.addEventListener('click', clearAllSimUsers);
 
   // Import GPX Multifichiers (1 à 5 fichiers sélectionnés d'un coup)
   const gpxInput = document.getElementById('gpx-file-input');
@@ -1443,11 +1408,10 @@ function setupEventListeners() {
     });
   }
 
-  // Modal Profil Utilisateur (Nom, Rôle, Avatar)
+  // Modal Profil Utilisateur (Nom, Rôle, 12 Avatars, Durée limite)
   const profileModal = document.getElementById('profile-modal');
   const openProfile = () => {
-    document.getElementById('input-user-name').value = state.myUser.name;
-    document.getElementById('input-user-role').value = state.myUser.role;
+    updateProfileUI();
     profileModal.classList.remove('hidden');
   };
 
@@ -1464,50 +1428,27 @@ function setupEventListeners() {
 
   document.querySelectorAll('.avatar-opt').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.avatar-opt').forEach(b => b.classList.replace('border-white', 'border-transparent'));
-      btn.classList.replace('border-transparent', 'border-white');
+      document.querySelectorAll('.avatar-opt').forEach(b => {
+        b.classList.remove('border-white', 'scale-110');
+        b.classList.add('border-transparent');
+      });
+      btn.classList.add('border-white', 'scale-110');
+      btn.classList.remove('border-transparent');
       state.myUser.color = btn.getAttribute('data-color');
       state.myUser.icon = btn.getAttribute('data-icon');
     });
   });
 
-  if (saveProfileBtn) {
-    saveProfileBtn.addEventListener('click', () => {
-      const name = document.getElementById('input-user-name').value.trim();
-      const role = document.getElementById('input-user-role').value;
-      if (name) state.myUser.name = name;
-      if (role) state.myUser.role = role;
-
-      const headerBadge = document.getElementById('header-avatar-badge');
-      if (headerBadge) {
-        headerBadge.textContent = state.myUser.icon;
-        headerBadge.style.backgroundColor = state.myUser.color;
-      }
-
-      const myName = document.getElementById('my-name-display');
-      const myRole = document.getElementById('my-role-display');
-      const myAvatar = document.getElementById('my-avatar-display');
-
-      if (myName) myName.textContent = state.myUser.name;
-      if (myRole) myRole.textContent = state.myUser.role;
-      if (myAvatar) {
-        myAvatar.textContent = state.myUser.icon;
-        myAvatar.style.backgroundColor = state.myUser.color;
-      }
-
-      profileModal.classList.add('hidden');
-      broadcastMyPosition();
-      showToast('Profil mis à jour', 'success');
-    });
-  }
+  if (saveProfileBtn) saveProfileBtn.addEventListener('click', saveUserProfile);
 }
 
 // ============================================================================
-// DÉMARRAGE AUTOMATIQUE AVEC GÉOLOCALISATION IMMÉDIATE
+// DÉMARRAGE DE L'APPLICATION
 // ============================================================================
-window.addEventListener('DOMContentLoaded', async () => {
+window.addEventListener('DOMContentLoaded', () => {
   initPWA();
   initMap();
+  loadUserProfile();
   setupEventListeners();
   initRealtimeSync();
 
@@ -1515,10 +1456,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   renderUsersList();
   renderQuickTracksBar();
 
-  await loadDemoTracks();
   lucide.createIcons();
 
-  // DÉCLENCHEMENT IMMÉDIAT DE LA GÉOLOCALISATION GPS
+  // DÉMARRAGE IMMÉDIAT DE LA GÉOLOCALISATION GPS
   if (navigator.geolocation) {
     console.log('[GPS] Démarrage automatique de la géolocalisation...');
     startGpsWatch(true);
