@@ -1,5 +1,6 @@
-// Service Worker pour RandoTracker PWA
-const CACHE_NAME = 'rando-tracker-v1';
+// Service Worker pour RandoTracker PWA - Version 3
+const CACHE_NAME = 'rando-tracker-v3';
+
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -11,19 +12,16 @@ const STATIC_ASSETS = [
   './tracks/parcours_3_rouge_18km.gpx'
 ];
 
-// Installation : Mise en cache des fichiers essentiels
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Mise en cache des ressources statiques');
-      return cache.addAll(STATIC_ASSETS);
-    })
-  );
+  console.log('[SW] Installation v2...');
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+  );
 });
 
-// Activation : Nettoyage des anciens caches
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activation v2...');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
@@ -34,38 +32,30 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Stratégie Réseau avec repli sur le Cache (Network-first avec fallback Cache)
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Ignorer les requêtes WebSocket
   if (url.pathname.startsWith('/ws') || event.request.url.startsWith('ws:') || event.request.url.startsWith('wss:')) {
     return;
   }
 
+  // Network First avec Fallback Cache
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Si la requête réussit et qu'il s'agit d'une tuile de carte ou asset externe, on la met en cache dynamique
-        if (response.status === 200 && (url.hostname.includes('tile') || url.hostname.includes('geopf.fr') || url.hostname.includes('unpkg.com') || url.hostname.includes('cdn.'))) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
+        if (response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
       })
       .catch(() => {
-        // En cas de coupure 4G/Hors-ligne, renvoyer depuis le cache
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
+        return caches.match(event.request).then((cached) => {
+          if (cached) return cached;
           if (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html')) {
             return caches.match('./index.html');
           }

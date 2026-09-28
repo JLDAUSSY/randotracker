@@ -424,38 +424,38 @@ function renderTracksList() {
   }
 
   container.innerHTML = state.tracks.map((track) => `
-    <div class="p-3 rounded-xl bg-slate-800/80 border ${track.visible ? 'border-slate-700' : 'border-slate-800 opacity-60'} hover:border-slate-600 transition flex flex-col gap-2">
+    <div class="p-4 rounded-2xl bg-slate-800/90 border ${track.visible ? 'border-slate-700' : 'border-slate-800 opacity-60'} hover:border-slate-500 transition flex flex-col gap-3 shadow-lg">
       <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2 min-w-0">
-          <span class="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" style="background-color: ${track.color.hex}"></span>
-          <h4 class="font-bold text-xs sm:text-sm text-white truncate" title="${track.name}">${track.name}</h4>
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="w-4 h-4 rounded-full shrink-0 shadow-md" style="background-color: ${track.color.hex}"></span>
+          <h4 class="font-black text-sm sm:text-base text-white truncate" title="${track.name}">${track.name}</h4>
         </div>
-        <div class="flex items-center gap-1 shrink-0">
-          <button onclick="zoomToTrack('${track.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700" title="Centrer la carte sur cette trace">
-            <i data-lucide="focus" class="w-3.5 h-3.5"></i>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button onclick="zoomToTrack('${track.id}')" class="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 active:scale-90" title="Centrer la carte sur cette trace">
+            <i data-lucide="focus" class="w-4 h-4"></i>
           </button>
-          <button onclick="toggleTrackVisibility('${track.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700" title="${track.visible ? 'Masquer' : 'Afficher'}">
-            <i data-lucide="${track.visible ? 'eye' : 'eye-off'}" class="w-3.5 h-3.5"></i>
+          <button onclick="toggleTrackVisibility('${track.id}')" class="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 active:scale-90" title="${track.visible ? 'Masquer' : 'Afficher'}">
+            <i data-lucide="${track.visible ? 'eye' : 'eye-off'}" class="w-4 h-4"></i>
           </button>
-          <button onclick="removeTrack('${track.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-slate-700" title="Supprimer">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <button onclick="removeTrack('${track.id}')" class="p-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-slate-700 active:scale-90" title="Supprimer">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
           </button>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-300 bg-slate-900/60 p-2 rounded-lg">
-        <div class="flex items-center gap-1.5">
-          <i data-lucide="navigation" class="w-3 h-3 text-slate-400"></i>
-          <span><b>${track.totalDistance.toFixed(1)}</b> km</span>
+      <div class="grid grid-cols-2 gap-2.5 text-xs text-slate-200 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+        <div class="flex items-center gap-2">
+          <i data-lucide="navigation" class="w-4 h-4 text-emerald-400"></i>
+          <span>Distance : <b class="text-white text-sm">${track.totalDistance.toFixed(1)} km</b></span>
         </div>
-        <div class="flex items-center gap-1.5">
-          <i data-lucide="trending-up" class="w-3 h-3 text-emerald-400"></i>
-          <span><b>+${track.eleGain}</b> m D+</span>
+        <div class="flex items-center gap-2">
+          <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+          <span>D+ : <b class="text-emerald-400 text-sm">+${track.eleGain} m</b></span>
         </div>
       </div>
 
-      <button onclick="openElevationDrawer('${track.id}')" class="w-full py-1.5 px-2 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-200 text-[11px] font-medium flex items-center justify-center gap-1.5 transition">
-        <i data-lucide="bar-chart-2" class="w-3 h-3 text-emerald-400"></i>
+      <button onclick="openElevationDrawer('${track.id}')" class="w-full py-2.5 px-3 rounded-xl bg-slate-700/80 hover:bg-slate-700 text-slate-100 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition active:scale-98 shadow">
+        <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-400"></i>
         <span>Voir le Profil Altimétrique</span>
       </button>
     </div>
@@ -706,24 +706,24 @@ function renderUsersList() {
     const distStr = dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`;
 
     return `
-      <div class="p-2.5 rounded-xl bg-slate-800/80 border ${u.isSos ? 'border-red-500/60 bg-red-950/20' : 'border-slate-700'} hover:border-slate-500 transition flex items-center justify-between cursor-pointer" onclick="centerOnUser('${u.id}')">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 shadow relative" style="background-color: ${u.color || '#3b82f6'}">
+      <div class="p-3.5 rounded-2xl bg-slate-800/90 border ${u.isSos ? 'border-red-500/80 bg-red-950/30' : 'border-slate-700'} hover:border-slate-500 transition flex items-center justify-between cursor-pointer active:scale-98 shadow-md" onclick="centerOnUser('${u.id}')">
+        <div class="flex items-center gap-3.5 min-w-0">
+          <div class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black text-white shrink-0 shadow-lg relative border-2 border-white/80" style="background-color: ${u.color || '#3b82f6'}">
             ${u.icon || '🥾'}
-            ${u.isSos ? '<span class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 border border-white animate-ping"></span>' : ''}
+            ${u.isSos ? '<span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border border-white animate-ping"></span>' : ''}
           </div>
           <div class="min-w-0">
-            <div class="flex items-center gap-1.5">
-              <span class="font-bold text-xs sm:text-sm text-white truncate">${u.name}</span>
-              ${u.isSos ? '<span class="text-[9px] font-black px-1.5 py-0.2 rounded bg-red-600 text-white animate-pulse">SOS</span>' : ''}
+            <div class="flex items-center gap-2">
+              <span class="font-black text-sm sm:text-base text-white truncate">${u.name}</span>
+              ${u.isSos ? '<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-600 text-white animate-pulse">SOS</span>' : ''}
             </div>
-            <div class="text-[11px] text-slate-400 truncate">${u.role}</div>
+            <div class="text-xs text-slate-300 font-medium truncate">${u.role}</div>
           </div>
         </div>
 
-        <div class="text-right text-xs shrink-0">
-          <div class="font-bold text-blue-400">${distStr}</div>
-          <div class="text-[10px] text-slate-400 flex items-center justify-end gap-1">
+        <div class="text-right shrink-0">
+          <div class="font-black text-sm sm:text-base text-blue-400">${distStr}</div>
+          <div class="text-xs text-slate-300 font-semibold flex items-center justify-end gap-1.5 mt-0.5">
             <span>${(u.speed || 0).toFixed(1)} km/h</span>
             <span>•</span>
             <span class="${u.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${u.battery}%</span>
