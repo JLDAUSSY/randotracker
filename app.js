@@ -1,6 +1,6 @@
 /**
  * RandoTracker - Application Mobile PWA & Suivi de Randonnée Multi-Groupes 4G
- * Cartographie IGN / OpenTopoMap, Traces GPX & Synchronisation WebRTC
+ * Cartographie IGN / OpenTopoMap, Traces GPX, Géolocalisation Auto & Invitations QR Code
  */
 
 // ============================================================================
@@ -54,7 +54,8 @@ const state = {
   peer: null,
   peerConnections: new Map(),
   hoverMarker: null,
-  activeDrawer: null // 'tracks', 'users' or null
+  activeDrawer: null,
+  qrCodeInstance: null
 };
 
 // ============================================================================
@@ -67,7 +68,7 @@ function showToast(msg, type = 'info') {
   const toast = document.createElement('div');
   toast.id = 'app-toast';
   const bgColor = type === 'success' ? 'bg-emerald-600' : type === 'error' ? 'bg-red-600' : 'bg-slate-800';
-  toast.className = `fixed top-16 left-1/2 -translate-x-1/2 z-50 ${bgColor} text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-2xl shadow-2xl border border-white/20 flex items-center gap-2 transition-all duration-300 transform translate-y-0`;
+  toast.className = `fixed top-24 left-1/2 -translate-x-1/2 z-50 ${bgColor} text-white text-sm sm:text-base font-black px-5 py-3 rounded-2xl shadow-2xl border-2 border-white/20 flex items-center gap-3 transition-all duration-300 transform translate-y-0`;
   toast.innerHTML = `
     <span>${type === 'success' ? '📍' : type === 'error' ? '⚠️' : 'ℹ️'}</span>
     <span>${msg}</span>
@@ -102,7 +103,6 @@ function initMap() {
     zoomControl: false
   });
 
-  // Repositionner le contrôle de zoom en bas à droite (au dessus de la barre de navigation)
   L.control.zoom({ position: 'bottomright' }).addTo(state.map);
 
   // 1. Fond IGN Géoplateforme (Plan IGN V2 Open)
@@ -141,8 +141,24 @@ function initMap() {
     }
   );
 
-  // Activer IGN par défaut
   state.layers.ign.addTo(state.map);
+
+  // Support Glisser-Déposer de fichiers GPX directement sur la carte
+  const mapDiv = document.getElementById('map');
+  mapDiv.addEventListener('dragover', (e) => {
+    e.preventDefault();
+  });
+  mapDiv.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    for (const file of files) {
+      if (file.name.toLowerCase().endsWith('.gpx')) {
+        const text = await file.text();
+        const parsed = parseGpxContent(text, file.name);
+        addTrackToState(parsed);
+      }
+    }
+  });
 }
 
 function setBaseLayer(layerKey) {
@@ -165,16 +181,15 @@ function setBaseLayer(layerKey) {
   const label = document.getElementById('active-layer-label');
   if (label) label.textContent = names[layerKey] || 'Fond de Carte';
 
-  // Mise à jour de la modale de sélection
   document.querySelectorAll('.layer-opt-btn').forEach(btn => {
     const isThis = btn.getAttribute('data-layer') === layerKey;
     const check = btn.querySelector('.layer-check');
     if (isThis) {
-      btn.classList.add('border-emerald-500', 'bg-emerald-600/20');
+      btn.classList.add('border-emerald-500', 'bg-emerald-600/25');
       btn.classList.remove('border-slate-700', 'bg-slate-800');
       if (check) check.classList.remove('hidden');
     } else {
-      btn.classList.remove('border-emerald-500', 'bg-emerald-600/20');
+      btn.classList.remove('border-emerald-500', 'bg-emerald-600/25');
       btn.classList.add('border-slate-700', 'bg-slate-800');
       if (check) check.classList.add('hidden');
     }
@@ -182,11 +197,11 @@ function setBaseLayer(layerKey) {
 }
 
 // ============================================================================
-// GESTION DU PARSING & AFFICHAGE DES TRACES GPX (Jusqu'à 5 traces)
+// GESTION DU PARSING & CHARGEMENT DE JUSQU'À 5 TRACES GPX
 // ============================================================================
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Rayon de la Terre en km
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
@@ -269,7 +284,7 @@ function parseGpxContent(xmlText, fileName) {
 
 function addTrackToState(track) {
   if (state.tracks.length >= MAX_TRACKS) {
-    alert(`Limite de ${MAX_TRACKS} traces atteinte. Veuillez en supprimer une avant d'en ajouter une autre.`);
+    alert(`Limite de ${MAX_TRACKS} traces atteinte. Veuillez en supprimer une avant d'en ajouter.`);
     return false;
   }
 
@@ -281,6 +296,7 @@ function addTrackToState(track) {
   renderTracksList();
   updateTracksBadge();
   fitAllTracks();
+  showToast(`Trace ajoutée : ${track.name}`, 'success');
   return true;
 }
 
@@ -290,27 +306,27 @@ function renderTrackOnMap(track) {
 
   const borderPolyline = L.polyline(latlngs, {
     color: '#0f172a',
-    weight: 7,
-    opacity: 0.7,
+    weight: 8,
+    opacity: 0.75,
     lineCap: 'round',
     lineJoin: 'round'
   });
 
   const mainPolyline = L.polyline(latlngs, {
     color: track.color.hex,
-    weight: 4.5,
-    opacity: 0.95,
+    weight: 5,
+    opacity: 0.98,
     lineCap: 'round',
     lineJoin: 'round'
   });
 
   mainPolyline.bindPopup(`
-    <div class="space-y-1.5 p-1 min-w-[190px]">
-      <div class="flex items-center gap-2">
-        <span class="w-3 h-3 rounded-full" style="background-color: ${track.color.hex}"></span>
-        <h4 class="font-bold text-sm text-white">${track.name}</h4>
+    <div class="space-y-2 p-1 min-w-[210px]">
+      <div class="flex items-center gap-2.5">
+        <span class="w-4 h-4 rounded-full shadow" style="background-color: ${track.color.hex}"></span>
+        <h4 class="font-black text-base text-white">${track.name}</h4>
       </div>
-      <div class="grid grid-cols-2 gap-2 text-xs text-slate-300 pt-1 border-t border-slate-700">
+      <div class="grid grid-cols-2 gap-2 text-sm text-slate-200 pt-2 border-t border-slate-700">
         <div>Distance : <b class="text-white">${track.totalDistance.toFixed(1)} km</b></div>
         <div>Dénivelé + : <b class="text-emerald-400">+${track.eleGain} m</b></div>
         <div>Altitude Min : <b class="text-white">${track.minEle} m</b></div>
@@ -327,9 +343,9 @@ function renderTrackOnMap(track) {
     const startPt = track.points[0];
     const startIcon = L.divIcon({
       className: 'start-marker',
-      html: `<div class="w-6 h-6 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-[10px] font-black text-white shadow-md">D</div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
+      html: `<div class="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-xs font-black text-white shadow-lg">D</div>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
     });
     const startMarker = L.marker([startPt.lat, startPt.lon], { icon: startIcon }).bindTooltip(`Départ : ${track.name}`, { direction: 'top' });
     layerGroup.addLayer(startMarker);
@@ -340,9 +356,9 @@ function renderTrackOnMap(track) {
     const endPt = track.points[track.points.length - 1];
     const endIcon = L.divIcon({
       className: 'end-marker',
-      html: `<div class="w-6 h-6 rounded-full bg-slate-900 border-2 border-white flex items-center justify-center text-[11px] font-black text-white shadow-md">🏁</div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
+      html: `<div class="w-8 h-8 rounded-full bg-slate-900 border-2 border-white flex items-center justify-center text-sm font-black text-white shadow-lg">🏁</div>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
     });
     const endMarker = L.marker([endPt.lat, endPt.lon], { icon: endIcon }).bindTooltip(`Arrivée : ${track.name}`, { direction: 'top' });
     layerGroup.addLayer(endMarker);
@@ -414,9 +430,9 @@ function renderTracksList() {
 
   if (state.tracks.length === 0) {
     container.innerHTML = `
-      <div class="text-center py-8 text-slate-500 text-xs">
-        <i data-lucide="map-pin-off" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
-        Aucune trace GPX chargée.<br/>Cliquez sur "Importer" ou "Démo".
+      <div class="text-center py-10 text-slate-400 text-sm font-semibold">
+        <i data-lucide="map-pin-off" class="w-10 h-10 mx-auto mb-3 opacity-50"></i>
+        Aucune trace GPX chargée.<br/>Cliquez sur "Charger GPX" pour en ajouter jusqu'à 5.
       </div>
     `;
     lucide.createIcons();
@@ -424,38 +440,38 @@ function renderTracksList() {
   }
 
   container.innerHTML = state.tracks.map((track) => `
-    <div class="p-4 rounded-2xl bg-slate-800/90 border ${track.visible ? 'border-slate-700' : 'border-slate-800 opacity-60'} hover:border-slate-500 transition flex flex-col gap-3 shadow-lg">
+    <div class="p-4 sm:p-5 rounded-3xl bg-slate-800/90 border-2 ${track.visible ? 'border-slate-700' : 'border-slate-800 opacity-60'} hover:border-slate-500 transition flex flex-col gap-3 shadow-xl">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3 min-w-0">
-          <span class="w-4 h-4 rounded-full shrink-0 shadow-md" style="background-color: ${track.color.hex}"></span>
-          <h4 class="font-black text-sm sm:text-base text-white truncate" title="${track.name}">${track.name}</h4>
+          <span class="w-5 h-5 rounded-full shrink-0 shadow-md" style="background-color: ${track.color.hex}"></span>
+          <h4 class="font-black text-base sm:text-lg text-white truncate" title="${track.name}">${track.name}</h4>
         </div>
-        <div class="flex items-center gap-1.5 shrink-0">
-          <button onclick="zoomToTrack('${track.id}')" class="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 active:scale-90" title="Centrer la carte sur cette trace">
-            <i data-lucide="focus" class="w-4 h-4"></i>
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="zoomToTrack('${track.id}')" class="p-2.5 rounded-2xl text-slate-200 hover:text-white bg-slate-750 hover:bg-slate-700 active:scale-90 border border-slate-700 shadow" title="Centrer la carte sur cette trace">
+            <i data-lucide="focus" class="w-5 h-5"></i>
           </button>
-          <button onclick="toggleTrackVisibility('${track.id}')" class="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-700 active:scale-90" title="${track.visible ? 'Masquer' : 'Afficher'}">
-            <i data-lucide="${track.visible ? 'eye' : 'eye-off'}" class="w-4 h-4"></i>
+          <button onclick="toggleTrackVisibility('${track.id}')" class="p-2.5 rounded-2xl text-slate-200 hover:text-white bg-slate-750 hover:bg-slate-700 active:scale-90 border border-slate-700 shadow" title="${track.visible ? 'Masquer' : 'Afficher'}">
+            <i data-lucide="${track.visible ? 'eye' : 'eye-off'}" class="w-5 h-5"></i>
           </button>
-          <button onclick="removeTrack('${track.id}')" class="p-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-slate-700 active:scale-90" title="Supprimer">
-            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <button onclick="removeTrack('${track.id}')" class="p-2.5 rounded-2xl text-slate-400 hover:text-red-400 bg-slate-750 hover:bg-slate-700 active:scale-90 border border-slate-700 shadow" title="Supprimer">
+            <i data-lucide="trash-2" class="w-5 h-5"></i>
           </button>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2.5 text-xs text-slate-200 bg-slate-900/80 p-3 rounded-xl border border-slate-800">
-        <div class="flex items-center gap-2">
-          <i data-lucide="navigation" class="w-4 h-4 text-emerald-400"></i>
-          <span>Distance : <b class="text-white text-sm">${track.totalDistance.toFixed(1)} km</b></span>
+      <div class="grid grid-cols-2 gap-3 text-xs sm:text-sm text-slate-200 bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="navigation" class="w-5 h-5 text-emerald-400"></i>
+          <span>Distance : <b class="text-white text-base">${track.totalDistance.toFixed(1)} km</b></span>
         </div>
-        <div class="flex items-center gap-2">
-          <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
-          <span>D+ : <b class="text-emerald-400 text-sm">+${track.eleGain} m</b></span>
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="trending-up" class="w-5 h-5 text-emerald-400"></i>
+          <span>D+ : <b class="text-emerald-400 text-base">+${track.eleGain} m</b></span>
         </div>
       </div>
 
-      <button onclick="openElevationDrawer('${track.id}')" class="w-full py-2.5 px-3 rounded-xl bg-slate-700/80 hover:bg-slate-700 text-slate-100 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition active:scale-98 shadow">
-        <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-400"></i>
+      <button onclick="openElevationDrawer('${track.id}')" class="w-full py-3 px-4 rounded-2xl bg-slate-700/80 hover:bg-slate-700 text-slate-100 text-sm font-black flex items-center justify-center gap-2.5 transition active:scale-98 shadow-md">
+        <i data-lucide="bar-chart-2" class="w-5 h-5 text-emerald-400"></i>
         <span>Voir le Profil Altimétrique</span>
       </button>
     </div>
@@ -505,7 +521,7 @@ function openElevationDrawer(trackId) {
   }
 
   const ctx = document.getElementById('elevation-chart').getContext('2d');
-  const gradient = ctx.createLinearGradient(0, 0, 0, 140);
+  const gradient = ctx.createLinearGradient(0, 0, 0, 160);
   gradient.addColorStop(0, track.color.hex + '99');
   gradient.addColorStop(1, track.color.hex + '05');
 
@@ -517,12 +533,12 @@ function openElevationDrawer(trackId) {
         label: 'Altitude (m)',
         data: elevationData,
         borderColor: track.color.hex,
-        borderWidth: 2.5,
+        borderWidth: 3,
         backgroundColor: gradient,
         fill: true,
         tension: 0.3,
         pointRadius: 0,
-        pointHoverRadius: 5,
+        pointHoverRadius: 6,
         pointHoverBackgroundColor: '#ffffff',
         pointHoverBorderColor: track.color.hex,
         pointHoverBorderWidth: 2
@@ -538,13 +554,13 @@ function openElevationDrawer(trackId) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
           titleColor: '#94a3b8',
           bodyColor: '#f8fafc',
-          bodyFont: { weight: 'bold' },
-          borderColor: 'rgba(255, 255, 255, 0.1)',
+          bodyFont: { weight: 'bold', size: 14 },
+          borderColor: 'rgba(255, 255, 255, 0.2)',
           borderWidth: 1,
-          padding: 8,
+          padding: 10,
           displayColors: false,
           callbacks: {
             title: (items) => `Distance : ${items[0].label}`,
@@ -555,11 +571,11 @@ function openElevationDrawer(trackId) {
       scales: {
         x: {
           grid: { color: 'rgba(255, 255, 255, 0.05)' },
-          ticks: { color: '#64748b', font: { size: 9 }, maxTicksLimit: 6 }
+          ticks: { color: '#94a3b8', font: { size: 11, weight: 'bold' }, maxTicksLimit: 6 }
         },
         y: {
           grid: { color: 'rgba(255, 255, 255, 0.05)' },
-          ticks: { color: '#64748b', font: { size: 9 } }
+          ticks: { color: '#94a3b8', font: { size: 11, weight: 'bold' } }
         }
       },
       onHover: (event, activeElements) => {
@@ -579,9 +595,9 @@ function updateHoverMapMarker(lat, lon) {
   if (!state.hoverMarker) {
     const icon = L.divIcon({
       className: 'hover-pin',
-      html: '<div class="w-4 h-4 rounded-full bg-white border-2 border-emerald-500 shadow-lg animate-ping"></div>',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8]
+      html: '<div class="w-6 h-6 rounded-full bg-white border-4 border-emerald-500 shadow-2xl animate-ping"></div>',
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
     });
     state.hoverMarker = L.marker([lat, lon], { icon: icon }).addTo(state.map);
   } else {
@@ -609,7 +625,7 @@ function createOrUpdateUserMarker(user) {
       <div class="user-label-tag">
         <span>${roleBadge}</span>
         <span>${user.name}</span>
-        ${user.isSos ? '<span class="text-red-400 font-bold ml-1">SOS</span>' : ''}
+        ${user.isSos ? '<span class="text-red-400 font-black ml-1 animate-pulse">SOS</span>' : ''}
       </div>
     </div>
   `;
@@ -617,9 +633,9 @@ function createOrUpdateUserMarker(user) {
   const customIcon = L.divIcon({
     className: 'custom-user-leaflet-icon',
     html: html,
-    iconSize: [50, 70],
-    iconAnchor: [25, 45],
-    popupAnchor: [0, -45]
+    iconSize: [70, 90],
+    iconAnchor: [35, 55],
+    popupAnchor: [0, -55]
   });
 
   if (!marker) {
@@ -632,18 +648,18 @@ function createOrUpdateUserMarker(user) {
 
   const distFromMe = isMe ? 0 : calculateDistance(state.myUser.lat, state.myUser.lon, user.lat, user.lon);
   marker.bindPopup(`
-    <div class="p-1 space-y-2 min-w-[200px]">
-      <div class="flex items-center gap-2.5 pb-2 border-b border-slate-700">
-        <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shadow" style="background-color: ${user.color}">
+    <div class="p-1 space-y-2.5 min-w-[230px]">
+      <div class="flex items-center gap-3 pb-2.5 border-b border-slate-700">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl font-black text-white shadow-lg" style="background-color: ${user.color}">
           ${user.icon || '🌲'}
         </div>
         <div>
-          <div class="font-bold text-sm text-white">${user.name} ${isMe ? '(Moi)' : ''}</div>
-          <div class="text-[11px] text-emerald-400 font-medium">${user.role}</div>
+          <div class="font-black text-base text-white">${user.name} ${isMe ? '(Moi)' : ''}</div>
+          <div class="text-xs text-emerald-400 font-bold">${user.role}</div>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 text-xs text-slate-300">
+      <div class="grid grid-cols-2 gap-2.5 text-sm text-slate-200">
         <div>Vitesse : <b class="text-white">${(user.speed || 0).toFixed(1)} km/h</b></div>
         <div>Altitude : <b class="text-white">${Math.round(user.ele || 0)} m</b></div>
         <div>Batterie : <b class="${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</b></div>
@@ -651,13 +667,13 @@ function createOrUpdateUserMarker(user) {
       </div>
 
       ${user.isSos ? `
-        <div class="p-2 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-bold flex items-center gap-2">
-          <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400"></i>
+        <div class="p-2.5 rounded-xl bg-red-500/20 border-2 border-red-500/50 text-red-300 text-xs font-black flex items-center gap-2">
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-red-400"></i>
           <span>ALERTE SOS SIGNALÉE !</span>
         </div>
       ` : ''}
 
-      <div class="text-[10px] text-slate-400 pt-1 border-t border-slate-800 text-right">
+      <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800 text-right">
         Mis à jour : ${new Date(user.lastSeen).toLocaleTimeString()}
       </div>
     </div>
@@ -692,9 +708,10 @@ function renderUsersList() {
 
   if (otherUsersList.length === 0) {
     container.innerHTML = `
-      <div class="text-center py-6 text-slate-500 text-xs">
-        <i data-lucide="user-x" class="w-6 h-6 mx-auto mb-1.5 opacity-50"></i>
-        Aucun autre randonneur connecté.<br/>Partagez le code <b class="text-emerald-400">${state.roomCode}</b> en 4G.
+      <div class="text-center py-8 text-slate-400 text-sm font-semibold">
+        <i data-lucide="user-x" class="w-10 h-10 mx-auto mb-2 opacity-50"></i>
+        Aucun autre randonneur connecté pour le moment.<br/>
+        Cliquez sur <b class="text-blue-400">« Inviter des participants »</b> pour partager le QR Code.
       </div>
     `;
     lucide.createIcons();
@@ -706,24 +723,24 @@ function renderUsersList() {
     const distStr = dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`;
 
     return `
-      <div class="p-3.5 rounded-2xl bg-slate-800/90 border ${u.isSos ? 'border-red-500/80 bg-red-950/30' : 'border-slate-700'} hover:border-slate-500 transition flex items-center justify-between cursor-pointer active:scale-98 shadow-md" onclick="centerOnUser('${u.id}')">
+      <div class="p-4 rounded-3xl bg-slate-800/90 border-2 ${u.isSos ? 'border-red-500/80 bg-red-950/30' : 'border-slate-700'} hover:border-slate-500 transition flex items-center justify-between cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
         <div class="flex items-center gap-3.5 min-w-0">
-          <div class="w-12 h-12 rounded-full flex items-center justify-center text-lg font-black text-white shrink-0 shadow-lg relative border-2 border-white/80" style="background-color: ${u.color || '#3b82f6'}">
+          <div class="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-lg relative border-2 border-white/90" style="background-color: ${u.color || '#3b82f6'}">
             ${u.icon || '🥾'}
-            ${u.isSos ? '<span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 border border-white animate-ping"></span>' : ''}
+            ${u.isSos ? '<span class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-white animate-ping"></span>' : ''}
           </div>
           <div class="min-w-0">
             <div class="flex items-center gap-2">
-              <span class="font-black text-sm sm:text-base text-white truncate">${u.name}</span>
-              ${u.isSos ? '<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-600 text-white animate-pulse">SOS</span>' : ''}
+              <span class="font-black text-base sm:text-lg text-white truncate">${u.name}</span>
+              ${u.isSos ? '<span class="text-xs font-black px-2.5 py-0.5 rounded-full bg-red-600 text-white animate-pulse">SOS</span>' : ''}
             </div>
-            <div class="text-xs text-slate-300 font-medium truncate">${u.role}</div>
+            <div class="text-xs sm:text-sm text-slate-300 font-semibold truncate">${u.role}</div>
           </div>
         </div>
 
         <div class="text-right shrink-0">
-          <div class="font-black text-sm sm:text-base text-blue-400">${distStr}</div>
-          <div class="text-xs text-slate-300 font-semibold flex items-center justify-end gap-1.5 mt-0.5">
+          <div class="font-black text-base sm:text-lg text-blue-400">${distStr}</div>
+          <div class="text-xs sm:text-sm text-slate-300 font-bold flex items-center justify-end gap-1.5 mt-0.5">
             <span>${(u.speed || 0).toFixed(1)} km/h</span>
             <span>•</span>
             <span class="${u.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${u.battery}%</span>
@@ -804,17 +821,18 @@ function closeAllDrawers() {
 }
 
 // ============================================================================
-// GÉOLOCALISATION GPS
+// GÉOLOCALISATION GPS AUTOMATIQUE & INSTANTANÉE
 // ============================================================================
 function startGpsWatch(useHighAccuracy = true) {
-  const navBtn = document.getElementById('nav-btn-gps');
   const navBubble = document.getElementById('nav-gps-bubble');
   const navIcon = document.getElementById('nav-gps-icon');
   const navLabel = document.getElementById('nav-gps-label');
+  const bannerText = document.getElementById('gps-banner-text');
 
-  navLabel.textContent = 'Recherche...';
-  navBubble.className = 'w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500 flex items-center justify-center';
-  navIcon.className = 'w-4 h-4 text-amber-400 animate-spin';
+  if (navLabel) navLabel.textContent = 'Recherche...';
+  if (navBubble) navBubble.className = 'w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-500 flex items-center justify-center';
+  if (navIcon) navIcon.className = 'w-8 h-8 text-amber-400 animate-spin';
+  if (bannerText) bannerText.textContent = '📍 Recherche de vos coordonnées GPS...';
 
   const onPositionSuccess = (pos) => {
     state.isTrackingGps = true;
@@ -824,18 +842,20 @@ function startGpsWatch(useHighAccuracy = true) {
     state.myUser.speed = pos.coords.speed ? (pos.coords.speed * 3.6) : 0.0;
     state.myUser.accuracy = pos.coords.accuracy || 10;
 
-    navLabel.textContent = `GPS (±${Math.round(pos.coords.accuracy)}m)`;
-    navBubble.className = 'w-8 h-8 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center shadow-lg shadow-emerald-500/50 animate-pulse';
-    navIcon.className = 'w-4 h-4 text-white';
+    const accStr = `±${Math.round(pos.coords.accuracy)}m`;
+    if (navLabel) navLabel.textContent = `GPS (${accStr})`;
+    if (navBubble) navBubble.className = 'w-16 h-16 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center shadow-2xl animate-pulse';
+    if (navIcon) navIcon.className = 'w-8 h-8 text-white';
+    if (bannerText) bannerText.textContent = `📍 Position GPS verrouillée (${accStr})`;
 
-    // Cercle de précision
+    // Cercle vert de précision
     if (!state.accuracyCircle) {
       state.accuracyCircle = L.circle([state.myUser.lat, state.myUser.lon], {
         radius: pos.coords.accuracy || 20,
         color: '#10b981',
         fillColor: '#10b981',
-        fillOpacity: 0.12,
-        weight: 1.5
+        fillOpacity: 0.14,
+        weight: 2
       }).addTo(state.map);
     } else {
       state.accuracyCircle.setLatLng([state.myUser.lat, state.myUser.lon]);
@@ -844,7 +864,7 @@ function startGpsWatch(useHighAccuracy = true) {
 
     broadcastMyPosition();
     state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
-    showToast(`GPS connecté (Précision : ±${Math.round(pos.coords.accuracy)}m)`, 'success');
+    showToast(`GPS connecté (Précision : ${accStr})`, 'success');
   };
 
   const onPositionError = (err) => {
@@ -861,18 +881,18 @@ function startGpsWatch(useHighAccuracy = true) {
     if (err.code === 1) {
       explication = "Autorisation GPS refusée. Veuillez autoriser l'accès à la position dans votre navigateur.";
     } else if (err.code === 2) {
-      explication = "Signal GPS indisponible. Activez le service de localisation sur votre appareil.";
+      explication = "Signal GPS indisponible. Activez le service de localisation de votre appareil.";
     } else if (err.code === 3) {
       explication = "Délai de réponse GPS dépassé.";
     }
 
+    if (bannerText) bannerText.textContent = `⚠️ GPS : ${explication}`;
     showToast(explication, 'error');
-    alert(`GPS : ${explication}`);
   };
 
   navigator.geolocation.getCurrentPosition(onPositionSuccess, onPositionError, {
     enableHighAccuracy: useHighAccuracy,
-    timeout: 10000,
+    timeout: 12000,
     maximumAge: 0
   });
 
@@ -900,10 +920,12 @@ function stopGpsWatch() {
   const navBubble = document.getElementById('nav-gps-bubble');
   const navIcon = document.getElementById('nav-gps-icon');
   const navLabel = document.getElementById('nav-gps-label');
+  const bannerText = document.getElementById('gps-banner-text');
 
   if (navLabel) navLabel.textContent = 'Mon GPS';
-  if (navBubble) navBubble.className = 'w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center';
-  if (navIcon) navIcon.className = 'w-4 h-4 text-slate-400';
+  if (navBubble) navBubble.className = 'w-16 h-16 rounded-full bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-xl';
+  if (navIcon) navIcon.className = 'w-8 h-8 text-slate-300';
+  if (bannerText) bannerText.textContent = 'GPS désactivé. Appuyez sur « Mon GPS » pour activer.';
 }
 
 function toggleGps() {
@@ -917,6 +939,78 @@ function toggleGps() {
     }
     startGpsWatch(true);
   }
+}
+
+// ============================================================================
+// SYSTÈME D'INVITATION DES PARTICIPANTS (QR CODE + WHATSAPP / SMS)
+// ============================================================================
+function getInviteUrl() {
+  const origin = window.location.origin;
+  const pathname = window.location.pathname;
+  return `${origin}${pathname}#room=${state.roomCode}`;
+}
+
+function openInviteModal() {
+  const modal = document.getElementById('invite-modal');
+  const urlDisplay = document.getElementById('invite-room-url');
+  const qrcodeContainer = document.getElementById('qrcode');
+  const inviteUrl = getInviteUrl();
+
+  urlDisplay.textContent = inviteUrl;
+  qrcodeContainer.innerHTML = '';
+
+  // Générer le QR Code
+  try {
+    if (typeof QRCode !== 'undefined') {
+      new QRCode(qrcodeContainer, {
+        text: inviteUrl,
+        width: 220,
+        height: 220,
+        colorDark: '#0f172a',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    } else {
+      // Fallback API QR
+      qrcodeContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(inviteUrl)}" alt="QR Code" class="w-[220px] h-[220px] rounded-xl" />`;
+    }
+  } catch (e) {
+    qrcodeContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(inviteUrl)}" alt="QR Code" class="w-[220px] h-[220px] rounded-xl" />`;
+  }
+
+  modal.classList.remove('hidden');
+}
+
+async function shareInviteLink() {
+  const inviteUrl = getInviteUrl();
+  const title = `RandoTracker - Salon ${state.roomCode}`;
+  const text = `Rejoins notre randonnée en direct sur la carte détaillée avec le salon ${state.roomCode} :`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: title,
+        text: text,
+        url: inviteUrl
+      });
+      showToast('Invitation partagée !', 'success');
+      return;
+    } catch (err) {
+      // L'utilisateur a annulé ou le partage a échoué
+    }
+  }
+
+  // Fallback : Copie dans le presse-papier
+  copyInviteLink();
+}
+
+function copyInviteLink() {
+  const inviteUrl = getInviteUrl();
+  navigator.clipboard.writeText(inviteUrl).then(() => {
+    showToast('Lien copié dans le presse-papier !', 'success');
+  }).catch(() => {
+    prompt('Copiez ce lien d\'invitation :', inviteUrl);
+  });
 }
 
 // ============================================================================
@@ -1048,110 +1142,7 @@ function handleIncomingMessage(data) {
 }
 
 // ============================================================================
-// MOTEUR DE SIMULATION MULTI-RANDONNEURS
-// ============================================================================
-const SIMULATED_NAMES = [
-  { name: 'Claire Martin', role: 'Guide adjointe', icon: '🦊', color: '#dc2626' },
-  { name: 'Lucas Bernard', role: 'Randonneur (Niv 1)', icon: '🦅', color: '#2563eb' },
-  { name: 'Sophie Petit', role: 'Randonneur (Niv 2)', icon: '🐻', color: '#d97706' },
-  { name: 'Thomas Roux', role: 'Randonneur (Niv 3)', icon: '🐺', color: '#9333ea' },
-  { name: 'Camille Leroy', role: 'Serre-file', icon: '🏔️', color: '#0d9488' },
-  { name: 'Maxime Dubois', role: 'Randonneur', icon: '🥾', color: '#4f46e5' }
-];
-
-function toggleSimulation() {
-  const btn = document.getElementById('toggle-simulation-btn');
-  const btnText = document.getElementById('sim-btn-text');
-
-  if (state.isSimulating) {
-    clearInterval(state.simulationInterval);
-    state.isSimulating = false;
-    btn.classList.remove('bg-emerald-500/20', 'text-emerald-300', 'border-emerald-500/40');
-    btn.classList.add('bg-amber-500/15', 'text-amber-300', 'border-amber-500/30');
-    btnText.textContent = 'Simulation';
-    showToast('Simulation arrêtée', 'info');
-  } else {
-    if (state.tracks.length === 0) {
-      alert('Veuillez d\'abord charger au moins une trace GPX.');
-      return;
-    }
-
-    state.isSimulating = true;
-    btn.classList.remove('bg-amber-500/15', 'text-amber-300', 'border-amber-500/30');
-    btn.classList.add('bg-emerald-500/20', 'text-emerald-300', 'border-emerald-500/40');
-    btnText.textContent = 'Arrêter sim.';
-
-    const simUsers = [];
-    SIMULATED_NAMES.forEach((cfg, i) => {
-      const track = state.tracks[i % state.tracks.length];
-      const stepProgression = Math.floor((track.points.length / (SIMULATED_NAMES.length + 1)) * (i + 1));
-      const pt = track.points[stepProgression] || track.points[0];
-
-      simUsers.push({
-        id: `sim_user_${i}`,
-        name: cfg.name,
-        role: cfg.role,
-        icon: cfg.icon,
-        color: cfg.color,
-        trackId: track.id,
-        pointIndex: stepProgression,
-        lat: pt.lat,
-        lon: pt.lon,
-        ele: pt.ele,
-        speed: 3.8 + (Math.random() * 1.4),
-        battery: 95 - (i * 6),
-        isSos: i === 3 && Math.random() > 0.8,
-        lastSeen: Date.now()
-      });
-    });
-
-    simUsers.forEach(u => {
-      state.otherUsers.set(u.id, u);
-      createOrUpdateUserMarker(u);
-    });
-    renderUsersList();
-    showToast('6 randonneurs simulés en mouvement', 'success');
-
-    state.simulationInterval = setInterval(() => {
-      simUsers.forEach(u => {
-        const track = state.tracks.find(t => t.id === u.trackId) || state.tracks[0];
-        if (!track || track.points.length === 0) return;
-
-        u.pointIndex = (u.pointIndex + 1) % track.points.length;
-        const pt = track.points[u.pointIndex];
-
-        u.lat = pt.lat;
-        u.lon = pt.lon;
-        u.ele = pt.ele;
-        u.speed = 3.6 + Math.sin(u.pointIndex) * 1.2;
-        u.lastSeen = Date.now();
-
-        state.otherUsers.set(u.id, u);
-        createOrUpdateUserMarker(u);
-      });
-      renderUsersList();
-    }, 2000);
-  }
-}
-
-function clearSimulatedUsers() {
-  const simIds = [];
-  state.otherUsers.forEach((_, id) => {
-    if (id.startsWith('sim_user_')) simIds.push(id);
-  });
-
-  simIds.forEach(id => {
-    state.otherUsers.delete(id);
-    removeUserMarker(id);
-  });
-
-  if (state.isSimulating) toggleSimulation();
-  renderUsersList();
-  showToast('Randonneurs simulés effacés', 'info');
-}
-
-// ============================================================================
-// GÉNÉRATION & CHARGEMENT DES TRACES PAR DÉFAUT (GARANTIE ZERO ERREUR RÉSEAU)
+// CHARGEMENT DES TRACES PAR DÉFAUT
 // ============================================================================
 function generateDemoTrackPoints(centerLat, centerLon, radiusKm, numPoints, baseEle, maxEle, irregularity = 0.3) {
   const pts = [];
@@ -1184,7 +1175,6 @@ function generateDemoTrackPoints(centerLat, centerLon, radiusKm, numPoints, base
 }
 
 async function loadDemoTracks() {
-  // 1. Tenter de charger les fichiers GPX relatifs
   let loadedCount = 0;
   const files = [
     { url: './tracks/parcours_1_vert_6km.gpx', name: 'Niveau 1 - Boucle Découverte (6 km)' },
@@ -1204,9 +1194,7 @@ async function loadDemoTracks() {
     } catch (e) {}
   }
 
-  // 2. Si les fichiers GPX ne sont pas trouvés (ex: GitHub Pages sous-dossier), générer les 3 parcours mathématiquement
   if (loadedCount === 0) {
-    console.log('[GPX] Génération dynamique des 3 parcours de démonstration...');
     const p1 = generateDemoTrackPoints(45.8920, 6.1550, 1.1, 90, 450, 690, 0.25);
     addTrackToState({ id: 'demo_1', name: 'Niveau 1 - Boucle Découverte (6 km)', points: p1.points, totalDistance: p1.totalDistance, eleGain: p1.eleGain, minEle: p1.minEle, maxEle: p1.maxEle, visible: true });
 
@@ -1239,8 +1227,9 @@ function setupEventListeners() {
   });
 
   document.getElementById('nav-btn-gps').addEventListener('click', toggleGps);
+  document.getElementById('refresh-gps-banner-btn').addEventListener('click', () => startGpsWatch(true));
 
-  // Bouton centrer GPS flottant
+  // Boutons flottants
   document.getElementById('center-my-gps-btn').addEventListener('click', () => {
     if (state.isTrackingGps) {
       state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
@@ -1249,19 +1238,21 @@ function setupEventListeners() {
     }
   });
 
-  // Bouton recadrer traces
   document.getElementById('fit-all-btn').addEventListener('click', fitAllTracks);
 
-  // Simulation
-  document.getElementById('toggle-simulation-btn').addEventListener('click', toggleSimulation);
-  document.getElementById('clear-sim-users-btn').addEventListener('click', clearSimulatedUsers);
+  // Invitations
+  document.getElementById('header-invite-btn').addEventListener('click', openInviteModal);
+  document.getElementById('drawer-invite-btn').addEventListener('click', openInviteModal);
+  document.getElementById('close-invite-modal-btn').addEventListener('click', () => document.getElementById('invite-modal').classList.add('hidden'));
+  document.getElementById('share-native-btn').addEventListener('click', shareInviteLink);
+  document.getElementById('copy-link-btn').addEventListener('click', copyInviteLink);
 
   // Fermetures tiroirs
   document.getElementById('close-tracks-panel-btn').addEventListener('click', closeAllDrawers);
   document.getElementById('close-users-panel-btn').addEventListener('click', closeAllDrawers);
   document.getElementById('drawer-backdrop').addEventListener('click', closeAllDrawers);
 
-  // Recharge Démo
+  // Recharger démo
   document.getElementById('load-sample-tracks-btn').addEventListener('click', () => {
     state.tracks.forEach(t => {
       const l = state.trackLayers.get(t.id);
@@ -1272,27 +1263,32 @@ function setupEventListeners() {
     loadDemoTracks();
   });
 
-  // Import GPX
+  // Import GPX Multifichiers (1 à 5)
   const gpxInput = document.getElementById('gpx-file-input');
   gpxInput.addEventListener('change', async (e) => {
     const files = Array.from(e.target.files);
+    let countAdded = 0;
     for (const file of files) {
       if (state.tracks.length >= MAX_TRACKS) {
-        alert(`Maximum ${MAX_TRACKS} traces.`);
+        alert(`Vous avez atteint la limite de ${MAX_TRACKS} traces GPX.`);
         break;
       }
       try {
         const text = await file.text();
         const parsed = parseGpxContent(text, file.name);
         addTrackToState(parsed);
+        countAdded++;
       } catch (err) {
-        alert(`Erreur fichier : ${err.message}`);
+        alert(`Erreur dans ${file.name} : ${err.message}`);
       }
     }
     gpxInput.value = '';
+    if (countAdded > 0) {
+      closeAllDrawers();
+    }
   });
 
-  // Fermer profil alti
+  // Fermer profil altimétrique
   document.getElementById('close-ele-drawer-btn').addEventListener('click', () => {
     document.getElementById('elevation-drawer').classList.add('hidden');
     if (state.hoverMarker) {
@@ -1341,12 +1337,12 @@ function setupEventListeners() {
     if (state.myUser.isSos) {
       sosBtn.classList.remove('bg-red-600/20', 'text-red-400');
       sosBtn.classList.add('bg-red-600', 'text-white', 'animate-pulse');
-      sosText.textContent = '⚠️ SOS ACTIF (Annuler)';
-      showToast('ALERTE SOS ENVOYÉE AU GROUPE !', 'error');
+      sosText.textContent = '⚠️ ALERTE SOS ACTIVE (ANNULER)';
+      showToast('🚨 ALERTE SOS ENVOYÉE AU GROUPE !', 'error');
     } else {
       sosBtn.classList.add('bg-red-600/20', 'text-red-400');
       sosBtn.classList.remove('bg-red-600', 'text-white', 'animate-pulse');
-      sosText.textContent = 'Signaler Problème / SOS';
+      sosText.textContent = '🚨 SIGNALER UN PROBLÈME / SOS';
       showToast('Alerte SOS désactivée', 'info');
     }
     broadcastMyPosition();
@@ -1380,7 +1376,6 @@ function setupEventListeners() {
     if (name) state.myUser.name = name;
     if (role) state.myUser.role = role;
 
-    document.getElementById('header-user-name').textContent = state.myUser.name;
     document.getElementById('header-avatar-badge').textContent = state.myUser.icon;
     document.getElementById('header-avatar-badge').style.backgroundColor = state.myUser.color;
 
@@ -1396,7 +1391,7 @@ function setupEventListeners() {
 }
 
 // ============================================================================
-// DÉMARRAGE DE L'APPLICATION
+// DÉMARRAGE AUTOMATIQUE AVEC GÉOLOCALISATION IMMÉDIATE
 // ============================================================================
 window.addEventListener('DOMContentLoaded', async () => {
   initPWA();
@@ -1409,4 +1404,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   await loadDemoTracks();
   lucide.createIcons();
+
+  // DÉCLENCHEMENT AUTOMATIQUE DE LA GÉOLOCALISATION AU DÉMARRAGE
+  if (navigator.geolocation) {
+    console.log('[GPS] Démarrage automatique de la géolocalisation...');
+    startGpsWatch(true);
+  }
 });

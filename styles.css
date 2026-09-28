@@ -1,4 +1,4 @@
-/* Styles GÉANTS Spécial Randonnée & Écran Tactile Smartphone */
+/* Styles ULTRA-GÉANTS Spécial Outdoor, Randonnée & Gros Doigts */
 
 :root {
   --sat: env(safe-area-inset-top, 0px);
@@ -6,15 +6,15 @@
 }
 
 .safe-bottom {
-  padding-bottom: calc(1rem + var(--sab));
+  padding-bottom: calc(1.25rem + var(--sab));
 }
 
 @keyframes pulse-glow {
   0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.85);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.9);
   }
   70% {
-    box-shadow: 0 0 0 20px rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 24px rgba(16, 185, 129, 0);
   }
   100% {
     box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
@@ -27,10 +27,10 @@
     transform: scale(1);
   }
   50% {
-    transform: scale(1.12);
+    transform: scale(1.15);
   }
   70% {
-    box-shadow: 0 0 0 24px rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 28px rgba(239, 68, 68, 0);
   }
   100% {
     box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
@@ -38,7 +38,7 @@
   }
 }
 
-/* MARQUEURS DE CARTE GÉANTS (56px x 56px) */
+/* MARQUEURS DE CARTE ULTRA-GÉANTS (64px x 64px) */
 .user-marker-pin {
   display: flex;
   flex-direction: column;
@@ -49,22 +49,22 @@
 }
 
 .user-marker-pin:hover {
-  transform: scale(1.2) translateY(-6px);
+  transform: scale(1.22) translateY(-8px);
   z-index: 9999 !important;
 }
 
 .user-avatar-bubble {
-  width: 56px;
-  height: 56px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
-  border: 4px solid #ffffff;
+  border: 4.5px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 900;
-  font-size: 26px;
+  font-size: 30px;
   color: white;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.65);
   position: relative;
 }
 
@@ -79,37 +79,37 @@
 
 .user-label-tag {
   background: rgba(15, 23, 42, 0.98);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: white;
-  padding: 4px 12px;
+  padding: 5px 14px;
   border-radius: 9999px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 900;
-  margin-top: 5px;
+  margin-top: 6px;
   white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-  border: 2px solid rgba(255,255,255,0.3);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.7);
+  border: 2.5px solid rgba(255,255,255,0.35);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
-/* POPUPS LEAFLET GÉANTS & TRÈS LISIBLES */
+/* POPUPS LEAFLET TRÈS GRANDS & CONTRASTÉS */
 .leaflet-popup-content-wrapper {
   background: rgba(15, 23, 42, 0.98) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   color: #f8fafc !important;
-  border-radius: 24px !important;
-  border: 2px solid rgba(255,255,255,0.25) !important;
-  box-shadow: 0 20px 45px -5px rgba(0, 0, 0, 0.8) !important;
-  padding: 6px !important;
+  border-radius: 28px !important;
+  border: 2.5px solid rgba(255,255,255,0.3) !important;
+  box-shadow: 0 24px 50px -5px rgba(0, 0, 0, 0.85) !important;
+  padding: 8px !important;
 }
 
 .leaflet-popup-content {
-  margin: 14px 18px !important;
-  font-size: 15px !important;
+  margin: 16px 20px !important;
+  font-size: 16px !important;
   line-height: 1.6 !important;
 }
 
@@ -117,7 +117,7 @@
   background: rgba(15, 23, 42, 0.98) !important;
 }
 
-/* TIROIRS MOBILES GRAND FORMAT */
+/* TIROIRS MOBILES ULTRA-LARGES */
 .mobile-drawer {
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
 }
@@ -129,9 +129,9 @@
     right: 0 !important;
     bottom: 0 !important;
     top: auto !important;
-    max-height: 90vh !important;
-    border-top-left-radius: 28px !important;
-    border-top-right-radius: 28px !important;
+    max-height: 92vh !important;
+    border-top-left-radius: 32px !important;
+    border-top-right-radius: 32px !important;
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
     width: 100% !important;

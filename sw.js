@@ -1,5 +1,5 @@
-// Service Worker pour RandoTracker PWA - Version 4
-const CACHE_NAME = 'rando-tracker-v4';
+// Service Worker pour RandoTracker PWA - Version 5
+const CACHE_NAME = 'rando-tracker-v5';
 
 const STATIC_ASSETS = [
   './',
