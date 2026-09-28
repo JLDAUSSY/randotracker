@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="RandoTracker" />
-  <link rel="icon" type="image/png" href="favicon.png?v=13" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=13" />
+  <link rel="icon" type="image/png" href="favicon.png?v=14" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=14" />
   <link rel="manifest" href="manifest.json" />
 
   <title>RandoTracker - Suivi de Randonnée & Cartes IGN</title>
@@ -43,14 +43,14 @@
   <!-- Chart.js for Elevation Profile -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- PeerJS for WebRTC Sync -->
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- MQTT.js for Real-Time 4G/5G Group Sync & Live GPX Sharing -->
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v13 -->
-  <link rel="stylesheet" href="styles.css?v=13" />
+  <!-- Custom Styles with Cache-Busting v14 -->
+  <link rel="stylesheet" href="styles.css?v=14" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -60,10 +60,10 @@
   <header class="h-20 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-3 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
     <!-- Logo & Nom -->
     <div class="flex items-center gap-3">
-      <img src="logo.png?v=13" alt="Logo RandoTracker" class="w-12 h-12 rounded-2xl shadow-xl border-2 border-emerald-500/30 shrink-0 bg-slate-900 object-contain p-0.5" />
+      <img src="logo.png?v=14" alt="Logo RandoTracker" class="w-12 h-12 rounded-2xl shadow-xl border-2 border-emerald-500/30 shrink-0 bg-slate-900 object-contain p-0.5" />
       <div class="flex items-center gap-2">
         <span class="font-black text-xl sm:text-2xl tracking-tight text-white">RandoTracker</span>
-        <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40">v13</span>
+        <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40">v14</span>
       </div>
     </div>
 
@@ -510,7 +510,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v13 -->
-  <script src="app.js?v=13"></script>
+  <!-- Main Application Script with Cache-Busting v14 -->
+  <script src="app.js?v=14"></script>
 </body>
 </html>

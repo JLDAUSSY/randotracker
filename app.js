@@ -279,6 +279,11 @@ function clearHikeSession() {
   renderQuickTracksBar();
   renderUsersList();
   showToast('Session réinitialisée. Prêt pour une nouvelle rando !', 'info');
+
+  publishMessage({
+    type: 'clear_tracks',
+    from: state.myUser.id
+  });
 }
 
 // ============================================================================
@@ -397,9 +402,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=13')
+    navigator.serviceWorker.register('./sw.js?v=14')
       .then((reg) => {
-        console.log('[PWA] Service Worker v13 actif:', reg.scope);
+        console.log('[PWA] Service Worker v14 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -647,6 +652,14 @@ function addTrackToState(track) {
   saveHikeSessionToStorage();
   updateProfileUI(); // Met à jour le sélecteur de trace
   showToast(`Trace ajoutée : ${track.name} (${track.totalDistance.toFixed(1)} km)`, 'success');
+
+  // Synchroniser immédiatement la trace avec tous les invités du salon
+  publishMessage({
+    type: 'sync_tracks',
+    from: state.myUser.id,
+    tracks: state.tracks
+  });
+
   return true;
 }
 
@@ -1402,7 +1415,7 @@ function toggleGps() {
 function getInviteUrl() {
   const origin = window.location.origin;
   const pathname = window.location.pathname;
-  return `${origin}${pathname}#room=${state.roomCode}`;
+  return `${origin}${pathname}?room=${encodeURIComponent(state.roomCode)}`;
 }
 
 function openInviteModal() {
@@ -1469,13 +1482,16 @@ function copyInviteLink() {
 }
 
 // ============================================================================
-// SYNCHRONISATION EN TEMPS RÉEL (WebRTC, WebSocket & BroadcastChannel)
+// SYNCHRONISATION EN TEMPS RÉEL (MQTT 4G/5G/Wi-Fi & BroadcastChannel)
 // ============================================================================
+let mqttClient = null;
+
 function initRealtimeSync() {
   const urlParams = new URLSearchParams(window.location.search);
-  const roomParam = urlParams.get('room') || window.location.hash.replace('#room=', '');
+  const roomParam = urlParams.get('room') || (window.location.hash ? window.location.hash.replace(/^#room=/, '').replace(/^#/, '') : null);
   if (roomParam) {
-    state.roomCode = roomParam.toUpperCase().trim();
+    state.roomCode = decodeURIComponent(roomParam).toUpperCase().trim();
+    localStorage.setItem('rando_room_code', state.roomCode);
   } else {
     const savedRoom = localStorage.getItem('rando_room_code');
     if (savedRoom) state.roomCode = savedRoom;
@@ -1487,8 +1503,7 @@ function initRealtimeSync() {
     state.broadcastChannel.onmessage = (event) => handleIncomingMessage(event.data);
   } catch (e) {}
 
-  connectWebSocket();
-  initPeerJS();
+  initMqttSync();
 }
 
 function updateRoomDisplay() {
@@ -1499,44 +1514,116 @@ function updateRoomDisplay() {
   localStorage.setItem('rando_room_code', state.roomCode);
 }
 
-function initPeerJS() {
-  if (typeof Peer === 'undefined') return;
+function updateConnectionStatus(isConnected) {
+  const hint = document.getElementById('group-status-hint');
+  if (hint) {
+    if (isConnected) {
+      hint.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse mr-1.5"></span>4G Direct`;
+      hint.className = 'text-xs text-emerald-400 font-bold flex items-center';
+    } else {
+      hint.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 mr-1.5"></span>Connexion...`;
+      hint.className = 'text-xs text-amber-400 font-bold flex items-center';
+    }
+  }
+}
+
+function initMqttSync() {
+  if (typeof mqtt === 'undefined') {
+    console.warn('[MQTT] Chargement du client MQTT...');
+    setTimeout(initMqttSync, 1000);
+    return;
+  }
+
+  if (mqttClient) {
+    try { mqttClient.end(true); } catch (e) {}
+  }
+
+  const sanitizedRoom = state.roomCode.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const topic = `randotracker/v1/rooms/${sanitizedRoom}/events`;
+  const clientId = `rando_${state.myUser.id}_${Math.random().toString(36).substr(2, 6)}`;
+
+  const brokerUrl = 'wss://broker.hivemq.com:8884/mqtt';
+  console.log(`[MQTT] Connexion au broker HiveMQ (${state.roomCode})...`);
 
   try {
-    const sanitizedRoom = state.roomCode.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const myPeerId = `${sanitizedRoom}_${state.myUser.id}`;
+    mqttClient = mqtt.connect(brokerUrl, {
+      clientId: clientId,
+      clean: true,
+      connectTimeout: 10000,
+      reconnectPeriod: 3000,
+      keepalive: 30
+    });
 
-    if (state.peer) state.peer.destroy();
+    mqttClient.on('connect', () => {
+      console.log('[MQTT] Connecté avec succès au salon:', state.roomCode);
+      updateConnectionStatus(true);
+      mqttClient.subscribe(topic, { qos: 0 }, (err) => {
+        if (!err) {
+          console.log(`[MQTT] Abonné au topic : ${topic}`);
+          
+          // Annoncer notre arrivée dans le salon
+          publishMessage({
+            type: 'user_joined',
+            user: state.myUser,
+            hasTracks: state.tracks.length > 0
+          });
 
-    state.peer = new Peer(myPeerId, {
-      debug: 1,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' }
-        ]
+          // Si nous avons déjà des traces chargées, les envoyer immédiatement
+          if (state.tracks.length > 0) {
+            publishMessage({
+              type: 'sync_tracks',
+              from: state.myUser.id,
+              tracks: state.tracks
+            });
+          }
+        }
+      });
+    });
+
+    mqttClient.on('message', (t, message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        handleIncomingMessage(data);
+      } catch (e) {
+        console.warn('[MQTT] Erreur message:', e);
       }
     });
 
-    state.peer.on('connection', (conn) => {
-      state.peerConnections.set(conn.peer, conn);
-      conn.on('open', () => conn.send({ type: 'update_position', user: state.myUser }));
-      conn.on('data', (data) => handleIncomingMessage(data));
-      conn.on('close', () => state.peerConnections.delete(conn.peer));
+    mqttClient.on('error', (err) => {
+      console.warn('[MQTT] Erreur:', err);
+      updateConnectionStatus(false);
     });
-  } catch (err) {}
+
+    mqttClient.on('offline', () => {
+      console.log('[MQTT] Hors-ligne');
+      updateConnectionStatus(false);
+    });
+
+    mqttClient.on('reconnect', () => {
+      console.log('[MQTT] Reconnexion...');
+    });
+  } catch (err) {
+    console.error('[MQTT] Impossible d\'initialiser MQTT:', err);
+    updateConnectionStatus(false);
+  }
 }
 
-function connectWebSocket() {
-  try {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    state.ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-    state.ws.onopen = () => broadcastMyPosition();
-    state.ws.onmessage = (event) => {
-      try { handleIncomingMessage(JSON.parse(event.data)); } catch (e) {}
-    };
-    state.ws.onclose = () => setTimeout(connectWebSocket, 5000);
-  } catch (e) {}
+function publishMessage(payload) {
+  payload.senderId = state.myUser.id;
+  payload.room = state.roomCode;
+  payload.timestamp = Date.now();
+
+  const msgStr = JSON.stringify(payload);
+
+  if (mqttClient && mqttClient.connected) {
+    const sanitizedRoom = state.roomCode.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const topic = `randotracker/v1/rooms/${sanitizedRoom}/events`;
+    mqttClient.publish(topic, msgStr, { qos: 0 });
+  }
+
+  if (state.broadcastChannel) {
+    try { state.broadcastChannel.postMessage(payload); } catch (e) {}
+  }
 }
 
 function broadcastMyPosition() {
@@ -1544,47 +1631,88 @@ function broadcastMyPosition() {
   createOrUpdateUserMarker(state.myUser);
   renderUsersList();
 
-  const payload = {
+  publishMessage({
     type: 'update_position',
-    room: state.roomCode,
     user: state.myUser
-  };
-
-  if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-    try { state.ws.send(JSON.stringify(payload)); } catch (e) {}
-  }
-
-  state.peerConnections.forEach((conn) => {
-    if (conn.open) {
-      try { conn.send(payload); } catch (e) {}
-    }
   });
-
-  if (state.broadcastChannel) {
-    try { state.broadcastChannel.postMessage(payload); } catch (e) {}
-  }
 }
 
 function handleIncomingMessage(data) {
   if (!data || !data.type) return;
+  if (data.senderId === state.myUser.id) return; // Ignore nos propres messages
+  if (data.room && data.room !== state.roomCode) return;
 
-  if (data.type === 'init_state' && Array.isArray(data.users)) {
-    data.users.forEach(u => {
-      if (u.id !== state.myUser.id && state.otherUsers.size < (MAX_USERS - 1)) {
-        state.otherUsers.set(u.id, u);
-        createOrUpdateUserMarker(u);
+  if (data.type === 'user_joined') {
+    const user = data.user;
+    if (user) {
+      state.otherUsers.set(user.id, user);
+      createOrUpdateUserMarker(user);
+      renderUsersList();
+      showToast(`👋 ${user.name} a rejoint la rando !`, 'info');
+
+      // Si nous avons des traces GPX chargées, nous les envoyons au nouvel arrivant
+      if (state.tracks.length > 0) {
+        publishMessage({
+          type: 'sync_tracks',
+          from: state.myUser.id,
+          tracks: state.tracks
+        });
+        publishMessage({
+          type: 'update_position',
+          user: state.myUser
+        });
       }
-    });
-    renderUsersList();
+    }
+  } else if (data.type === 'sync_tracks') {
+    // Réception des traces GPX de la rando envoyées par Jean-Luc ou le guide
+    if (Array.isArray(data.tracks) && data.tracks.length > 0) {
+      const isDifferent = state.tracks.length !== data.tracks.length ||
+        state.tracks.some((t, i) => !data.tracks[i] || t.id !== data.tracks[i].id);
+
+      if (state.tracks.length === 0 || isDifferent) {
+        // Nettoyer anciennes traces sur la carte
+        state.tracks.forEach(t => {
+          const l = state.trackLayers.get(t.id);
+          if (l) state.map.removeLayer(l);
+        });
+        state.tracks = [];
+        state.trackLayers.clear();
+
+        // Charger et afficher les traces reçues
+        data.tracks.forEach((track, idx) => {
+          track.color = TRACK_COLORS[idx % TRACK_COLORS.length];
+          track.visible = true;
+          state.tracks.push(track);
+          renderTrackOnMap(track);
+        });
+
+        renderQuickTracksBar();
+        fitAllTracks();
+        saveHikeSessionToStorage();
+        updateProfileUI();
+        showToast(`🗺️ Randonnée synchronisée (${state.tracks.length} trace(s) reçue(s)) !`, 'success');
+      }
+    }
   } else if (data.type === 'update_position' || data.type === 'user_updated') {
     const user = data.user;
-    if (user && user.id !== state.myUser.id) {
+    if (user) {
       if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
         state.otherUsers.set(user.id, user);
         createOrUpdateUserMarker(user);
         renderUsersList();
       }
     }
+  } else if (data.type === 'clear_tracks') {
+    state.tracks.forEach(t => {
+      const l = state.trackLayers.get(t.id);
+      if (l) state.map.removeLayer(l);
+    });
+    state.tracks = [];
+    state.trackLayers.clear();
+    state.myUser.assignedTrackId = 'auto';
+    renderQuickTracksBar();
+    renderUsersList();
+    showToast('Traces réinitialisées par le guide.', 'info');
   } else if (data.type === 'user_left') {
     state.otherUsers.delete(data.userId);
     removeUserMarker(data.userId);
