@@ -1,8 +1,8 @@
 /**
- * RandoTracker v9 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
+ * RandoTracker v11 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
  * Cartes Officielles IGN Géoplateforme & OpenTopoMap, Multi-Traces GPX (jusqu'à 5),
- * Rendu Canvas Accéléré Ultra-Rapide, Sauvegarde Automatique de la Session (jusqu'à 8h/24h),
- * Profils Randonneurs Personnalisés & Invitations QR Code.
+ * Calcul Automatique de Progression & Heure d'Arrivée Estimée (ETA),
+ * Rendu Canvas Accéléré Ultra-Rapide & Sauvegarde Automatique de Session (8h/24h).
  */
 
 // ============================================================================
@@ -36,6 +36,7 @@ const state = {
     role: 'Randonneur',
     icon: '🌲',
     color: '#059669',
+    assignedTrackId: 'auto', // 'auto' ou l'ID d'une trace GPX
     lat: 45.8920,
     lon: 6.1550,
     ele: 450,
@@ -86,6 +87,112 @@ function showToast(msg, type = 'info') {
 }
 
 // ============================================================================
+// MOTEUR DE CALCUL : PROGRESSION SUR LA TRACE GPX & ESTIMATION DE L'ETA
+// ============================================================================
+function computeTrackProgress(user) {
+  if (!state.tracks || state.tracks.length === 0) {
+    return null;
+  }
+
+  // 1. Déterminer la trace suivie
+  let track = null;
+  if (user.assignedTrackId && user.assignedTrackId !== 'auto') {
+    track = state.tracks.find(t => t.id === user.assignedTrackId);
+  }
+
+  // Si pas de trace définie ou 'auto', trouver la trace la plus proche
+  if (!track) {
+    let minDistanceToAnyTrack = Infinity;
+    state.tracks.forEach(t => {
+      if (t.points && t.points.length > 0) {
+        for (let i = 0; i < t.points.length; i += 4) {
+          const pt = t.points[i];
+          const dist = calculateDistance(user.lat, user.lon, pt.lat, pt.lon);
+          if (dist < minDistanceToAnyTrack) {
+            minDistanceToAnyTrack = dist;
+            track = t;
+          }
+        }
+      }
+    });
+  }
+
+  if (!track || !track.points || track.points.length === 0) {
+    return null;
+  }
+
+  // 2. Trouver le point le plus proche sur la trace
+  let closestIndex = 0;
+  let minDistance = Infinity;
+  for (let i = 0; i < track.points.length; i++) {
+    const pt = track.points[i];
+    const dist = calculateDistance(user.lat, user.lon, pt.lat, pt.lon);
+    if (dist < minDistance) {
+      minDistance = dist;
+      closestIndex = i;
+    }
+  }
+
+  const closestPt = track.points[closestIndex];
+  const distFromStart = closestPt.distanceFromStart || 0;
+  const totalDist = track.totalDistance || 1;
+  const remainingDist = Math.max(0, totalDist - distFromStart);
+  const progressPct = Math.min(100, Math.max(0, Math.round((distFromStart / totalDist) * 100)));
+
+  // 3. Calcul du dénivelé positif restant (D+ restant)
+  let remainingEleGain = 0;
+  for (let i = closestIndex; i < track.points.length - 1; i++) {
+    const diff = (track.points[i + 1].ele || 0) - (track.points[i].ele || 0);
+    if (diff > 0.5) remainingEleGain += diff;
+  }
+  remainingEleGain = Math.round(remainingEleGain);
+
+  // 4. Calcul de la vitesse de marche et du temps restant (Formule Suisse / FFRando)
+  let walkingSpeed = 4.0;
+  if (user.speed && user.speed >= 2.0 && user.speed <= 12.0) {
+    walkingSpeed = (user.speed * 0.6) + (4.0 * 0.4);
+  }
+
+  // Temps restant : (Distance à plat / Vitesse) + (D+ restant / 350m par heure)
+  const timeFlatHours = remainingDist / walkingSpeed;
+  const timeClimbHours = remainingEleGain / 350;
+  const totalRemainingHours = timeFlatHours + timeClimbHours;
+  const totalRemainingMs = totalRemainingHours * 3600 * 1000;
+
+  // Formatage ETA
+  const etaDate = new Date(Date.now() + totalRemainingMs);
+  const etaHours = etaDate.getHours().toString().padStart(2, '0');
+  const etaMins = etaDate.getMinutes().toString().padStart(2, '0');
+
+  const durationMinTotal = Math.round(totalRemainingHours * 60);
+  let durationStr = '';
+  if (durationMinTotal < 60) {
+    durationStr = `~${durationMinTotal} min`;
+  } else {
+    const h = Math.floor(durationMinTotal / 60);
+    const m = durationMinTotal % 60;
+    durationStr = `~${h}h${m.toString().padStart(2, '0')}`;
+  }
+
+  let etaFormatted = `${etaHours}h${etaMins} (${durationStr})`;
+  if (progressPct >= 99 || remainingDist < 0.05) {
+    etaFormatted = '🏁 Arrivé';
+  }
+
+  return {
+    trackId: track.id,
+    trackName: track.name,
+    trackColor: track.color ? track.color.hex : '#10b981',
+    progressPct: progressPct,
+    distFromStart: distFromStart,
+    remainingDist: remainingDist,
+    remainingEleGain: remainingEleGain,
+    etaString: etaFormatted,
+    walkingSpeed: walkingSpeed
+  };
+}
+
+// ============================================================================
 // PERSISTANCE DE LA RANDONNÉE (GPX GARDÉS EN MÉMOIRE JUSQU'À 8H / 24H)
 // ============================================================================
 function saveHikeSessionToStorage() {
@@ -124,14 +231,12 @@ function loadHikeSessionFromStorage() {
     const durationHours = sessionData.durationHours || 8;
     const maxAgeMs = durationHours * 3600 * 1000;
 
-    // Vérifier si la randonnée est toujours valide (moins de 8h/24h)
     if (now - sessionData.savedAt > maxAgeMs) {
       console.log('[Storage] Session de rando expirée (> ' + durationHours + 'h)');
       localStorage.removeItem('rando_saved_session');
       return false;
     }
 
-    // Restaurer les traces GPX sur la carte
     state.tracks = [];
     state.trackLayers.clear();
 
@@ -154,7 +259,7 @@ function loadHikeSessionFromStorage() {
 
 function clearHikeSession() {
   if (state.tracks.length === 0) return;
-  if (!confirm('Voulez-vous supprimer toutes les traces GPX de la rando en cours pour en commencer une nouvelle ?')) return;
+  if (!confirm('Voulez-vous effacer toutes les traces GPX pour démarrer une nouvelle randonnée ?')) return;
 
   state.tracks.forEach(t => {
     const l = state.trackLayers.get(t.id);
@@ -164,7 +269,8 @@ function clearHikeSession() {
   state.trackLayers.clear();
   localStorage.removeItem('rando_saved_session');
   renderQuickTracksBar();
-  showToast('Toutes les traces ont été effacées. Prêt pour une nouvelle rando !', 'info');
+  renderUsersList();
+  showToast('Session réinitialisée. Prêt pour une nouvelle rando !', 'info');
 }
 
 // ============================================================================
@@ -175,12 +281,14 @@ function loadUserProfile() {
   const savedRole = localStorage.getItem('rando_user_role');
   const savedIcon = localStorage.getItem('rando_user_icon');
   const savedColor = localStorage.getItem('rando_user_color');
+  const savedTrack = localStorage.getItem('rando_user_track');
   const savedDuration = localStorage.getItem('rando_share_duration');
 
   if (savedName) state.myUser.name = savedName;
   if (savedRole) state.myUser.role = savedRole;
   if (savedIcon) state.myUser.icon = savedIcon;
   if (savedColor) state.myUser.color = savedColor;
+  if (savedTrack) state.myUser.assignedTrackId = savedTrack;
   if (savedDuration) {
     const d = parseFloat(savedDuration);
     state.shareDurationHours = Math.min(ABSOLUTE_MAX_HOURS, Math.max(1, isNaN(d) ? 8 : d));
@@ -210,10 +318,21 @@ function updateProfileUI() {
   const inputName = document.getElementById('input-user-name');
   const inputRole = document.getElementById('input-user-role');
   const inputDuration = document.getElementById('input-share-duration');
+  const inputTrack = document.getElementById('input-user-track');
 
   if (inputName) inputName.value = state.myUser.name;
   if (inputRole) inputRole.value = state.myUser.role;
   if (inputDuration) inputDuration.value = String(state.shareDurationHours);
+
+  // Mettre à jour la liste des traces disponibles dans le sélecteur
+  if (inputTrack) {
+    let optionsHtml = '<option value="auto">🎯 Automatique (Trace la plus proche)</option>';
+    state.tracks.forEach(t => {
+      optionsHtml += `<option value="${t.id}">${t.name} (${t.totalDistance.toFixed(1)} km)</option>`;
+    });
+    inputTrack.innerHTML = optionsHtml;
+    inputTrack.value = state.myUser.assignedTrackId || 'auto';
+  }
 
   document.querySelectorAll('.avatar-opt').forEach(btn => {
     const isSelected = btn.getAttribute('data-icon') === state.myUser.icon;
@@ -231,19 +350,22 @@ function saveUserProfile() {
   const name = document.getElementById('input-user-name').value.trim();
   const role = document.getElementById('input-user-role').value;
   const duration = parseFloat(document.getElementById('input-share-duration').value);
+  const trackId = document.getElementById('input-user-track').value;
 
   if (name) state.myUser.name = name;
   if (role) state.myUser.role = role;
+  state.myUser.assignedTrackId = trackId || 'auto';
   state.shareDurationHours = Math.min(ABSOLUTE_MAX_HOURS, Math.max(1, isNaN(duration) ? 8 : duration));
 
   localStorage.setItem('rando_user_name', state.myUser.name);
   localStorage.setItem('rando_user_role', state.myUser.role);
   localStorage.setItem('rando_user_icon', state.myUser.icon);
   localStorage.setItem('rando_user_color', state.myUser.color);
+  localStorage.setItem('rando_user_track', state.myUser.assignedTrackId);
   localStorage.setItem('rando_share_duration', String(state.shareDurationHours));
 
   updateProfileUI();
-  saveHikeSessionToStorage(); // Met à jour la durée de la rando en cours
+  saveHikeSessionToStorage();
   document.getElementById('profile-modal').classList.add('hidden');
   broadcastMyPosition();
   showToast(`Profil enregistré : ${state.myUser.name} (${state.myUser.icon})`, 'success');
@@ -255,8 +377,8 @@ function saveUserProfile() {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=9')
-        .then((reg) => console.log('[PWA] Service Worker v9 actif:', reg.scope))
+      navigator.serviceWorker.register('./sw.js?v=11')
+        .then((reg) => console.log('[PWA] Service Worker v11 actif:', reg.scope))
         .catch((err) => console.log('[PWA] Erreur Service Worker:', err));
     });
   }
@@ -280,7 +402,7 @@ function initMap() {
     center: [45.8960, 6.1680],
     zoom: 13,
     zoomControl: false,
-    preferCanvas: true // RENDU CANVAS MATÉRIEL : 10X PLUS FLUIDE ET RAPIDE SUR SMARTPHONE
+    preferCanvas: true
   });
 
   L.control.zoom({ position: 'bottomright' }).addTo(state.map);
@@ -393,7 +515,7 @@ function setBaseLayer(layerKey) {
 }
 
 // ============================================================================
-// CALCULS GÉODÉSIQUES & PARSING GPX OPTIMISÉ (AVEC DÉCIMATION RAPIDE)
+// CALCULS GÉODÉSIQUES & PARSING GPX OPTIMISÉ
 // ============================================================================
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -421,7 +543,6 @@ function parseGpxContent(xmlText, fileName) {
     throw new Error('Aucun point de trace (<trkpt>) trouvé dans ce fichier GPX.');
   }
 
-  // Étape de décimation si fichier GPX très lourd (> 2500 points) pour garantir fluidité 60fps
   const totalRawPts = trkpts.length;
   const stepRatio = totalRawPts > MAX_POINTS_PER_TRACK ? Math.ceil(totalRawPts / MAX_POINTS_PER_TRACK) : 1;
 
@@ -457,7 +578,6 @@ function parseGpxContent(xmlText, fileName) {
         if (ele > maxEle) maxEle = ele;
       }
 
-      // Conserver le premier, le dernier et les points selon stepRatio
       if (i === 0 || i === (totalRawPts - 1) || (i % stepRatio === 0)) {
         rawPoints.push({
           lat: Number(lat.toFixed(6)),
@@ -486,7 +606,7 @@ function parseGpxContent(xmlText, fileName) {
 }
 
 // ============================================================================
-// GESTION DES JUSQU'À 5 TRACES GPX (AVEC SAUVEGARDE AUTOMATIQUE)
+// GESTION DES JUSQU'À 5 TRACES GPX
 // ============================================================================
 function addTrackToState(track) {
   if (state.tracks.length >= MAX_TRACKS) {
@@ -501,7 +621,8 @@ function addTrackToState(track) {
   renderTrackOnMap(track);
   renderQuickTracksBar();
   fitAllTracks();
-  saveHikeSessionToStorage(); // Sauvegarde persistante immédiate
+  saveHikeSessionToStorage();
+  updateProfileUI(); // Met à jour le sélecteur de trace
   showToast(`Trace ajoutée : ${track.name} (${track.totalDistance.toFixed(1)} km)`, 'success');
   return true;
 }
@@ -510,7 +631,6 @@ function renderTrackOnMap(track) {
   const layerGroup = L.layerGroup();
   const latlngs = track.points.map(p => [p.lat, p.lon]);
 
-  // Liseré sombre avec smoothFactor pour fluidité maximale
   const borderPolyline = L.polyline(latlngs, {
     color: '#0f172a',
     weight: 8,
@@ -520,7 +640,6 @@ function renderTrackOnMap(track) {
     lineJoin: 'round'
   });
 
-  // Ligne colorée
   const mainPolyline = L.polyline(latlngs, {
     color: track.color.hex,
     weight: 5,
@@ -589,6 +708,13 @@ function renderTrackOnMap(track) {
 // ============================================================================
 function renderQuickTracksBar() {
   const bar = document.getElementById('quick-tracks-bar');
+  const headerNewBtn = document.getElementById('header-new-hike-btn');
+
+  if (headerNewBtn) {
+    if (state.tracks.length > 0) headerNewBtn.classList.remove('hidden');
+    else headerNewBtn.classList.add('hidden');
+  }
+
   if (!bar) return;
 
   if (state.tracks.length === 0) {
@@ -631,9 +757,9 @@ function renderQuickTracksBar() {
   ` : '';
 
   const clearPill = `
-    <button onclick="clearHikeSession()" class="flex items-center gap-1 bg-slate-900/95 hover:bg-red-950/60 border-2 border-slate-700 hover:border-red-500 text-slate-400 hover:text-red-400 rounded-2xl px-3 py-2 font-bold text-xs shadow-2xl shrink-0 active:scale-95 transition" title="Effacer toutes les traces pour une nouvelle rando">
-      <i data-lucide="trash-2" class="w-4 h-4"></i>
-      <span class="hidden sm:inline">Nouvelle Rando</span>
+    <button onclick="clearHikeSession()" class="flex items-center gap-1.5 bg-red-950/90 hover:bg-red-900 border-2 border-red-500/80 text-red-200 font-black text-xs px-3.5 py-2 rounded-2xl shadow-2xl shrink-0 active:scale-95 transition" title="Effacer toutes les traces pour démarrer une nouvelle rando">
+      <i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i>
+      <span>Nouvelle Rando</span>
     </button>
   `;
 
@@ -668,6 +794,7 @@ function removeTrack(trackId) {
 
   state.tracks.splice(index, 1);
   saveHikeSessionToStorage();
+  updateProfileUI();
   renderQuickTracksBar();
 }
 
@@ -755,7 +882,7 @@ function openElevationDrawer(trackId) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 300 }, // Rendu ultra-rapide
+      animation: { duration: 300 },
       interaction: {
         intersect: false,
         mode: 'index'
@@ -815,7 +942,7 @@ function updateHoverMapMarker(lat, lon) {
 }
 
 // ============================================================================
-// SUIVI DES RANDONNEURS SUR LA CARTE (RÉELS UNIQUEMENT)
+// SUIVI DES RANDONNEURS SUR LA CARTE AVEC PROGRESSION & ETA
 // ============================================================================
 function createOrUpdateUserMarker(user) {
   let marker = state.userMarkers.get(user.id);
@@ -855,8 +982,10 @@ function createOrUpdateUserMarker(user) {
   }
 
   const distFromMe = isMe ? 0 : calculateDistance(state.myUser.lat, state.myUser.lon, user.lat, user.lon);
+  const progress = computeTrackProgress(user);
+
   marker.bindPopup(`
-    <div class="p-1 space-y-2.5 min-w-[230px]">
+    <div class="p-1 space-y-2.5 min-w-[240px]">
       <div class="flex items-center gap-3 pb-2.5 border-b border-slate-700">
         <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl font-black text-white shadow-lg" style="background-color: ${user.color}">
           ${user.icon || '🌲'}
@@ -867,12 +996,31 @@ function createOrUpdateUserMarker(user) {
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2.5 text-sm text-slate-200">
+      <div class="grid grid-cols-2 gap-2 text-xs text-slate-200">
         <div>Vitesse : <b class="text-white">${(user.speed || 0).toFixed(1)} km/h</b></div>
         <div>Altitude : <b class="text-white">${Math.round(user.ele || 0)} m</b></div>
         <div>Batterie : <b class="${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</b></div>
         <div>Écart : <b class="text-blue-400">${isMe ? '0 m' : distFromMe < 1 ? Math.round(distFromMe * 1000) + ' m' : distFromMe.toFixed(1) + ' km'}</b></div>
       </div>
+
+      ${progress ? `
+        <div class="p-2.5 rounded-2xl bg-slate-900 border border-slate-750 space-y-1.5 mt-1">
+          <div class="flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-300 flex items-center gap-1.5 truncate max-w-[140px]">
+              <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${progress.trackColor};"></span>
+              <span class="truncate">${progress.trackName}</span>
+            </span>
+            <span class="font-black text-emerald-400 text-xs font-mono">${progress.progressPct}%</span>
+          </div>
+          <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-300" style="width: ${progress.progressPct}%; background-color: ${progress.trackColor};"></div>
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-slate-300 pt-0.5">
+            <span>Reste <b>${progress.remainingDist.toFixed(1)} km</b> (+${progress.remainingEleGain}m)</span>
+            <span class="text-amber-400 font-black">ETA : ${progress.etaString}</span>
+          </div>
+        </div>
+      ` : ''}
 
       ${user.isSos ? `
         <div class="p-2.5 rounded-xl bg-red-500/20 border-2 border-red-500/50 text-red-300 text-xs font-black flex items-center gap-2">
@@ -881,7 +1029,7 @@ function createOrUpdateUserMarker(user) {
         </div>
       ` : ''}
 
-      <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-800 text-right">
+      <div class="text-[10px] text-slate-400 pt-1 border-t border-slate-800 text-right">
         Mis à jour : ${new Date(user.lastSeen).toLocaleTimeString()}
       </div>
     </div>
@@ -926,6 +1074,25 @@ function renderUsersList() {
   if (myEleStat) myEleStat.textContent = `${Math.round(state.myUser.ele || 0)} m`;
   if (myBatteryStat) myBatteryStat.textContent = `${state.myUser.battery || 95}%`;
 
+  // Mettre à jour l'ETA de "Moi"
+  const myProgress = computeTrackProgress(state.myUser);
+  const myEtaCard = document.getElementById('my-eta-card');
+  if (myEtaCard) {
+    if (myProgress) {
+      myEtaCard.classList.remove('hidden');
+      document.getElementById('my-track-dot').style.backgroundColor = myProgress.trackColor;
+      document.getElementById('my-track-label').textContent = myProgress.trackName;
+      document.getElementById('my-progress-pct').textContent = `${myProgress.progressPct}%`;
+      document.getElementById('my-progress-bar').style.width = `${myProgress.progressPct}%`;
+      document.getElementById('my-progress-bar').style.backgroundColor = myProgress.trackColor;
+      document.getElementById('my-remaining-dist').textContent = `${myProgress.remainingDist.toFixed(1)} km`;
+      document.getElementById('my-remaining-ele').textContent = `(+${myProgress.remainingEleGain}m D+)`;
+      document.getElementById('my-eta-time').textContent = myProgress.etaString;
+    } else {
+      myEtaCard.classList.add('hidden');
+    }
+  }
+
   const otherUsersList = Array.from(state.otherUsers.values());
 
   if (otherUsersList.length === 0) {
@@ -936,7 +1103,7 @@ function renderUsersList() {
         </div>
         <div>
           <div class="font-black text-white text-base">Vous êtes seul sur ce salon</div>
-          <div class="text-xs text-slate-400 mt-1 font-semibold">Invitez vos compagnons pour les voir en direct sur la carte avec leur vitesse et position.</div>
+          <div class="text-xs text-slate-400 mt-1 font-semibold">Invitez vos compagnons pour les voir en direct sur la carte avec leur vitesse, progression et ETA.</div>
         </div>
         <button onclick="openInviteModal()" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg active:scale-95 transition">
           <i data-lucide="qr-code" class="w-5 h-5"></i>
@@ -952,32 +1119,54 @@ function renderUsersList() {
     const dist = calculateDistance(state.myUser.lat, state.myUser.lon, u.lat, u.lon);
     const distStr = dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`;
     const isStale = (now - u.lastSeen) > (15 * 60 * 1000);
+    const progress = computeTrackProgress(u);
 
     return `
-      <div class="p-4 rounded-3xl bg-slate-800/90 border-2 ${u.isSos ? 'border-red-500/80 bg-red-950/30' : isStale ? 'border-slate-800 opacity-70' : 'border-slate-700'} hover:border-slate-500 transition flex items-center justify-between cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
-        <div class="flex items-center gap-3.5 min-w-0">
-          <div class="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-lg relative border-2 border-white/90" style="background-color: ${u.color || '#3b82f6'}">
-            ${u.icon || '🥾'}
-            ${u.isSos ? '<span class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-white animate-ping"></span>' : ''}
-          </div>
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <span class="font-black text-base sm:text-lg text-white truncate">${u.name}</span>
-              ${u.isSos ? '<span class="text-xs font-black px-2.5 py-0.5 rounded-full bg-red-600 text-white animate-pulse">SOS</span>' : ''}
-              ${isStale ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Signal Ancien</span>' : ''}
+      <div class="p-4 rounded-3xl bg-slate-800/90 border-2 ${u.isSos ? 'border-red-500/80 bg-red-950/30' : isStale ? 'border-slate-800 opacity-70' : 'border-slate-700'} hover:border-slate-500 transition flex flex-col gap-2.5 cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3.5 min-w-0">
+            <div class="w-13 h-13 rounded-full flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-lg relative border-2 border-white/90" style="background-color: ${u.color || '#3b82f6'}">
+              ${u.icon || '🥾'}
+              ${u.isSos ? '<span class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-white animate-ping"></span>' : ''}
             </div>
-            <div class="text-xs sm:text-sm text-slate-300 font-semibold truncate">${u.role}</div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-black text-base text-white truncate">${u.name}</span>
+                ${u.isSos ? '<span class="text-xs font-black px-2 py-0.5 rounded-full bg-red-600 text-white animate-pulse">SOS</span>' : ''}
+                ${isStale ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Signal Ancien</span>' : ''}
+              </div>
+              <div class="text-xs text-slate-300 font-semibold truncate">${u.role}</div>
+            </div>
+          </div>
+
+          <div class="text-right shrink-0">
+            <div class="font-black text-base text-blue-400">${distStr}</div>
+            <div class="text-xs text-slate-300 font-bold flex items-center justify-end gap-1.5 mt-0.5">
+              <span>${(u.speed || 0).toFixed(1)} km/h</span>
+              <span>•</span>
+              <span class="${u.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${u.battery}%</span>
+            </div>
           </div>
         </div>
 
-        <div class="text-right shrink-0">
-          <div class="font-black text-base sm:text-lg text-blue-400">${distStr}</div>
-          <div class="text-xs sm:text-sm text-slate-300 font-bold flex items-center justify-end gap-1.5 mt-0.5">
-            <span>${(u.speed || 0).toFixed(1)} km/h</span>
-            <span>•</span>
-            <span class="${u.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${u.battery}%</span>
+        ${progress ? `
+          <div class="pt-2 border-t border-slate-750 flex flex-col gap-1.5 text-xs">
+            <div class="flex items-center justify-between text-slate-300">
+              <span class="font-bold flex items-center gap-1.5 truncate max-w-[180px]">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${progress.trackColor};"></span>
+                <span class="truncate">${progress.trackName}</span>
+              </span>
+              <span class="font-black text-emerald-400 font-mono">${progress.progressPct}%</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-300" style="width: ${progress.progressPct}%; background-color: ${progress.trackColor};"></div>
+            </div>
+            <div class="flex items-center justify-between text-slate-300 text-[11px]">
+              <span>Reste <b>${progress.remainingDist.toFixed(1)} km</b> (+${progress.remainingEleGain}m)</span>
+              <span class="text-amber-400 font-black">ETA : ${progress.etaString}</span>
+            </div>
           </div>
-        </div>
+        ` : ''}
       </div>
     `;
   }).join('');
@@ -1532,7 +1721,7 @@ function setupEventListeners() {
     });
   }
 
-  // Modal Profil Utilisateur (Nom, Rôle, 12 Avatars, Durée limite)
+  // Modal Profil Utilisateur (Nom, Rôle, 12 Avatars, Trace GPX Suivie, Durée limite)
   const profileModal = document.getElementById('profile-modal');
   const openProfile = () => {
     updateProfileUI();

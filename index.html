@@ -48,8 +48,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v9 -->
-  <link rel="stylesheet" href="styles.css?v=9" />
+  <!-- Custom Styles with Cache-Busting v11 -->
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -66,15 +66,21 @@
     </div>
 
     <!-- Actions Haut Droite GÉANTES -->
-    <div class="flex items-center gap-2.5">
+    <div class="flex items-center gap-2 sm:gap-2.5">
+      <!-- Bouton Nouvelle Rando (visible dès que des traces sont chargées) -->
+      <button id="header-new-hike-btn" onclick="clearHikeSession()" class="hidden h-12 px-3 sm:px-4 rounded-2xl bg-red-950/80 hover:bg-red-900 text-red-200 border-2 border-red-500 text-xs sm:text-sm font-black flex items-center gap-1.5 transition active:scale-95 shadow-lg" title="Effacer les traces en cours et démarrer une nouvelle rando">
+        <i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i>
+        <span>Nouvelle Rando</span>
+      </button>
+
       <!-- Choix Fond de Carte (IGN / Topo) -->
-      <button id="open-layer-modal-btn" class="h-12 px-4 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 text-sm font-black flex items-center gap-2 transition active:scale-95 shadow-lg">
+      <button id="open-layer-modal-btn" class="h-12 px-3 sm:px-4 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 text-xs sm:text-sm font-black flex items-center gap-2 transition active:scale-95 shadow-lg">
         <i data-lucide="layers" class="w-5 h-5 text-emerald-400"></i>
         <span id="active-layer-label">IGN Plan</span>
       </button>
 
       <!-- Bouton Inviter des Amis -->
-      <button id="header-invite-btn" class="h-12 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black flex items-center gap-2 shadow-lg transition active:scale-95">
+      <button id="header-invite-btn" class="h-12 px-3 sm:px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-black flex items-center gap-2 shadow-lg transition active:scale-95">
         <i data-lucide="user-plus" class="w-5 h-5"></i>
         <span class="hidden sm:inline">Inviter</span>
       </button>
@@ -182,6 +188,24 @@
           <div class="bg-slate-900/90 rounded-2xl p-2.5 border border-slate-800">
             <div class="text-xs text-slate-400 uppercase font-black">Batterie</div>
             <div id="my-battery-stat" class="font-black text-lg sm:text-xl text-emerald-400 mt-0.5">92%</div>
+          </div>
+        </div>
+
+        <!-- Progression sur la Trace & ETA -->
+        <div id="my-eta-card" class="mt-3 p-3 bg-slate-900/90 rounded-2xl border border-slate-750 flex flex-col gap-2 shadow-inner">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-300 font-bold flex items-center gap-1.5 truncate max-w-[200px]" id="my-track-name">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" id="my-track-dot"></span>
+              <span id="my-track-label" class="truncate">Trace : En attente</span>
+            </span>
+            <span class="font-black text-emerald-400 text-xs font-mono shrink-0" id="my-progress-pct">0%</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full bg-slate-950 overflow-hidden">
+            <div id="my-progress-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 0%;"></div>
+          </div>
+          <div class="flex items-center justify-between text-xs text-slate-300 pt-0.5">
+            <div class="truncate">Reste : <b class="text-white" id="my-remaining-dist">-- km</b> <span class="text-slate-400 text-[11px]" id="my-remaining-ele"></span></div>
+            <div class="shrink-0 font-bold">ETA : <b class="text-amber-400 font-black" id="my-eta-time">--h--</b></div>
           </div>
         </div>
 
@@ -424,6 +448,18 @@
           </select>
         </div>
 
+        <!-- Trace GPX Suivie (pour le calcul ETA) -->
+        <div>
+          <label class="block text-xs font-black text-slate-400 uppercase mb-2 flex items-center justify-between">
+            <span>Parcours GPX Suivi</span>
+            <span class="text-emerald-400 font-bold text-xs">Calcul ETA</span>
+          </label>
+          <select id="input-user-track" class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-4 py-3.5 text-base text-white font-bold focus:outline-none focus:border-emerald-500 shadow-inner">
+            <option value="auto" selected>🎯 Automatique (Trace la plus proche)</option>
+          </select>
+          <span class="text-[11px] text-slate-400 font-semibold mt-1 block">Permet d'évaluer votre progression et d'estimer votre heure d'arrivée (ETA).</span>
+        </div>
+
         <!-- Durée limite de partage GPS (max 24h) -->
         <div>
           <label class="block text-xs font-black text-slate-400 uppercase mb-2 flex items-center justify-between">
@@ -472,7 +508,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v9 -->
-  <script src="app.js?v=9"></script>
+  <!-- Main Application Script with Cache-Busting v11 -->
+  <script src="app.js?v=11"></script>
 </body>
 </html>
