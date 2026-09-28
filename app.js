@@ -376,11 +376,13 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js?v=11')
-        .then((reg) => console.log('[PWA] Service Worker v11 actif:', reg.scope))
-        .catch((err) => console.log('[PWA] Erreur Service Worker:', err));
-    });
+    navigator.serviceWorker.register('./sw.js?v=11')
+      .then((reg) => {
+        console.log('[PWA] Service Worker v11 actif:', reg.scope);
+        // Forcer la vérification immédiate des mises à jour
+        if (reg.update) reg.update();
+      })
+      .catch((err) => console.log('[PWA] Erreur Service Worker:', err));
   }
 
   if (navigator.getBattery) {
