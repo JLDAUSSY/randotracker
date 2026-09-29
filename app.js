@@ -329,9 +329,9 @@ function loadSavedOtherUsersFromStorage() {
 }
 
 function clearHikeSession() {
-  if (state.tracks.length === 0) return;
-  if (!confirm('Voulez-vous effacer toutes les traces GPX pour démarrer une nouvelle randonnée ?')) return;
+  if (!confirm('Voulez-vous réinitialiser la randonnée ?\nCela effacera toutes les traces GPX et réinitialisera la liste des participants pour démarrer une nouvelle randonnée.')) return;
 
+  // 1. Effacer toutes les traces de la carte et de l'état
   state.tracks.forEach(t => {
     const l = state.trackLayers.get(t.id);
     if (l) state.map.removeLayer(l);
@@ -339,11 +339,28 @@ function clearHikeSession() {
   state.tracks = [];
   state.trackLayers.clear();
   state.myUser.assignedTrackId = 'auto';
+
+  // 2. Effacer tous les autres participants de la carte et de la liste (sauf Moi)
+  state.otherUsers.forEach((u, id) => {
+    removeUserMarker(id);
+  });
+  state.otherUsers.clear();
+
+  // 3. Purger les stockages locaux (traces et anciens participants)
   localStorage.removeItem('rando_saved_session');
+  localStorage.removeItem('rando_saved_other_users');
+
+  // 4. Mettre à jour l'interface
   renderQuickTracksBar();
   renderUsersList();
-  showToast('Session réinitialisée. Prêt pour une nouvelle rando !', 'info');
+  updateProfileUI();
+  showToast('Randonnée et participants réinitialisés !', 'info');
 
+  // 5. Diffuser le signal de réinitialisation à tous les participants du salon
+  publishMessage({
+    type: 'reset_session',
+    from: state.myUser.id
+  });
   publishMessage({
     type: 'clear_tracks',
     from: state.myUser.id
@@ -1918,7 +1935,8 @@ function handleIncomingMessage(data) {
         showToast(`🗺️ Randonnée synchronisée (${state.tracks.length} trace(s) reçue(s)) !`, 'success');
       }
     }
-  } else if (data.type === 'clear_tracks') {
+  } else if (data.type === 'reset_session' || data.type === 'clear_tracks') {
+    // 1. Effacer les traces GPX
     state.tracks.forEach(t => {
       const l = state.trackLayers.get(t.id);
       if (l) state.map.removeLayer(l);
@@ -1926,9 +1944,22 @@ function handleIncomingMessage(data) {
     state.tracks = [];
     state.trackLayers.clear();
     state.myUser.assignedTrackId = 'auto';
+
+    // 2. Effacer les autres participants (sauf Moi)
+    state.otherUsers.forEach((u, id) => {
+      removeUserMarker(id);
+    });
+    state.otherUsers.clear();
+
+    // 3. Purger les stockages locaux
+    localStorage.removeItem('rando_saved_session');
+    localStorage.removeItem('rando_saved_other_users');
+
+    // 4. Mettre à jour l'affichage
     renderQuickTracksBar();
     renderUsersList();
-    showToast('Traces réinitialisées par le guide.', 'info');
+    updateProfileUI();
+    showToast('Randonnée réinitialisée par l\'organisateur.', 'info');
   } else if (data.type === 'user_left') {
     state.otherUsers.delete(data.userId);
     removeUserMarker(data.userId);

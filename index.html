@@ -148,11 +148,15 @@
         </div>
       </div>
 
-      <!-- Bouton Inviter des Participants -->
-      <div class="p-4 bg-slate-850 border-b-2 border-slate-800">
+      <!-- Bouton Inviter des Participants & Réinitialiser -->
+      <div class="p-4 bg-slate-850 border-b-2 border-slate-800 flex flex-col gap-2.5">
         <button id="drawer-invite-btn" class="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-base flex items-center justify-center gap-3 shadow-xl transition active:scale-95">
           <i data-lucide="qr-code" class="w-6 h-6"></i>
           <span>📲 INVITER UN MARCHEUR (QR CODE)</span>
+        </button>
+        <button onclick="clearHikeSession()" class="w-full py-2.5 px-3 rounded-xl bg-slate-800/90 hover:bg-red-950/80 border border-slate-700 hover:border-red-500/60 text-slate-300 hover:text-red-300 font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95" title="Effacer les traces et réinitialiser les participants pour une nouvelle rando">
+          <i data-lucide="rotate-ccw" class="w-4 h-4 text-red-400"></i>
+          <span>🔄 Réinitialiser la Randonnée (Traces & Participants)</span>
         </button>
       </div>
 
