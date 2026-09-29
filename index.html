@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="RandoTracker" />
-  <link rel="icon" type="image/png" href="favicon.png?v=16" />
-  <link rel="apple-touch-icon" href="icon-192.png?v=16" />
+  <link rel="icon" type="image/png" href="favicon.png?v=17" />
+  <link rel="apple-touch-icon" href="icon-192.png?v=17" />
   <link rel="manifest" href="manifest.json" />
 
   <title>RandoTracker - Suivi de Randonnée & Cartes IGN</title>
@@ -49,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v16 -->
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <!-- Custom Styles with Cache-Busting v17 -->
+  <link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -60,11 +60,11 @@
   <header class="h-20 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-3 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
     <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
     <div id="brand-header-btn" class="flex items-center gap-3 cursor-pointer select-none group active:scale-95 transition" title="Jean-Luc DAUSSY 2026">
-      <img src="logo.png?v=16" alt="Logo RandoTracker" class="w-12 h-12 rounded-2xl shadow-xl border-2 border-emerald-500/40 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+      <img src="logo.png?v=17" alt="Logo RandoTracker" class="w-12 h-12 rounded-2xl shadow-xl border-2 border-emerald-500/40 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
       <div class="flex flex-col justify-center">
         <div class="flex items-center gap-2">
           <span class="font-black text-xl sm:text-2xl tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
-          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40 inline-flex items-center leading-none translate-y-[2px]">v16</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40 inline-flex items-center leading-none translate-y-[2px]">v17</span>
         </div>
         <span class="text-[11px] text-slate-400 group-hover:text-slate-200 font-bold tracking-wider mt-1 transition flex items-center gap-1 leading-none">
           <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-300 group-hover:text-emerald-400">JLD</span>
@@ -83,7 +83,7 @@
       <!-- Choix Fond de Carte (IGN / Topo) -->
       <button id="open-layer-modal-btn" class="h-12 px-3 sm:px-4 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 text-xs sm:text-sm font-black flex items-center gap-2 transition active:scale-95 shadow-lg">
         <i data-lucide="layers" class="w-5 h-5 text-emerald-400"></i>
-        <span id="active-layer-label">IGN Plan</span>
+        <span id="active-layer-label">IGN France</span>
       </button>
 
       <!-- Bouton Inviter des Amis -->
@@ -353,34 +353,47 @@
       </div>
 
       <div class="grid grid-cols-1 gap-3.5">
+        <!-- 1. IGN France -->
         <button class="layer-opt-btn px-4 py-4 rounded-2xl border-2 border-emerald-500 bg-emerald-600/25 text-white text-base font-black flex items-center justify-between transition active:scale-98 shadow-md" data-layer="ign">
           <span class="flex items-center gap-3.5">
-            <i data-lucide="map" class="w-6 h-6 text-emerald-400"></i>
-            IGN Plan (Cartes Officielles)
+            <span class="text-xl">🇫🇷</span>
+            <span>IGN France (Plan & Topo)</span>
           </span>
           <i data-lucide="check" class="w-6 h-6 text-emerald-400 layer-check"></i>
         </button>
 
+        <!-- 2. IGN España -->
+        <button class="layer-opt-btn px-4 py-4 rounded-2xl border-2 border-slate-700 bg-slate-800 text-slate-200 text-base font-black flex items-center justify-between transition active:scale-98 shadow-md" data-layer="ign_es">
+          <span class="flex items-center gap-3.5">
+            <span class="text-xl">🇪🇸</span>
+            <span>IGN España (MTN Topo 1:25k)</span>
+          </span>
+          <i data-lucide="check" class="w-6 h-6 text-emerald-400 layer-check hidden"></i>
+        </button>
+
+        <!-- 3. OpenTopoMap -->
         <button class="layer-opt-btn px-4 py-4 rounded-2xl border-2 border-slate-700 bg-slate-800 text-slate-200 text-base font-black flex items-center justify-between transition active:scale-98 shadow-md" data-layer="opentopo">
           <span class="flex items-center gap-3.5">
             <i data-lucide="mountain" class="w-6 h-6 text-amber-400"></i>
-            OpenTopoMap (Sentiers & Relief)
+            <span>OpenTopoMap (Monde & Relief)</span>
           </span>
           <i data-lucide="check" class="w-6 h-6 text-emerald-400 layer-check hidden"></i>
         </button>
 
+        <!-- 4. Satellite -->
         <button class="layer-opt-btn px-4 py-4 rounded-2xl border-2 border-slate-700 bg-slate-800 text-slate-200 text-base font-black flex items-center justify-between transition active:scale-98 shadow-md" data-layer="satellite">
           <span class="flex items-center gap-3.5">
             <i data-lucide="satellite" class="w-6 h-6 text-blue-400"></i>
-            IGN Satellite (Photos Aériennes HD)
+            <span>IGN Satellite (Photos Aériennes HD)</span>
           </span>
           <i data-lucide="check" class="w-6 h-6 text-emerald-400 layer-check hidden"></i>
         </button>
 
+        <!-- 5. OpenStreetMap -->
         <button class="layer-opt-btn px-4 py-4 rounded-2xl border-2 border-slate-700 bg-slate-800 text-slate-200 text-base font-black flex items-center justify-between transition active:scale-98 shadow-md" data-layer="osm">
           <span class="flex items-center gap-3.5">
             <i data-lucide="globe" class="w-6 h-6 text-teal-400"></i>
-            OpenStreetMap Standard
+            <span>OpenStreetMap Standard</span>
           </span>
           <i data-lucide="check" class="w-6 h-6 text-emerald-400 layer-check hidden"></i>
         </button>
@@ -555,7 +568,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v16 -->
-  <script src="app.js?v=16"></script>
+  <!-- Main Application Script with Cache-Busting v17 -->
+  <script src="app.js?v=17"></script>
 </body>
 </html>

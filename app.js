@@ -1,7 +1,8 @@
 /**
- * RandoTracker v16 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
- * Cartes Officielles IGN Géoplateforme & OpenTopoMap, Multi-Traces GPX (jusqu'à 5),
- * Calcul Automatique de Progression & Heure d'Arrivée Estimée (ETA),
+ * RandoTracker v17 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
+ * Cartes Officielles IGN Géoplateforme (France) & IGN España (MTN Topo 1:25k),
+ * Auto-Commutation Intelligente selon la Géolocalisation & Coordonnées GPX,
+ * Multi-Traces GPX (jusqu'à 5), Calcul Automatique de Progression & ETA,
  * Synchronisation Temps Réel MQTT 4G/5G, Zero-Config QR Code.
  */
 
@@ -61,7 +62,8 @@ const state = {
   peerConnections: new Map(),
   hoverMarker: null,
   activeDrawer: null,
-  hasAutoCenteredGps: false
+  hasAutoCenteredGps: false,
+  hasAutoDetectedGpsCountry: false
 };
 
 // ============================================================================
@@ -257,6 +259,12 @@ function loadHikeSessionFromStorage() {
     renderQuickTracksBar();
     fitAllTracks();
 
+    // Auto-détection du pays de la trace restaurée
+    if (state.tracks.length > 0 && state.tracks[0].points && state.tracks[0].points.length > 0) {
+      const p0 = state.tracks[0].points[0];
+      autoSelectMapLayerForCoords(p0.lat, p0.lon, 'gpx');
+    }
+
     const remainingHours = Math.max(1, Math.ceil((sessionData.savedAt + maxAgeMs - now) / 3600000));
     showToast(`Randonnée restaurée : ${state.tracks.length} trace(s) (Valide encore ${remainingHours}h)`, 'success');
     return true;
@@ -404,9 +412,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=15')
+    navigator.serviceWorker.register('./sw.js?v=17')
       .then((reg) => {
-        console.log('[PWA] Service Worker v15 actif:', reg.scope);
+        console.log('[PWA] Service Worker v17 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -437,18 +445,29 @@ function initMap() {
 
   L.control.zoom({ position: 'bottomright' }).addTo(state.map);
 
-  // 1. Fond IGN Géoplateforme (Plan IGN V2)
+  // 1. Fond IGN Géoplateforme (Plan IGN V2 France)
   state.layers.ign = L.tileLayer(
     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.ign.fr/" target="_blank">IGN</a>',
+      attribution: '&copy; <a href="https://www.ign.fr/" target="_blank">IGN France</a>',
       updateWhenIdle: false,
       keepBuffer: 3
     }
   );
 
-  // 2. Fond OpenTopoMap (Courbes de niveau & Sentiers)
+  // 2. Fond IGN España (MTN Topographique 1:25 000 / CNIG Espagne)
+  state.layers.ign_es = L.tileLayer(
+    'https://www.ign.es/wmts/mapa-raster?service=WMTS&request=GetTile&version=1.0.0&layer=MTN&style=default&tilematrixset=GoogleMapsCompatible&tilematrix={z}&tilerow={y}&tilecol={x}&format=image/jpeg',
+    {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.ign.es/" target="_blank">IGN España / CNIG</a>',
+      updateWhenIdle: false,
+      keepBuffer: 3
+    }
+  );
+
+  // 3. Fond OpenTopoMap (Courbes de niveau & Sentiers Monde)
   state.layers.opentopo = L.tileLayer(
     'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     {
@@ -459,7 +478,7 @@ function initMap() {
     }
   );
 
-  // 3. Fond IGN Orthophoto (Photos Aériennes Satellite)
+  // 4. Fond IGN Orthophoto (Photos Aériennes Satellite)
   state.layers.satellite = L.tileLayer(
     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     {
@@ -470,7 +489,7 @@ function initMap() {
     }
   );
 
-  // 4. Fond OpenStreetMap standard
+  // 5. Fond OpenStreetMap standard
   state.layers.osm = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
@@ -520,7 +539,8 @@ function setBaseLayer(layerKey) {
   state.activeLayerName = layerKey;
 
   const names = {
-    ign: 'IGN Plan',
+    ign: 'IGN France',
+    ign_es: 'IGN España',
     opentopo: 'OpenTopoMap',
     satellite: 'IGN Satellite',
     osm: 'OSM Standard'
@@ -542,6 +562,75 @@ function setBaseLayer(layerKey) {
       if (check) check.classList.add('hidden');
     }
   });
+}
+
+// ============================================================================
+// AUTO-DÉTECTION DU PAYS ET COMMUTATION INTELLIGENTE DU FOND DE CARTE
+// ============================================================================
+function detectCountry(lat, lon) {
+  if (typeof lat !== 'number' || typeof lon !== 'number' || isNaN(lat) || isNaN(lon)) {
+    return 'FR';
+  }
+
+  // 1. ESPAGNE (ES)
+  // Îles Canaries
+  if (lat >= 27.0 && lat <= 29.8 && lon >= -18.5 && lon <= -13.0) return 'ES';
+  // Îles Baléares (Majorque, Minorque, Ibiza, Formentera)
+  if (lat >= 38.5 && lat <= 40.5 && lon >= 1.0 && lon <= 4.6) return 'ES';
+  // Espagne Nord-Ouest (Galice, Asturies, Cantabrie)
+  if (lat >= 41.8 && lat <= 43.9 && lon >= -9.5 && lon <= -1.8) return 'ES';
+  // Espagne Nord-Est / Pyrénées espagnoles (Aragon, Catalogne, Navarre)
+  if (lat >= 40.0 && lat <= 42.85 && lon >= -1.8 && lon <= 3.4) return 'ES';
+  // Reste de l'Espagne continentale
+  if (lat >= 35.8 && lat <= 42.0 && lon >= -9.5 && lon <= 3.5) {
+    if (lon < -6.8 && lat >= 37.0 && lat <= 42.0) return 'OTHER'; // Portugal
+    return 'ES';
+  }
+
+  // 2. FRANCE (FR)
+  // DROM-COM
+  if (lat >= -21.5 && lat <= -20.8 && lon >= 55.1 && lon <= 56.0) return 'FR'; // La Réunion
+  if (lat >= 15.8 && lat <= 16.6 && lon >= -61.9 && lon <= -61.0) return 'FR'; // Guadeloupe
+  if (lat >= 14.3 && lat <= 14.9 && lon >= -61.3 && lon <= -60.7) return 'FR'; // Martinique
+  if (lat >= 2.0 && lat <= 6.0 && lon >= -55.0 && lon <= -51.0) return 'FR';   // Guyane
+  if (lat >= -13.1 && lat <= -12.5 && lon >= 45.0 && lon <= 45.4) return 'FR'; // Mayotte
+  // Corse
+  if (lat >= 41.3 && lat <= 43.1 && lon >= 8.5 && lon <= 9.6) return 'FR';
+  // France Métropolitaine (avec exclusion fine des Alpes suisses/italiennes)
+  if (lat >= 42.3 && lat <= 51.2 && lon >= -5.2 && lon <= 8.3) {
+    if ((lat >= 45.8 && lon >= 7.1) || (lat >= 46.2 && lon >= 6.2)) {
+      return 'OTHER';
+    }
+    return 'FR';
+  }
+
+  return 'OTHER';
+}
+
+function autoSelectMapLayerForCoords(lat, lon, reason = 'gps') {
+  const country = detectCountry(lat, lon);
+  const current = state.activeLayerName;
+
+  if (country === 'ES') {
+    if (current !== 'ign_es' && current !== 'satellite') {
+      setBaseLayer('ign_es');
+      const prefix = reason === 'gpx' ? '🇪🇸 Trace en Espagne' : '🇪🇸 Position en Espagne';
+      showToast(`${prefix} : Fond IGN España (MTN Topo) activé`, 'info');
+    }
+  } else if (country === 'FR') {
+    if (current === 'ign_es') {
+      setBaseLayer('ign');
+      const prefix = reason === 'gpx' ? '🇫🇷 Trace en France' : '🇫🇷 Position en France';
+      showToast(`${prefix} : Fond IGN France activé`, 'info');
+    }
+  } else {
+    // Zone internationale (Suisse, Italie, etc.)
+    if (current === 'ign' || current === 'ign_es') {
+      setBaseLayer('opentopo');
+      const prefix = reason === 'gpx' ? '🏔️ Trace internationale' : '🏔️ Position internationale';
+      showToast(`${prefix} : Fond OpenTopoMap activé`, 'info');
+    }
+  }
 }
 
 // ============================================================================
@@ -653,6 +742,13 @@ function addTrackToState(track) {
   fitAllTracks();
   saveHikeSessionToStorage();
   updateProfileUI(); // Met à jour le sélecteur de trace
+
+  // Auto-détection du pays de la trace GPX
+  if (track.points && track.points.length > 0) {
+    const p0 = track.points[0];
+    autoSelectMapLayerForCoords(p0.lat, p0.lon, 'gpx');
+  }
+
   showToast(`Trace ajoutée : ${track.name} (${track.totalDistance.toFixed(1)} km)`, 'success');
 
   // Synchroniser immédiatement la trace avec tous les invités du salon
@@ -1346,6 +1442,11 @@ function startGpsWatch(useHighAccuracy = true) {
       state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
       state.hasAutoCenteredGps = true;
       showToast(`Position GPS trouvée (${accStr}) - Partage actif (${state.shareDurationHours}h max)`, 'success');
+    }
+
+    if (!state.hasAutoDetectedGpsCountry) {
+      autoSelectMapLayerForCoords(state.myUser.lat, state.myUser.lon, 'gps');
+      state.hasAutoDetectedGpsCountry = true;
     }
   };
 
