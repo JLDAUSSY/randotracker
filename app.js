@@ -1,9 +1,9 @@
 /**
- * RandoTracker v17 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
+ * RandoTracker v19 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
  * Cartes Officielles IGN Géoplateforme (France) & IGN España (MTN Topo 1:25k),
  * Auto-Commutation Intelligente selon la Géolocalisation & Coordonnées GPX,
  * Multi-Traces GPX (jusqu'à 5), Calcul Automatique de Progression & ETA,
- * Synchronisation Temps Réel MQTT 4G/5G, Zero-Config QR Code.
+ * Reconnexion Résiliente & Synchronisation Présence Bidirectionnelle Instantanée.
  */
 
 // ============================================================================
@@ -23,6 +23,22 @@ const TRACK_COLORS = [
 ];
 
 // ============================================================================
+// IDENTIFIANT UNIQUE PERSISTANT DE L'UTILISATEUR
+// ============================================================================
+function getOrCreateUserId() {
+  try {
+    let uid = localStorage.getItem('rando_user_id');
+    if (!uid) {
+      uid = 'u_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36);
+      localStorage.setItem('rando_user_id', uid);
+    }
+    return uid;
+  } catch (e) {
+    return 'u_' + Math.random().toString(36).substr(2, 9);
+  }
+}
+
+// ============================================================================
 // ÉTAT GLOBAL DE L'APPLICATION
 // ============================================================================
 const state = {
@@ -32,7 +48,7 @@ const state = {
   tracks: [],
   roomCode: 'RANDO-2026',
   myUser: {
-    id: 'u_' + Math.random().toString(36).substr(2, 7),
+    id: getOrCreateUserId(),
     name: 'Jean-Luc',
     role: 'Randonneur',
     icon: '🌲',
@@ -274,6 +290,44 @@ function loadHikeSessionFromStorage() {
   }
 }
 
+function saveOtherUsersToStorage() {
+  try {
+    const usersArr = Array.from(state.otherUsers.values());
+    localStorage.setItem('rando_saved_other_users', JSON.stringify({
+      savedAt: Date.now(),
+      roomCode: state.roomCode,
+      users: usersArr
+    }));
+  } catch (e) {
+    console.warn('[Storage] Erreur sauvegarde participants:', e);
+  }
+}
+
+function loadSavedOtherUsersFromStorage() {
+  try {
+    const str = localStorage.getItem('rando_saved_other_users');
+    if (!str) return false;
+    const data = JSON.parse(str);
+    if (!data || data.roomCode !== state.roomCode || !Array.isArray(data.users)) return false;
+
+    // Si moins de 8h
+    const maxAgeMs = (state.shareDurationHours || 8) * 3600 * 1000;
+    if (Date.now() - data.savedAt < maxAgeMs) {
+      data.users.forEach(u => {
+        if (u && u.id && u.id !== state.myUser.id) {
+          state.otherUsers.set(u.id, u);
+          createOrUpdateUserMarker(u);
+        }
+      });
+      renderUsersList();
+      return true;
+    }
+  } catch (e) {
+    console.warn('[Storage] Erreur chargement participants:', e);
+  }
+  return false;
+}
+
 function clearHikeSession() {
   if (state.tracks.length === 0) return;
   if (!confirm('Voulez-vous effacer toutes les traces GPX pour démarrer une nouvelle randonnée ?')) return;
@@ -412,9 +466,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=17')
+    navigator.serviceWorker.register('./sw.js?v=19')
       .then((reg) => {
-        console.log('[PWA] Service Worker v17 actif:', reg.scope);
+        console.log('[PWA] Service Worker v19 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -1119,55 +1173,74 @@ function createOrUpdateUserMarker(user) {
   const progress = computeTrackProgress(user);
 
   marker.bindPopup(`
-    <div class="p-1 space-y-2.5 min-w-[240px]">
-      <div class="flex items-center gap-3 pb-2.5 border-b border-slate-700">
-        <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl font-black text-white shadow-lg" style="background-color: ${user.color}">
+    <div class="p-2 space-y-3 min-w-[280px] max-w-[340px]">
+      <!-- En-tête Participant GÉANT -->
+      <div class="flex items-center gap-3 pb-3 border-b-2 border-slate-700/80">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-xl shrink-0 border-2 border-white/80" style="background-color: ${user.color}">
           ${user.icon || '🌲'}
         </div>
-        <div>
-          <div class="font-black text-base text-white">${user.name} ${isMe ? '(Moi)' : ''}</div>
-          <div class="flex items-center gap-2 mt-0.5">
-            <span class="text-xs text-slate-300 font-bold">${user.role}</span>
-            ${progress ? `<span class="text-xs text-amber-400 font-black">• ETA ${progress.etaShort}</span>` : ''}
+        <div class="min-w-0 flex-1">
+          <div class="font-black text-lg sm:text-xl text-white truncate leading-tight">${user.name} ${isMe ? '<span class="text-xs text-emerald-400 font-bold ml-1">(Moi)</span>' : ''}</div>
+          <div class="flex items-center gap-2 mt-1 flex-wrap">
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold border border-slate-700">${user.role}</span>
+            ${progress ? `<span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40">ETA ${progress.etaShort}</span>` : ''}
           </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-2 text-xs text-slate-200">
-        <div>Vitesse : <b class="text-white">${(user.speed || 0).toFixed(1)} km/h</b></div>
-        <div>Altitude : <b class="text-white">${Math.round(user.ele || 0)} m</b></div>
-        <div>Batterie : <b class="${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</b></div>
-        <div>Écart : <b class="text-blue-400">${isMe ? '0 m' : distFromMe < 1 ? Math.round(distFromMe * 1000) + ' m' : distFromMe.toFixed(1) + ' km'}</b></div>
+      <!-- Grille 4 Cartes Statistiques Haut Contraste -->
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
+          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Vitesse</span>
+          <span class="text-base sm:text-lg font-black text-white mt-0.5">${(user.speed || 0).toFixed(1)} <span class="text-xs font-bold text-slate-400">km/h</span></span>
+        </div>
+        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
+          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Altitude</span>
+          <span class="text-base sm:text-lg font-black text-white mt-0.5">${Math.round(user.ele || 0)} <span class="text-xs font-bold text-slate-400">m</span></span>
+        </div>
+        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
+          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Batterie</span>
+          <span class="text-base sm:text-lg font-black mt-0.5 ${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</span>
+        </div>
+        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
+          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Écart</span>
+          <span class="text-base sm:text-lg font-black text-blue-400 mt-0.5">${isMe ? '0 m' : distFromMe < 1 ? Math.round(distFromMe * 1000) + ' m' : distFromMe.toFixed(1) + ' km'}</span>
+        </div>
       </div>
 
+      <!-- Progression & ETA de Trace -->
       ${progress ? `
-        <div class="p-2.5 rounded-2xl bg-slate-900 border border-slate-750 space-y-1.5 mt-1">
-          <div class="flex items-center justify-between text-xs">
-            <span class="font-bold text-slate-300 flex items-center gap-1.5 truncate max-w-[140px]">
-              <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${progress.trackColor};"></span>
+        <div class="p-3 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2 shadow-inner">
+          <div class="flex items-center justify-between">
+            <span class="font-black text-sm text-slate-200 flex items-center gap-2 truncate max-w-[170px]">
+              <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${progress.trackColor};"></span>
               <span class="truncate">${progress.trackName}</span>
             </span>
-            <span class="font-black text-emerald-400 text-xs font-mono">${progress.progressPct}%</span>
+            <span class="font-mono font-black text-emerald-400 text-sm">${progress.progressPct}%</span>
           </div>
-          <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
+          <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
             <div class="h-full rounded-full transition-all duration-300" style="width: ${progress.progressPct}%; background-color: ${progress.trackColor};"></div>
           </div>
-          <div class="flex items-center justify-between text-[11px] text-slate-300 pt-0.5">
-            <span>Reste <b>${progress.remainingDist.toFixed(1)} km</b> (+${progress.remainingEleGain}m)</span>
-            <span class="text-amber-400 font-black">ETA : ${progress.etaString}</span>
+          <div class="flex items-center justify-between text-xs text-slate-300 pt-0.5">
+            <span class="font-bold">Reste ${progress.remainingDist.toFixed(1)} km <span class="text-slate-400">(+${progress.remainingEleGain}m D+)</span></span>
+          </div>
+          <div class="bg-amber-500/15 border border-amber-500/35 rounded-xl px-2.5 py-1.5 flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-200">Arrivée estimée :</span>
+            <span class="text-sm font-black text-amber-300 font-mono">${progress.etaString}</span>
           </div>
         </div>
       ` : ''}
 
       ${user.isSos ? `
-        <div class="p-2.5 rounded-xl bg-red-500/20 border-2 border-red-500/50 text-red-300 text-xs font-black flex items-center gap-2">
-          <i data-lucide="alert-triangle" class="w-5 h-5 text-red-400"></i>
-          <span>ALERTE SOS SIGNALÉE !</span>
+        <div class="p-3 rounded-2xl bg-red-600/30 border-2 border-red-500 text-red-200 text-sm font-black flex items-center gap-2.5 shadow-lg animate-pulse">
+          <i data-lucide="alert-triangle" class="w-6 h-6 text-red-400 shrink-0"></i>
+          <span>🚨 ALERTE SOS SIGNALÉE !</span>
         </div>
       ` : ''}
 
-      <div class="text-[10px] text-slate-400 pt-1 border-t border-slate-800 text-right">
-        Mis à jour : ${new Date(user.lastSeen).toLocaleTimeString()}
+      <div class="text-[11px] text-slate-400 pt-2 border-t border-slate-800/80 flex items-center justify-between font-semibold">
+        <span>Signal GPS</span>
+        <span>${new Date(user.lastSeen).toLocaleTimeString()}</span>
       </div>
     </div>
   `);
@@ -1268,51 +1341,51 @@ function renderUsersList() {
     const progress = computeTrackProgress(u);
 
     return `
-      <div class="p-4 rounded-3xl bg-slate-800/90 border-2 ${u.isSos ? 'border-red-500/80 bg-red-950/30' : isStale ? 'border-slate-800 opacity-70' : 'border-slate-700'} hover:border-slate-500 transition flex flex-col gap-2.5 cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3.5 min-w-0">
-            <div class="w-13 h-13 rounded-full flex items-center justify-center text-2xl font-black text-white shrink-0 shadow-lg relative border-2 border-white/90" style="background-color: ${u.color || '#3b82f6'}">
+      <div class="p-4 rounded-3xl bg-slate-800/95 border-2 ${u.isSos ? 'border-red-500 bg-red-950/40 shadow-red-500/20' : isStale ? 'border-slate-800 opacity-70' : 'border-slate-700'} hover:border-slate-500 transition flex flex-col gap-3 cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3.5 min-w-0 flex-1">
+            <div class="w-14 h-14 rounded-full flex items-center justify-center text-3xl font-black text-white shrink-0 shadow-lg relative border-2 border-white/90" style="background-color: ${u.color || '#3b82f6'}">
               ${u.icon || '🥾'}
               ${u.isSos ? '<span class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-white animate-ping"></span>' : ''}
             </div>
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
-                <span class="font-black text-base text-white truncate">${u.name}</span>
-                ${u.isSos ? '<span class="text-xs font-black px-2 py-0.5 rounded-full bg-red-600 text-white animate-pulse">SOS</span>' : ''}
+                <span class="font-black text-lg sm:text-xl text-white truncate">${u.name}</span>
+                ${u.isSos ? '<span class="text-xs font-black px-2.5 py-0.5 rounded-full bg-red-600 text-white animate-pulse">SOS</span>' : ''}
                 ${isStale ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Signal Ancien</span>' : ''}
               </div>
-              <div class="flex items-center gap-2 text-xs mt-0.5">
-                <span class="text-slate-300 font-semibold truncate">${u.role}</span>
-                <span class="text-amber-400 font-black shrink-0">• ETA ${progress ? progress.etaShort : '--:--'}</span>
+              <div class="flex items-center gap-2 text-xs sm:text-sm mt-1 flex-wrap">
+                <span class="text-slate-300 font-bold truncate">${u.role}</span>
+                <span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 shrink-0">ETA ${progress ? progress.etaShort : '--:--'}</span>
               </div>
             </div>
           </div>
 
-          <div class="text-right shrink-0">
-            <div class="font-black text-base text-blue-400">${distStr}</div>
-            <div class="text-xs text-slate-300 font-bold flex items-center justify-end gap-1.5 mt-0.5">
+          <div class="text-right shrink-0 flex flex-col items-end">
+            <div class="font-black text-lg sm:text-xl text-blue-400 font-mono">${distStr}</div>
+            <div class="text-xs text-slate-300 font-black flex items-center gap-1.5 mt-1">
               <span>${(u.speed || 0).toFixed(1)} km/h</span>
-              <span>•</span>
-              <span class="${u.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${u.battery}%</span>
+              <span class="text-slate-500">•</span>
+              <span class="${u.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${u.battery}% 🔋</span>
             </div>
           </div>
         </div>
 
         ${progress ? `
-          <div class="pt-2 border-t border-slate-750 flex flex-col gap-1.5 text-xs">
-            <div class="flex items-center justify-between text-slate-300">
-              <span class="font-bold flex items-center gap-1.5 truncate max-w-[180px]">
-                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${progress.trackColor};"></span>
+          <div class="pt-2.5 border-t border-slate-700/80 flex flex-col gap-2 text-xs">
+            <div class="flex items-center justify-between text-slate-200">
+              <span class="font-black text-sm flex items-center gap-2 truncate max-w-[200px]">
+                <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${progress.trackColor};"></span>
                 <span class="truncate">${progress.trackName}</span>
               </span>
-              <span class="font-black text-emerald-400 font-mono">${progress.progressPct}%</span>
+              <span class="font-black text-emerald-400 font-mono text-sm">${progress.progressPct}%</span>
             </div>
-            <div class="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
+            <div class="w-full h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-700">
               <div class="h-full rounded-full transition-all duration-300" style="width: ${progress.progressPct}%; background-color: ${progress.trackColor};"></div>
             </div>
-            <div class="flex items-center justify-between text-slate-300 text-[11px]">
-              <span>Reste <b>${progress.remainingDist.toFixed(1)} km</b> (+${progress.remainingEleGain}m)</span>
-              <span class="text-amber-400 font-black">ETA : ${progress.etaString}</span>
+            <div class="flex items-center justify-between text-xs text-slate-300">
+              <span class="font-bold">Reste ${progress.remainingDist.toFixed(1)} km (+${progress.remainingEleGain}m D+)</span>
+              <span class="text-amber-300 font-black text-xs font-mono">Arrivée : ${progress.etaString}</span>
             </div>
           </div>
         ` : ''}
@@ -1615,6 +1688,7 @@ function initRealtimeSync() {
     if (savedRoom) state.roomCode = savedRoom;
   }
   updateRoomDisplay();
+  loadSavedOtherUsersFromStorage();
 
   try {
     state.broadcastChannel = new BroadcastChannel(`rando_${state.roomCode}`);
@@ -1679,14 +1753,20 @@ function initMqttSync() {
         if (!err) {
           console.log(`[MQTT] Abonné au topic : ${topic}`);
           
-          // Annoncer notre arrivée dans le salon
+          // 1. Annoncer notre arrivée dans le salon
           publishMessage({
             type: 'user_joined',
             user: state.myUser,
             hasTracks: state.tracks.length > 0
           });
 
-          // Si nous avons déjà des traces chargées, les envoyer immédiatement
+          // 2. Demander la présence immédiate de tous les membres déjà présents
+          publishMessage({
+            type: 'request_presence',
+            from: state.myUser.id
+          });
+
+          // 3. Si nous avons déjà des traces chargées, les envoyer immédiatement
           if (state.tracks.length > 0) {
             publishMessage({
               type: 'sync_tracks',
@@ -1760,13 +1840,34 @@ function handleIncomingMessage(data) {
   if (data.senderId === state.myUser.id) return; // Ignore nos propres messages
   if (data.room && data.room !== state.roomCode) return;
 
-  if (data.type === 'user_joined') {
+  if (data.type === 'request_presence') {
+    // Un participant demande la liste des présents : répondre immédiatement
+    publishMessage({
+      type: 'respond_presence',
+      user: state.myUser
+    });
+    // Si nous avons des traces, les transmettre
+    if (state.tracks.length > 0) {
+      publishMessage({
+        type: 'sync_tracks',
+        from: state.myUser.id,
+        tracks: state.tracks
+      });
+    }
+  } else if (data.type === 'user_joined') {
     const user = data.user;
-    if (user) {
+    if (user && user.id !== state.myUser.id) {
       state.otherUsers.set(user.id, user);
       createOrUpdateUserMarker(user);
+      saveOtherUsersToStorage();
       renderUsersList();
       showToast(`👋 ${user.name} a rejoint la rando !`, 'info');
+
+      // Répondre IMMÉDIATEMENT au nouvel arrivant avec notre présence
+      publishMessage({
+        type: 'respond_presence',
+        user: state.myUser
+      });
 
       // Si nous avons des traces GPX chargées, nous les envoyons au nouvel arrivant
       if (state.tracks.length > 0) {
@@ -1775,14 +1876,20 @@ function handleIncomingMessage(data) {
           from: state.myUser.id,
           tracks: state.tracks
         });
-        publishMessage({
-          type: 'update_position',
-          user: state.myUser
-        });
+      }
+    }
+  } else if (data.type === 'respond_presence' || data.type === 'update_position' || data.type === 'user_updated') {
+    const user = data.user;
+    if (user && user.id !== state.myUser.id) {
+      if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
+        state.otherUsers.set(user.id, user);
+        createOrUpdateUserMarker(user);
+        saveOtherUsersToStorage();
+        renderUsersList();
       }
     }
   } else if (data.type === 'sync_tracks') {
-    // Réception des traces GPX de la rando envoyées par Jean-Luc ou le guide
+    // Réception des traces GPX de la rando envoyées par Jean-Luc ou un participant
     if (Array.isArray(data.tracks) && data.tracks.length > 0) {
       const isDifferent = state.tracks.length !== data.tracks.length ||
         state.tracks.some((t, i) => !data.tracks[i] || t.id !== data.tracks[i].id);
@@ -1811,15 +1918,6 @@ function handleIncomingMessage(data) {
         showToast(`🗺️ Randonnée synchronisée (${state.tracks.length} trace(s) reçue(s)) !`, 'success');
       }
     }
-  } else if (data.type === 'update_position' || data.type === 'user_updated') {
-    const user = data.user;
-    if (user) {
-      if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
-        state.otherUsers.set(user.id, user);
-        createOrUpdateUserMarker(user);
-        renderUsersList();
-      }
-    }
   } else if (data.type === 'clear_tracks') {
     state.tracks.forEach(t => {
       const l = state.trackLayers.get(t.id);
@@ -1834,9 +1932,34 @@ function handleIncomingMessage(data) {
   } else if (data.type === 'user_left') {
     state.otherUsers.delete(data.userId);
     removeUserMarker(data.userId);
+    saveOtherUsersToStorage();
     renderUsersList();
   }
 }
+
+// Heartbeat périodique (toutes les 5 secondes) pour garantir la présence même à l'arrêt
+let heartbeatInterval = null;
+function startHeartbeat() {
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  heartbeatInterval = setInterval(() => {
+    if (mqttClient && mqttClient.connected) {
+      broadcastMyPosition();
+    }
+  }, 5000);
+}
+
+// Réveil lors du retour sur l'onglet / l'application
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    if (mqttClient && mqttClient.connected) {
+      broadcastMyPosition();
+      publishMessage({
+        type: 'request_presence',
+        from: state.myUser.id
+      });
+    }
+  }
+});
 
 // ============================================================================
 // ÉCOUTEURS D'ÉVÉNEMENTS & INTERACTIONS
@@ -1959,10 +2082,15 @@ function setupEventListeners() {
     saveRoomBtn.addEventListener('click', () => {
       const val = inputRoom.value.toUpperCase().trim();
       if (val) {
-        state.roomCode = val;
-        updateRoomDisplay();
-        initMqttSync();
-        saveHikeSessionToStorage();
+        if (val !== state.roomCode) {
+          state.otherUsers.forEach((u, id) => removeUserMarker(id));
+          state.otherUsers.clear();
+          state.roomCode = val;
+          updateRoomDisplay();
+          loadSavedOtherUsersFromStorage();
+          initMqttSync();
+          saveHikeSessionToStorage();
+        }
         roomModal.classList.add('hidden');
         showToast(`Salon connecté : ${state.roomCode}`, 'success');
       }
@@ -2057,6 +2185,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initRealtimeSync();
 
   createOrUpdateUserMarker(state.myUser);
+  loadSavedOtherUsersFromStorage();
   renderUsersList();
 
   // CHARGEMENT DE LA SESSION PERSISTANTE (SI RANDONNÉE EN COURS < 8H/24H)
@@ -2064,6 +2193,8 @@ window.addEventListener('DOMContentLoaded', () => {
   if (!hasRestored) {
     renderQuickTracksBar();
   }
+
+  startHeartbeat();
 
   lucide.createIcons();
 

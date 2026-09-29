@@ -1,5 +1,5 @@
-// Service Worker pour RandoTracker PWA - Version 17
-const CACHE_NAME = 'rando-tracker-v17';
+// Service Worker pour RandoTracker PWA - Version 19
+const CACHE_NAME = 'rando-tracker-v19';
 
 const STATIC_ASSETS = [
   './',
@@ -10,19 +10,30 @@ const STATIC_ASSETS = [
   './logo.png',
   './icon-192.png',
   './icon-512.png',
-  './favicon.png'
+  './favicon.png',
+  'https://cdn.tailwindcss.com',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://unpkg.com/lucide@latest',
+  'https://cdn.jsdelivr.net/npm/chart.js',
+  'https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js',
+  'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js'
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v17...');
+  console.log('[SW] Installation v19...');
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.allSettled(
+        STATIC_ASSETS.map((url) => cache.add(url).catch((err) => console.warn('[SW] Non mis en cache:', url, err)))
+      );
+    })
   );
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation v17...');
+  console.log('[SW] Activation v19...');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
