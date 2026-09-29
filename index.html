@@ -49,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v19 -->
-  <link rel="stylesheet" href="styles.css?v=19" />
+  <!-- Custom Styles with Cache-Busting v22 -->
+  <link rel="stylesheet" href="styles.css?v=22" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -60,11 +60,11 @@
   <header class="h-20 sm:h-22 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-2.5 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
     <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
     <div id="brand-header-btn" class="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group active:scale-95 transition shrink-0" title="Jean-Luc DAUSSY 2026">
-      <img src="logo.png?v=19" alt="Logo RandoTracker" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl shadow-xl border-2 border-emerald-500/40 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+      <img src="logo.png?v=22" alt="Logo RandoTracker" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl shadow-xl border-2 border-emerald-500/40 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
       <div class="flex flex-col justify-center">
         <div class="flex items-center gap-1.5 sm:gap-2">
           <span class="font-black text-lg sm:text-2xl tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40 inline-flex items-center leading-none translate-y-[2px]">v19</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40 inline-flex items-center leading-none translate-y-[2px]">v22</span>
         </div>
         <span class="text-[11px] text-slate-400 group-hover:text-slate-200 font-bold tracking-wider mt-0.5 transition flex items-center gap-1 leading-none">
           <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-300 group-hover:text-emerald-400">JLD</span>
@@ -108,6 +108,20 @@
       <!-- Injected via JavaScript : Boutons rapides pour chaque trace GPX + Bouton '+' -->
     </div>
 
+    <!-- BANDEAU ANNONCE EN DIRECT (SUR LA CARTE) -->
+    <div id="active-announcement-banner" class="hidden absolute top-16 left-3 right-3 sm:left-6 sm:right-auto sm:max-w-md z-25 bg-amber-500 text-slate-950 px-4 py-3 rounded-2xl shadow-2xl border-2 border-white flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0 flex-1">
+        <span class="text-2xl animate-bounce">📢</span>
+        <div class="min-w-0 flex-1">
+          <div class="text-[10px] font-black uppercase tracking-wider text-slate-900 opacity-80" id="announcement-sender-time">Message de l'Organisateur</div>
+          <div class="text-sm sm:text-base font-black truncate text-slate-950" id="announcement-banner-text">Pause 10 minutes !</div>
+        </div>
+      </div>
+      <button onclick="closeAnnouncementBanner()" class="p-1.5 rounded-xl bg-slate-950/20 hover:bg-slate-950/30 text-slate-950 font-black text-xs shrink-0" title="Fermer le bandeau">
+        ✕
+      </button>
+    </div>
+
     <!-- BOUTONS FLOTTANTS SUR LA CARTE (64px x 64px) -->
     <div class="absolute bottom-6 right-4 z-20 flex flex-col gap-4">
       <!-- Recadrer la vue sur toutes les traces -->
@@ -148,16 +162,31 @@
         </div>
       </div>
 
-      <!-- Bouton Inviter des Participants & Réinitialiser -->
+      <!-- Actions : Diffuser un Message (Accessible à TOUS) + Outils Organisateur (Inviter, Purger, Reset) -->
       <div class="p-4 bg-slate-850 border-b-2 border-slate-800 flex flex-col gap-2.5">
-        <button id="drawer-invite-btn" class="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-base flex items-center justify-center gap-3 shadow-xl transition active:scale-95">
-          <i data-lucide="qr-code" class="w-6 h-6"></i>
-          <span>📲 INVITER UN MARCHEUR (QR CODE)</span>
+        <!-- Bouton Message Broadcast pour TOUS LES PARTICIPANTS (Organisateur & Invités) -->
+        <button id="btn-broadcast-all" onclick="openAnnouncementModal()" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl transition active:scale-95">
+          <i data-lucide="megaphone" class="w-5 h-5 text-slate-950"></i>
+          <span>📢 MESSAGE À TOUT LE GROUPE</span>
         </button>
-        <button onclick="clearHikeSession()" class="w-full py-2.5 px-3 rounded-xl bg-slate-800/90 hover:bg-red-950/80 border border-slate-700 hover:border-red-500/60 text-slate-300 hover:text-red-300 font-bold text-xs flex items-center justify-center gap-2 transition active:scale-95" title="Effacer les traces et réinitialiser les participants pour une nouvelle rando">
-          <i data-lucide="rotate-ccw" class="w-4 h-4 text-red-400"></i>
-          <span>🔄 Réinitialiser la Randonnée (Traces & Participants)</span>
-        </button>
+
+        <!-- Actions réservées uniquement à l'Organisateur -->
+        <div id="drawer-admin-actions" class="flex flex-col gap-2.5">
+          <button id="drawer-invite-btn" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl transition active:scale-95">
+            <i data-lucide="qr-code" class="w-5 h-5"></i>
+            <span>📲 INVITER UN MARCHEUR (QR CODE)</span>
+          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="clearOnlyParticipants()" class="py-2.5 px-2 rounded-xl bg-slate-800/90 hover:bg-slate-750 border border-slate-700 hover:border-amber-500/60 text-slate-300 hover:text-amber-300 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95" title="Supprimer tous les autres participants sans toucher à vos traces GPX">
+              <i data-lucide="user-x" class="w-4 h-4 text-amber-400"></i>
+              <span>Purger marcheurs</span>
+            </button>
+            <button onclick="clearHikeSession()" class="py-2.5 px-2 rounded-xl bg-slate-800/90 hover:bg-red-950/80 border border-slate-700 hover:border-red-500/60 text-slate-300 hover:text-red-300 font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95" title="Effacer à la fois les traces et les participants pour une nouvelle rando">
+              <i data-lucide="rotate-ccw" class="w-4 h-4 text-red-400"></i>
+              <span>Nouvelle Rando</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Ma Fiche Randonneur GÉANTE -->
@@ -265,14 +294,22 @@
   <!-- ================================================================= -->
   <nav class="h-24 sm:h-26 bg-slate-900/98 border-t-2 border-slate-800 grid grid-cols-3 items-center z-30 shrink-0 safe-bottom shadow-2xl px-2 sm:px-6">
     
-    <!-- Bouton 1 : 📂 CHARGER GPX (UN CLIC OUVRE DIRECTEMENT LE CHOIX DES FICHIERS !) -->
-    <label for="gpx-file-input" class="cursor-pointer flex flex-col items-center justify-center gap-1.5 text-slate-200 hover:text-emerald-400 transition active:scale-95 py-2">
+    <!-- Bouton 1 (Organisateur) : 📂 CHARGER GPX -->
+    <label id="nav-btn-gpx" for="gpx-file-input" class="cursor-pointer flex flex-col items-center justify-center gap-1.5 text-slate-200 hover:text-emerald-400 transition active:scale-95 py-2">
       <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-lg">
         <i data-lucide="upload-cloud" class="w-7 h-7 sm:w-8 sm:h-8 text-emerald-400"></i>
       </div>
       <span class="text-xs sm:text-sm font-black tracking-wide">Charger GPX</span>
       <input type="file" id="gpx-file-input" accept=".gpx" class="hidden" multiple />
     </label>
+
+    <!-- Bouton 1 (Invité / Marcheur) : ⛰️ PARCOURS & DÉNIVELÉ -->
+    <button id="nav-btn-ele" class="hidden flex flex-col items-center justify-center gap-1.5 text-slate-200 hover:text-emerald-400 transition active:scale-95 py-2" onclick="openGuestTrackView()">
+      <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-lg">
+        <i data-lucide="mountain" class="w-7 h-7 sm:w-8 sm:h-8 text-emerald-400"></i>
+      </div>
+      <span class="text-xs sm:text-sm font-black tracking-wide">Parcours</span>
+    </button>
 
     <!-- Bouton 2 : 📍 MA POSITION GPS (GROS BOUTON VERT CENTRAL 76px) -->
     <button id="nav-btn-gps" class="flex flex-col items-center justify-center gap-1 text-white transition active:scale-95 py-1">
@@ -516,6 +553,25 @@
             <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-rose-700 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#be123c" data-icon="🚑" title="Secours">🚑</button>
           </div>
         </div>
+        <!-- Mode Organisateur / Invité -->
+        <div class="p-4 bg-slate-950/90 rounded-2xl border-2 border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">👑</span>
+              <div>
+                <span class="text-xs font-black text-white uppercase block">Mode Organisateur</span>
+                <span class="text-[11px] text-emerald-400 font-bold">Privilèges Guide (GPX & Inviter)</span>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="toggle-organizer-mode" class="sr-only peer" checked />
+              <div class="w-12 h-7 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600 border border-slate-700"></div>
+            </label>
+          </div>
+          <p class="text-[11px] text-slate-400 font-semibold leading-relaxed pt-1">
+            Seul l'organisateur dispose des boutons pour charger des GPX, inviter des marcheurs et réinitialiser les randonnées.
+          </p>
+        </div>
       </div>
 
       <div class="pt-4 border-t-2 border-slate-800 flex justify-end gap-3">
@@ -539,7 +595,7 @@
       </button>
 
       <div class="flex justify-center pt-2">
-        <img src="logo.png?v=15" alt="Logo RandoTracker by JLD" class="w-20 h-20 rounded-3xl shadow-2xl border-2 border-emerald-500/40 bg-slate-950 p-1.5" />
+        <img src="logo.png?v=20" alt="Logo RandoTracker by JLD" class="w-20 h-20 rounded-3xl shadow-2xl border-2 border-emerald-500/40 bg-slate-950 p-1.5" />
       </div>
 
       <div>
@@ -566,7 +622,112 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v19 -->
-  <script src="app.js?v=19"></script>
+  <!-- ================================================================= -->
+  <!-- MODAL : COMPOSITION DE MESSAGE À TOUT LE GROUPE (ACCESSIBLE À TOUS) -->
+  <!-- ================================================================= -->
+  <div id="announcement-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-amber-500/80 rounded-3xl w-full max-w-lg p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4">
+        <h3 class="font-black text-xl text-white flex items-center gap-3">
+          <span class="text-2xl">📢</span>
+          Message à Tout le Groupe
+        </h3>
+        <button onclick="closeAnnouncementModal()" class="w-11 h-11 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white bg-slate-800 border border-slate-700 active:scale-90">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <p class="text-xs sm:text-sm text-slate-300 font-semibold">
+        Diffusez un message ou une alerte instantanée sur les téléphones de tous les marcheurs connectés (avec signal sonore & vibreur) :
+      </p>
+
+      <!-- Messages Rapides en 1 Clic (Optimisé Outdoor pour tous les marcheurs) -->
+      <div>
+        <label class="block text-xs font-black text-amber-400 uppercase mb-2.5">⚡ Messages Rapides (1 clic)</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <button type="button" class="preset-msg-btn text-left p-3 rounded-2xl bg-slate-800/90 hover:bg-amber-600/30 border-2 border-slate-700 hover:border-amber-500/80 text-white font-bold text-xs sm:text-sm flex items-center gap-2.5 transition active:scale-95" data-preset="⏸️ Pause de 10 minutes !">
+            <span class="text-xl">⏸️</span>
+            <span>Pause de 10 minutes</span>
+          </button>
+          <button type="button" class="preset-msg-btn text-left p-3 rounded-2xl bg-slate-800/90 hover:bg-amber-600/30 border-2 border-slate-700 hover:border-amber-500/80 text-white font-bold text-xs sm:text-sm flex items-center gap-2.5 transition active:scale-95" data-preset="🚶‍♂️ Regroupement au prochain croisement !">
+            <span class="text-xl">🚶‍♂️</span>
+            <span>Regroupement au croisement</span>
+          </button>
+          <button type="button" class="preset-msg-btn text-left p-3 rounded-2xl bg-slate-800/90 hover:bg-amber-600/30 border-2 border-slate-700 hover:border-amber-500/80 text-white font-bold text-xs sm:text-sm flex items-center gap-2.5 transition active:scale-95" data-preset="🐢 Besoin de ralentir / Pause lacet ou sac !">
+            <span class="text-xl">🐢</span>
+            <span>Besoin de ralentir / Arrêt</span>
+          </button>
+          <button type="button" class="preset-msg-btn text-left p-3 rounded-2xl bg-slate-800/90 hover:bg-amber-600/30 border-2 border-slate-700 hover:border-amber-500/80 text-white font-bold text-xs sm:text-sm flex items-center gap-2.5 transition active:scale-95" data-preset="💧 Point d'eau / Ravitaillement dans 500m !">
+            <span class="text-xl">💧</span>
+            <span>Point d'eau / Fontaine</span>
+          </button>
+          <button type="button" class="preset-msg-btn text-left p-3 rounded-2xl bg-slate-800/90 hover:bg-amber-600/30 border-2 border-slate-700 hover:border-amber-500/80 text-white font-bold text-xs sm:text-sm flex items-center gap-2.5 transition active:scale-95" data-preset="⚠️ Attention passage délicat / glissant !">
+            <span class="text-xl">⚠️</span>
+            <span>Attention passage délicat</span>
+          </button>
+          <button type="button" class="preset-msg-btn text-left p-3 rounded-2xl bg-slate-800/90 hover:bg-amber-600/30 border-2 border-slate-700 hover:border-amber-500/80 text-white font-bold text-xs sm:text-sm flex items-center gap-2.5 transition active:scale-95" data-preset="📸 Belle photo / Beau point de vue ici !">
+            <span class="text-xl">📸</span>
+            <span>Arrêt Photo / Point de vue</span>
+          </button>
+          <button type="button" class="preset-msg-btn text-left p-3 rounded-2xl bg-slate-800/90 hover:bg-amber-600/30 border-2 border-slate-700 hover:border-amber-500/80 text-white font-bold text-xs sm:text-sm flex items-center gap-2.5 transition active:scale-95" data-preset="🍽️ Pause pique-nique ici !">
+            <span class="text-xl">🍽️</span>
+            <span>Pause pique-nique</span>
+          </button>
+          <button type="button" class="preset-msg-btn text-left p-3 rounded-2xl bg-slate-800/90 hover:bg-amber-600/30 border-2 border-slate-700 hover:border-amber-500/80 text-white font-bold text-xs sm:text-sm flex items-center gap-2.5 transition active:scale-95" data-preset="🏁 Direction l'arrivée !">
+            <span class="text-xl">🏁</span>
+            <span>Direction l'arrivée</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Message Personnalisé -->
+      <div class="pt-2 border-t border-slate-800">
+        <label class="block text-xs font-black text-slate-400 uppercase mb-2">Ou rédigez un message personnalisé</label>
+        <textarea id="announcement-custom-input" rows="2" placeholder="Ex: On ralentit l'allure, attendez le serre-file..." class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-3.5 text-sm sm:text-base text-white font-bold focus:outline-none focus:border-amber-500 shadow-inner resize-none"></textarea>
+      </div>
+
+      <div class="pt-2 border-t-2 border-slate-800 flex justify-end gap-3">
+        <button type="button" onclick="closeAnnouncementModal()" class="px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold active:scale-95">
+          Annuler
+        </button>
+        <button type="button" id="send-announcement-btn" onclick="sendCustomAnnouncement()" class="px-6 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-base font-black shadow-xl flex items-center gap-2 active:scale-95">
+          <i data-lucide="send" class="w-5 h-5"></i>
+          <span>Envoyer au groupe</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL : RÉCEPTION D'UN MESSAGE DIFFUSÉ (TOUS LES MARCHEURS) -->
+  <!-- ================================================================= -->
+  <div id="received-announcement-modal" class="hidden fixed inset-0 z-55 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-gradient-to-b from-amber-500 to-amber-600 text-slate-950 border-4 border-white rounded-3xl w-full max-w-md p-6 sm:p-7 shadow-2xl flex flex-col gap-4 text-center">
+      <div class="flex justify-center">
+        <div id="rx-announcement-icon-bubble" class="w-20 h-20 rounded-3xl bg-slate-950 text-amber-400 border-2 border-white/40 flex items-center justify-center text-4xl shadow-2xl animate-bounce">
+          📢
+        </div>
+      </div>
+      <div>
+        <div class="text-sm font-black uppercase tracking-wider text-slate-950 flex items-center justify-center gap-1.5" id="rx-announcement-sender">
+          Message de Jean-Luc (Guide de tête)
+        </div>
+        <div class="text-xs font-mono font-bold text-slate-900/80 mt-0.5" id="rx-announcement-time">
+          Reçu à 14:35
+        </div>
+      </div>
+      <div class="bg-slate-950 text-white p-5 rounded-2xl border-2 border-white/20 shadow-inner">
+        <p class="text-lg sm:text-xl font-black leading-snug" id="rx-announcement-text">
+          Pause de 10 minutes !
+        </p>
+      </div>
+      <button onclick="closeReceivedAnnouncementModal()" class="w-full py-4 rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-black text-base sm:text-lg shadow-2xl border-2 border-white/30 active:scale-95 transition">
+        👍 COMPRIS !
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Application Script with Cache-Busting v22 -->
+  <script src="app.js?v=22"></script>
 </body>
 </html>

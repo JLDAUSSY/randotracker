@@ -1,9 +1,9 @@
 /**
- * RandoTracker v19 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
+ * RandoTracker v20 - Application Mobile PWA de Randonnée & Suivi Multi-Marcheurs
  * Cartes Officielles IGN Géoplateforme (France) & IGN España (MTN Topo 1:25k),
+ * Version Organisateur (Privilèges GPX, Invitations, Purge) & Mode Invité Simplifié,
  * Auto-Commutation Intelligente selon la Géolocalisation & Coordonnées GPX,
- * Multi-Traces GPX (jusqu'à 5), Calcul Automatique de Progression & ETA,
- * Reconnexion Résiliente & Synchronisation Présence Bidirectionnelle Instantanée.
+ * Multi-Traces GPX (jusqu'à 5), Calcul Automatique de Progression & ETA.
  */
 
 // ============================================================================
@@ -47,10 +47,11 @@ const state = {
   layers: {},
   tracks: [],
   roomCode: 'RANDO-2026',
+  isOrganizer: true, // true pour l'Organisateur (Jean-Luc), false pour les Invités
   myUser: {
     id: getOrCreateUserId(),
     name: 'Jean-Luc',
-    role: 'Randonneur',
+    role: 'Guide de tête',
     icon: '🌲',
     color: '#059669',
     assignedTrackId: 'auto', // 'auto' ou l'ID d'une trace GPX
@@ -367,6 +368,105 @@ function clearHikeSession() {
   });
 }
 
+function clearOnlyParticipants() {
+  if (state.otherUsers.size === 0) {
+    showToast('Aucun autre participant dans le salon.', 'info');
+    return;
+  }
+  const count = state.otherUsers.size;
+  if (!confirm(`Voulez-vous supprimer les ${count} autre(s) participant(s) de votre carte ?\n(Vos traces GPX seront conservées).`)) return;
+
+  // 1. Effacer tous les autres participants de la carte et de la liste (sauf Moi)
+  state.otherUsers.forEach((u, id) => {
+    removeUserMarker(id);
+  });
+  state.otherUsers.clear();
+
+  // 2. Purger le stockage local des participants
+  localStorage.removeItem('rando_saved_other_users');
+
+  // 3. Mettre à jour l'affichage
+  renderUsersList();
+  showToast(`${count} participant(s) purgé(s).`, 'info');
+
+  // 4. Diffuser l'ordre de purge aux autres téléphones
+  publishMessage({
+    type: 'kick_all',
+    from: state.myUser.id
+  });
+}
+
+// ============================================================================
+// ============================================================================
+// GESTION DES RÔLES : ORGANISATEUR vs INVITÉ / MARCHEUR
+// ============================================================================
+function initUserRole() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const roleParam = urlParams.get('role');
+  
+  if (roleParam === 'guest' || roleParam === 'viewer') {
+    state.isOrganizer = false;
+    localStorage.setItem('rando_is_organizer', 'false');
+    const savedName = localStorage.getItem('rando_user_name');
+    if (!savedName || savedName === 'Jean-Luc') {
+      state.myUser.name = 'Invité';
+      state.myUser.role = 'Randonneur';
+      state.myUser.icon = '🥾';
+      state.myUser.color = '#2563eb';
+      localStorage.setItem('rando_user_name', 'Invité');
+      localStorage.setItem('rando_user_role', 'Randonneur');
+      localStorage.setItem('rando_user_icon', '🥾');
+      localStorage.setItem('rando_user_color', '#2563eb');
+    }
+  } else if (roleParam === 'organizer' || roleParam === 'admin') {
+    state.isOrganizer = true;
+    localStorage.setItem('rando_is_organizer', 'true');
+  } else {
+    const saved = localStorage.getItem('rando_is_organizer');
+    state.isOrganizer = (saved !== 'false');
+  }
+
+  applyRoleUI();
+}
+
+function applyRoleUI() {
+  const headerInvite = document.getElementById('header-invite-btn');
+  const drawerAdminActions = document.getElementById('drawer-admin-actions');
+  const navBtnGpx = document.getElementById('nav-btn-gpx');
+  const navBtnEle = document.getElementById('nav-btn-ele');
+
+  if (headerInvite) {
+    if (state.isOrganizer) headerInvite.classList.remove('hidden');
+    else headerInvite.classList.add('hidden');
+  }
+
+  if (drawerAdminActions) {
+    if (state.isOrganizer) drawerAdminActions.classList.remove('hidden');
+    else drawerAdminActions.classList.add('hidden');
+  }
+
+  if (navBtnGpx && navBtnEle) {
+    if (state.isOrganizer) {
+      navBtnGpx.classList.remove('hidden');
+      navBtnEle.classList.add('hidden');
+    } else {
+      navBtnGpx.classList.add('hidden');
+      navBtnEle.classList.remove('hidden');
+    }
+  }
+
+  renderQuickTracksBar();
+}
+
+function openGuestTrackView() {
+  if (state.tracks.length > 0) {
+    fitAllTracks();
+    openElevationDrawer(state.tracks[0].id);
+  } else {
+    showToast('En attente de la transmission des traces du guide...', 'info');
+  }
+}
+
 // ============================================================================
 // GESTION DU PROFIL UTILISATEUR & PERSISTANCE LOCALSTORAGE
 // ============================================================================
@@ -378,14 +478,19 @@ function loadUserProfile() {
   const savedTrack = localStorage.getItem('rando_user_track');
   const savedDuration = localStorage.getItem('rando_share_duration');
 
-  if (savedName && savedName !== 'Jean') {
+  if (savedName) {
     state.myUser.name = savedName;
   } else {
-    state.myUser.name = 'Jean-Luc';
-    localStorage.setItem('rando_user_name', 'Jean-Luc');
+    state.myUser.name = state.isOrganizer ? 'Jean-Luc' : 'Invité';
+    localStorage.setItem('rando_user_name', state.myUser.name);
   }
 
-  if (savedRole) state.myUser.role = savedRole;
+  if (savedRole) {
+    state.myUser.role = savedRole;
+  } else {
+    state.myUser.role = state.isOrganizer ? 'Guide de tête' : 'Randonneur';
+  }
+
   if (savedIcon) state.myUser.icon = savedIcon;
   if (savedColor) state.myUser.color = savedColor;
   
@@ -426,10 +531,12 @@ function updateProfileUI() {
   const inputRole = document.getElementById('input-user-role');
   const inputDuration = document.getElementById('input-share-duration');
   const inputTrack = document.getElementById('input-user-track');
+  const orgToggle = document.getElementById('toggle-organizer-mode');
 
   if (inputName) inputName.value = state.myUser.name;
   if (inputRole) inputRole.value = state.myUser.role;
   if (inputDuration) inputDuration.value = String(state.shareDurationHours);
+  if (orgToggle) orgToggle.checked = state.isOrganizer;
 
   // Mettre à jour la liste des traces disponibles dans le sélecteur
   if (inputTrack) {
@@ -458,11 +565,21 @@ function saveUserProfile() {
   const role = document.getElementById('input-user-role').value;
   const duration = parseFloat(document.getElementById('input-share-duration').value);
   const trackId = document.getElementById('input-user-track').value;
+  const orgToggle = document.getElementById('toggle-organizer-mode');
 
   if (name) state.myUser.name = name;
   if (role) state.myUser.role = role;
   state.myUser.assignedTrackId = trackId || 'auto';
   state.shareDurationHours = Math.min(ABSOLUTE_MAX_HOURS, Math.max(1, isNaN(duration) ? 8 : duration));
+
+  if (orgToggle) {
+    const wasOrganizer = state.isOrganizer;
+    state.isOrganizer = orgToggle.checked;
+    localStorage.setItem('rando_is_organizer', state.isOrganizer ? 'true' : 'false');
+    if (wasOrganizer !== state.isOrganizer) {
+      applyRoleUI();
+    }
+  }
 
   localStorage.setItem('rando_user_name', state.myUser.name);
   localStorage.setItem('rando_user_role', state.myUser.role);
@@ -483,9 +600,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=19')
+    navigator.serviceWorker.register('./sw.js?v=22')
       .then((reg) => {
-        console.log('[PWA] Service Worker v19 actif:', reg.scope);
+        console.log('[PWA] Service Worker v22 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -913,24 +1030,26 @@ function renderTrackOnMap(track) {
 // ============================================================================
 function renderQuickTracksBar() {
   const bar = document.getElementById('quick-tracks-bar');
-  const headerNewBtn = document.getElementById('header-new-hike-btn');
-
-  if (headerNewBtn) {
-    if (state.tracks.length > 0) headerNewBtn.classList.remove('hidden');
-    else headerNewBtn.classList.add('hidden');
-  }
-
   if (!bar) return;
 
   if (state.tracks.length === 0) {
-    bar.innerHTML = `
-      <div class="flex items-center gap-2 bg-slate-900/95 border-2 border-emerald-500/60 rounded-2xl p-1.5 shadow-2xl">
-        <label for="gpx-file-input" class="cursor-pointer flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm px-4 py-2.5 rounded-xl shadow transition active:scale-95">
-          <i data-lucide="upload-cloud" class="w-5 h-5"></i>
-          <span>📂 Charger vos GPX (jusqu'à 5)</span>
-        </label>
-      </div>
-    `;
+    if (state.isOrganizer) {
+      bar.innerHTML = `
+        <div class="flex items-center gap-2 bg-slate-900/95 border-2 border-emerald-500/60 rounded-2xl p-1.5 shadow-2xl">
+          <label for="gpx-file-input" class="cursor-pointer flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm px-4 py-2.5 rounded-xl shadow transition active:scale-95">
+            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+            <span>📂 Charger vos GPX (jusqu'à 5)</span>
+          </label>
+        </div>
+      `;
+    } else {
+      bar.innerHTML = `
+        <div class="flex items-center gap-2.5 bg-slate-900/95 border-2 border-slate-700/80 rounded-2xl px-4 py-2.5 shadow-2xl text-slate-300 text-xs font-bold">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+          <span>En attente de la transmission des traces du guide...</span>
+        </div>
+      `;
+    }
     lucide.createIcons();
     return;
   }
@@ -948,25 +1067,27 @@ function renderQuickTracksBar() {
       <button onclick="zoomToTrack('${track.id}')" class="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800" title="Centrer">
         <i data-lucide="maximize" class="w-4 h-4"></i>
       </button>
-      <button onclick="removeTrack('${track.id}')" class="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-slate-800" title="Supprimer">
-        <i data-lucide="x" class="w-4 h-4"></i>
-      </button>
+      ${state.isOrganizer ? `
+        <button onclick="removeTrack('${track.id}')" class="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-slate-800" title="Supprimer">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      ` : ''}
     </div>
   `).join('');
 
-  const addPill = state.tracks.length < MAX_TRACKS ? `
+  const addPill = (state.isOrganizer && state.tracks.length < MAX_TRACKS) ? `
     <label for="gpx-file-input" class="cursor-pointer flex items-center gap-1.5 bg-slate-900/95 border-2 border-dashed border-emerald-500/80 hover:border-emerald-400 text-emerald-400 rounded-2xl px-3 py-2 font-black text-xs shadow-2xl shrink-0 active:scale-95">
       <i data-lucide="plus" class="w-4 h-4"></i>
       <span>GPX (${state.tracks.length}/5)</span>
     </label>
   ` : '';
 
-  const clearPill = `
+  const clearPill = state.isOrganizer ? `
     <button onclick="clearHikeSession()" class="flex items-center gap-1.5 bg-red-950/90 hover:bg-red-900 border-2 border-red-500/80 text-red-200 font-black text-xs px-3.5 py-2 rounded-2xl shadow-2xl shrink-0 active:scale-95 transition" title="Effacer toutes les traces pour démarrer une nouvelle rando">
       <i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i>
       <span>Nouvelle Rando</span>
     </button>
-  `;
+  ` : '';
 
   bar.innerHTML = tracksHtml + addPill + clearPill;
   lucide.createIcons();
@@ -1623,7 +1744,7 @@ function toggleGps() {
 function getInviteUrl() {
   const origin = window.location.origin;
   const pathname = window.location.pathname;
-  return `${origin}${pathname}?room=${encodeURIComponent(state.roomCode)}`;
+  return `${origin}${pathname}?room=${encodeURIComponent(state.roomCode)}&role=guest`;
 }
 
 function openInviteModal() {
@@ -1960,11 +2081,169 @@ function handleIncomingMessage(data) {
     renderUsersList();
     updateProfileUI();
     showToast('Randonnée réinitialisée par l\'organisateur.', 'info');
+  } else if (data.type === 'kick_all') {
+    if (data.from !== state.myUser.id) {
+      state.otherUsers.forEach((u, id) => removeUserMarker(id));
+      state.otherUsers.clear();
+      localStorage.removeItem('rando_saved_other_users');
+      renderUsersList();
+      showToast('Salon des marcheurs purgé par l\'organisateur.', 'info');
+    }
+  } else if (data.type === 'broadcast_announcement') {
+    handleReceivedAnnouncement(data);
   } else if (data.type === 'user_left') {
     state.otherUsers.delete(data.userId);
     removeUserMarker(data.userId);
     saveOtherUsersToStorage();
     renderUsersList();
+  }
+}
+
+// ============================================================================
+// DIFFUSION DE MESSAGES EN DIRECT POUR TOUT LE GROUPE (TOUS LES MARCHEURS)
+// ============================================================================
+function openAnnouncementModal() {
+  const modal = document.getElementById('announcement-modal');
+  const customInput = document.getElementById('announcement-custom-input');
+  if (customInput) customInput.value = '';
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeAnnouncementModal() {
+  const modal = document.getElementById('announcement-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function sendAnnouncement(text) {
+  const msgText = (text || '').trim();
+  if (!msgText) {
+    showToast('Veuillez saisir un message à diffuser.', 'error');
+    return;
+  }
+
+  const payload = {
+    type: 'broadcast_announcement',
+    author: state.myUser.name || 'Marcheur',
+    role: state.myUser.role || 'Randonneur',
+    icon: state.myUser.icon || '🥾',
+    color: state.myUser.color || '#059669',
+    text: msgText,
+    timestamp: Date.now()
+  };
+
+  publishMessage(payload);
+  closeAnnouncementModal();
+  showToast(`📢 Message diffusé au groupe !`, 'success');
+
+  // Afficher également le bandeau sur son propre écran
+  displayAnnouncementBanner(payload.author, payload.icon, payload.role, payload.text, payload.timestamp);
+}
+
+function sendCustomAnnouncement() {
+  const input = document.getElementById('announcement-custom-input');
+  if (input) {
+    sendAnnouncement(input.value);
+  }
+}
+
+function displayAnnouncementBanner(author, icon, role, text, timestamp) {
+  const banner = document.getElementById('active-announcement-banner');
+  const senderTime = document.getElementById('announcement-sender-time');
+  const bannerText = document.getElementById('announcement-banner-text');
+
+  if (banner && senderTime && bannerText) {
+    const timeStr = new Date(timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const authorStr = icon ? `${icon} ${author}` : author;
+    const roleStr = role ? ` (${role})` : '';
+    senderTime.textContent = `📢 ${authorStr}${roleStr} • ${timeStr}`;
+    bannerText.textContent = text;
+    banner.classList.remove('hidden');
+  }
+}
+
+function closeAnnouncementBanner() {
+  const banner = document.getElementById('active-announcement-banner');
+  if (banner) banner.classList.add('hidden');
+}
+
+function handleReceivedAnnouncement(data) {
+  if (!data || !data.text) return;
+
+  playAnnouncementAlert();
+
+  const author = data.author || 'Marcheur';
+  const icon = data.icon || '🥾';
+  const role = data.role || 'Randonneur';
+  const text = data.text;
+  const timeStr = new Date(data.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // 1. Afficher la popup modale de réception
+  const rxModal = document.getElementById('received-announcement-modal');
+  const rxSender = document.getElementById('rx-announcement-sender');
+  const rxTime = document.getElementById('rx-announcement-time');
+  const rxText = document.getElementById('rx-announcement-text');
+  const rxBubble = document.getElementById('rx-announcement-icon-bubble');
+
+  if (rxSender) rxSender.textContent = `Message de ${author} (${role})`;
+  if (rxTime) rxTime.textContent = `Reçu à ${timeStr}`;
+  if (rxText) rxText.textContent = text;
+  if (rxBubble) {
+    rxBubble.textContent = icon;
+    if (data.color) rxBubble.style.borderColor = data.color;
+  }
+
+  if (rxModal) rxModal.classList.remove('hidden');
+
+  // 2. Afficher le bandeau persistant en haut de la carte
+  displayAnnouncementBanner(author, icon, role, text, data.timestamp);
+}
+
+function closeReceivedAnnouncementModal() {
+  const rxModal = document.getElementById('received-announcement-modal');
+  if (rxModal) rxModal.classList.add('hidden');
+}
+
+function playAnnouncementAlert() {
+  // 1. Vibreur mobile
+  if (navigator.vibrate) {
+    try {
+      navigator.vibrate([200, 100, 200, 100, 300]);
+    } catch (e) {}
+  }
+
+  // 2. Synthétiseur sonore Web Audio API
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      // Bip 1 (587 Hz - Ré)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, now);
+      gain1.gain.setValueAtTime(0.3, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.2);
+
+      // Bip 2 (880 Hz - La aigu)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(880, now + 0.22);
+      gain2.gain.setValueAtTime(0.4, now + 0.22);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.22);
+      osc2.stop(now + 0.55);
+    }
+  } catch (e) {
+    console.warn('[Audio] Alerte son non supportée:', e);
   }
 }
 
@@ -2203,6 +2482,14 @@ function setupEventListeners() {
   });
 
   if (saveProfileBtn) saveProfileBtn.addEventListener('click', saveUserProfile);
+
+  // Boutons de messages rapides prédéfinis pour l'organisateur
+  document.querySelectorAll('.preset-msg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const text = btn.getAttribute('data-preset');
+      if (text) sendAnnouncement(text);
+    });
+  });
 }
 
 // ============================================================================
@@ -2211,6 +2498,7 @@ function setupEventListeners() {
 window.addEventListener('DOMContentLoaded', () => {
   initPWA();
   initMap();
+  initUserRole();
   loadUserProfile();
   setupEventListeners();
   initRealtimeSync();
