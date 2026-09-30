@@ -1029,7 +1029,7 @@ function renderTrackOnMap(track) {
 
   const mainPolyline = L.polyline(latlngs, {
     color: track.color.hex,
-    weight: 5,
+    weight: 6,
     opacity: 0.98,
     smoothFactor: 1.2,
     lineCap: 'round',
@@ -1037,18 +1037,30 @@ function renderTrackOnMap(track) {
   });
 
   mainPolyline.bindPopup(`
-    <div class="space-y-2.5 p-1 min-w-[220px]">
-      <div class="flex items-center gap-2.5">
-        <span class="w-4 h-4 rounded-full shadow" style="background-color: ${track.color.hex}"></span>
-        <h4 class="font-black text-base text-white">${track.name}</h4>
+    <div class="space-y-3 p-1 min-w-[280px] sm:min-w-[330px]">
+      <div class="flex items-center gap-3 pb-2.5 border-b-2 border-slate-700">
+        <span class="w-5 h-5 rounded-full shadow-lg shrink-0 border-2 border-white" style="background-color: ${track.color.hex}"></span>
+        <h4 class="font-black text-lg sm:text-xl text-white truncate leading-tight">${track.name}</h4>
       </div>
-      <div class="grid grid-cols-2 gap-2 text-sm text-slate-200 pt-2 border-t border-slate-700">
-        <div>Distance : <b class="text-white">${track.totalDistance.toFixed(1)} km</b></div>
-        <div>Dénivelé + : <b class="text-emerald-400">+${track.eleGain} m</b></div>
-        <div>Alt. Min : <b class="text-white">${track.minEle} m</b></div>
-        <div>Alt. Max : <b class="text-white">${track.maxEle} m</b></div>
+      <div class="grid grid-cols-2 gap-2 text-sm text-slate-200">
+        <div class="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 flex flex-col">
+          <span class="text-[11px] font-bold text-slate-400 block uppercase tracking-wide">Distance</span>
+          <b class="text-white text-base sm:text-lg mt-0.5">${track.totalDistance.toFixed(1)} km</b>
+        </div>
+        <div class="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 flex flex-col">
+          <span class="text-[11px] font-bold text-slate-400 block uppercase tracking-wide">Dénivelé +</span>
+          <b class="text-emerald-400 text-base sm:text-lg mt-0.5">+${track.eleGain} m</b>
+        </div>
+        <div class="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 flex flex-col">
+          <span class="text-[11px] font-bold text-slate-400 block uppercase tracking-wide">Alt. Min</span>
+          <b class="text-white text-base sm:text-lg mt-0.5">${track.minEle} m</b>
+        </div>
+        <div class="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 flex flex-col">
+          <span class="text-[11px] font-bold text-slate-400 block uppercase tracking-wide">Alt. Max</span>
+          <b class="text-white text-base sm:text-lg mt-0.5">${track.maxEle} m</b>
+        </div>
       </div>
-      <button onclick="openElevationDrawer('${track.id}')" class="w-full mt-2 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow">
+      <button onclick="openElevationDrawer('${track.id}')" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-xl active:scale-95 transition">
         📈 Voir Profil Altimétrique
       </button>
     </div>
@@ -1057,27 +1069,27 @@ function renderTrackOnMap(track) {
   layerGroup.addLayer(borderPolyline);
   layerGroup.addLayer(mainPolyline);
 
-  // Marqueur Départ
+  // Marqueur Départ GÉANT
   if (track.points.length > 0) {
     const startPt = track.points[0];
     const startIcon = L.divIcon({
       className: 'start-marker',
-      html: `<div class="w-9 h-9 rounded-full bg-emerald-500 border-3 border-white flex items-center justify-center text-xs font-black text-white shadow-xl">D</div>`,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
+      html: `<div class="w-11 h-11 rounded-full bg-emerald-500 border-3 border-white flex items-center justify-center text-sm font-black text-white shadow-2xl">D</div>`,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
     });
     const startMarker = L.marker([startPt.lat, startPt.lon], { icon: startIcon }).bindTooltip(`Départ : ${track.name}`, { direction: 'top' });
     layerGroup.addLayer(startMarker);
   }
 
-  // Marqueur Arrivée
+  // Marqueur Arrivée GÉANT
   if (track.points.length > 1) {
     const endPt = track.points[track.points.length - 1];
     const endIcon = L.divIcon({
       className: 'end-marker',
-      html: `<div class="w-9 h-9 rounded-full bg-slate-900 border-3 border-white flex items-center justify-center text-base font-black text-white shadow-xl">🏁</div>`,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
+      html: `<div class="w-11 h-11 rounded-full bg-slate-900 border-3 border-white flex items-center justify-center text-xl font-black text-white shadow-2xl">🏁</div>`,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
     });
     const endMarker = L.marker([endPt.lat, endPt.lon], { icon: endIcon }).bindTooltip(`Arrivée : ${track.name}`, { direction: 'top' });
     layerGroup.addLayer(endMarker);
@@ -1708,6 +1720,8 @@ function toggleUsersDrawer() {
   const backdrop = document.getElementById('drawer-backdrop');
   if (!usersPanel) return;
 
+  closeEmergencyModal();
+
   if (state.activeDrawer === 'users' && !usersPanel.classList.contains('drawer-closed')) {
     closeAllDrawers();
   } else {
@@ -1720,10 +1734,30 @@ function toggleUsersDrawer() {
   }
 }
 
+function onNavGpsClick() {
+  closeAllDrawers();
+  closeEmergencyModal();
+  if (state.isTrackingGps) {
+    if (state.myUser.lat && state.myUser.lon) {
+      state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
+    }
+  } else {
+    state.gpsStartTime = Date.now();
+    startGpsWatch(true);
+  }
+}
+
+function onNavTracesClick() {
+  closeAllDrawers();
+  closeEmergencyModal();
+  fitAllTracks();
+}
+
 function openDrawer(panelName) {
   const usersPanel = document.getElementById('users-panel');
   const backdrop = document.getElementById('drawer-backdrop');
   if (panelName === 'users' && usersPanel) {
+    closeEmergencyModal();
     usersPanel.classList.remove('drawer-closed');
     usersPanel.classList.add('drawer-open');
     if (backdrop) backdrop.classList.remove('hidden');
@@ -2666,7 +2700,18 @@ function updateEmergencyModalGpsData() {
   lucide.createIcons();
 }
 
+function toggleEmergencyModal() {
+  const modal = document.getElementById('emergency-modal');
+  if (!modal) return;
+  if (!modal.classList.contains('hidden')) {
+    closeEmergencyModal();
+  } else {
+    openEmergencyModal();
+  }
+}
+
 function openEmergencyModal() {
+  closeAllDrawers();
   updateEmergencyModalGpsData();
   const modal = document.getElementById('emergency-modal');
   if (modal) modal.classList.remove('hidden');
@@ -2818,9 +2863,15 @@ window.addEventListener('offline', () => {
 // ÉCOUTEURS D'ÉVÉNEMENTS & INTERACTIONS
 // ============================================================================
 function setupEventListeners() {
-  // Navigation inférieure (3 gros boutons)
+  // Navigation inférieure (4 touches géantes outdoor)
+  const navSos = document.getElementById('nav-btn-sos');
+  if (navSos) navSos.addEventListener('click', toggleEmergencyModal);
+
   const navGps = document.getElementById('nav-btn-gps');
-  if (navGps) navGps.addEventListener('click', toggleGps);
+  if (navGps) navGps.addEventListener('click', onNavGpsClick);
+
+  const navTraces = document.getElementById('nav-btn-traces');
+  if (navTraces) navTraces.addEventListener('click', onNavTracesClick);
 
   const navUsers = document.getElementById('nav-btn-users');
   if (navUsers) navUsers.addEventListener('click', toggleUsersDrawer);
@@ -3073,3 +3124,28 @@ window.addEventListener('DOMContentLoaded', () => {
     startGpsWatch(true);
   }
 });
+
+// EXPORTS GLOBAUX WINDOW (Sécurité d'appel pour tous les boutons HTML inline)
+window.toggleEmergencyModal = toggleEmergencyModal;
+window.openEmergencyModal = openEmergencyModal;
+window.closeEmergencyModal = closeEmergencyModal;
+window.onNavGpsClick = onNavGpsClick;
+window.onNavTracesClick = onNavTracesClick;
+window.toggleUsersDrawer = toggleUsersDrawer;
+window.closeAllDrawers = closeAllDrawers;
+window.openTracksModal = openTracksModal;
+window.closeTracksModal = closeTracksModal;
+window.openInviteModal = openInviteModal;
+window.closeInviteModal = () => { const m = document.getElementById('invite-modal'); if (m) m.classList.add('hidden'); };
+window.openAnnouncementModal = openAnnouncementModal;
+window.closeAnnouncementModal = closeAnnouncementModal;
+window.openElevationDrawer = openElevationDrawer;
+window.deleteParticipant = deleteParticipant;
+window.clearOnlyParticipants = clearOnlyParticipants;
+window.clearHikeSession = clearHikeSession;
+window.fitAllTracks = fitAllTracks;
+window.copyEmergencyGpsCoords = copyEmergencyGpsCoords;
+window.toggleGroupSosAlert = toggleGroupSosAlert;
+window.setBaseLayer = setBaseLayer;
+window.centerOnUser = centerOnUser;
+

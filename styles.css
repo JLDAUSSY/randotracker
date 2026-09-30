@@ -1,8 +1,12 @@
-/* Styles FORMAT GÉANT & HAUTE VISIBILITÉ OUTDOOR - OPTIMISÉ POUR PERFORMANCES MOBILES RAPIDES */
+/* ========================================================================== */
+/* RANDOTRACKER V32 - STYLES FORMAT GÉANT & HAUTE VISIBILITÉ OUTDOOR         */
+/* ========================================================================== */
 
 :root {
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
+  --header-height: 62px;
+  --bottom-nav-height: 86px;
 }
 
 /* RÈGLES CRITIQUES DE SECOURS (Anti-Flicker & Mode Hors-ligne) */
@@ -11,9 +15,10 @@
 }
 
 html {
-  font-size: clamp(15px, 4vmin, 18px) !important;
+  font-size: 16px !important;
   -webkit-tap-highlight-color: transparent;
   height: 100%;
+  width: 100%;
 }
 
 body {
@@ -21,8 +26,10 @@ body {
   color: #f8fafc;
   touch-action: manipulation;
   height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
@@ -30,9 +37,10 @@ body {
   padding-bottom: max(6px, env(safe-area-inset-bottom, 6px)) !important;
 }
 
+/* ANIMATIONS PULSANTES GPS & SOS */
 @keyframes pulse-glow {
   0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.9);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.95);
   }
   70% {
     box-shadow: 0 0 0 24px rgba(16, 185, 129, 0);
@@ -59,7 +67,9 @@ body {
   }
 }
 
-/* MARQUEURS SUR LA CARTE ULTRA-VISIBLES & ACCÉLÉRÉS GPU */
+/* ========================================================================== */
+/* MARQUEURS SUR LA CARTE ULTRA-VISIBLES & ACCÉLÉRÉS GPU                      */
+/* ========================================================================== */
 .user-marker-pin {
   display: flex;
   flex-direction: column;
@@ -86,7 +96,7 @@ body {
   font-weight: 900;
   font-size: 32px;
   color: white;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.65);
   position: relative;
 }
 
@@ -115,137 +125,112 @@ body {
   gap: 6px;
 }
 
-/* POPUPS LEAFLET TRÈS GRANDS & HAUTE LISIBILITÉ */
+/* ========================================================================== */
+/* POPUPS & TOOLTIPS LEAFLET ULTRA-LISIBLES (FORMAT GÉANT OUTDOOR)           */
+/* ========================================================================== */
 .leaflet-popup-content-wrapper {
   background: #0f172a !important;
   color: #f8fafc !important;
-  border-radius: 26px !important;
-  border: 2px solid rgba(255,255,255,0.3) !important;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.85) !important;
-  padding: 2px !important;
+  border-radius: 24px !important;
+  border: 3px solid rgba(255, 255, 255, 0.45) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95) !important;
+  padding: 4px !important;
 }
 
 .leaflet-popup-content {
-  margin: 8px 10px !important;
+  margin: 12px 14px !important;
   font-size: 16px !important;
   line-height: 1.4 !important;
+  min-width: 290px !important;
 }
 
 .leaflet-popup-tip {
   background: #0f172a !important;
 }
 
-/* ========================================================================== */
-/* TIROIR PARTICIPANTS & MODALES HAUTE LISIBILITÉ (OUTDOOR HIGH CONTRAST)    */
-/* ========================================================================== */
-
-#drawer-backdrop {
-  z-index: 1100 !important;
-  background-color: rgba(2, 6, 23, 0.65) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+.leaflet-container a.leaflet-popup-close-button {
+  top: 10px !important;
+  right: 10px !important;
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 22px !important;
+  color: #94a3b8 !important;
+  font-weight: 900 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 10px !important;
+  background: rgba(30, 41, 59, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  text-decoration: none !important;
 }
 
-.mobile-drawer {
-  background-color: #1e293b !important; /* Solid Slate-800 - Lumineux, aucun effet de noirceur */
-  border: 2.5px solid #475569 !important;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.85) !important;
-  z-index: 1200 !important;
-  transform: translateZ(0);
-  will-change: transform, opacity;
-  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease !important;
+.leaflet-container a.leaflet-popup-close-button:hover {
+  color: #ffffff !important;
+  background: #dc2626 !important;
 }
 
-@media (max-width: 768px) {
-  .mobile-drawer {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    top: auto !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 90vh !important;
-    max-height: 90vh !important;
-    border-top-left-radius: 28px !important;
-    border-top-right-radius: 28px !important;
-    border-bottom-left-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
-    border-bottom: none !important;
-  }
-  
-  .mobile-drawer.drawer-closed {
-    transform: translateY(115%) translateZ(0) !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
-  }
-  
-  .mobile-drawer.drawer-open {
-    transform: translateY(0) translateZ(0) !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
-}
-
-@media (min-width: 769px) {
-  .mobile-drawer {
-    position: fixed !important;
-    right: 1.5rem !important;
-    top: 5rem !important;
-    bottom: 6.5rem !important;
-    width: 480px !important;
-    max-width: 90vw !important;
-    border-radius: 28px !important;
-  }
-  .mobile-drawer.drawer-closed {
-    opacity: 0 !important;
-    pointer-events: none !important;
-    transform: translateX(115%) translateZ(0) !important;
-  }
-  .mobile-drawer.drawer-open {
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    transform: translateX(0) translateZ(0) !important;
-  }
+.leaflet-tooltip {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+  border: 2px solid rgba(255, 255, 255, 0.6) !important;
+  border-radius: 12px !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  padding: 6px 12px !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7) !important;
 }
 
 /* ========================================================================== */
-/* DIMENSIONNEMENT GÉANT & VISIBILITÉ PERMANENTE (VERSION V31)                */
+/* ARCHITECTURE LAYOUT & Z-INDEX HIÉRARCHISÉ                                  */
 /* ========================================================================== */
 
-/* 1. EN-TÊTE SUPÉRIEUR LISIBLE & AÉRÉ */
+/* 1. EN-TÊTE SUPÉRIEUR (Z-INDEX 1000 - TOUJOURS VISIBLE) */
 .app-header {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
   height: 62px !important;
   min-height: 62px !important;
   z-index: 1000 !important;
-  border-bottom: 2px solid #334155 !important;
+  border-bottom: 2.5px solid #334155 !important;
   background-color: rgba(15, 23, 42, 0.98) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
 }
 
 .app-header-logo {
-  width: 42px !important;
-  height: 42px !important;
+  width: 44px !important;
+  height: 44px !important;
   border-radius: 12px !important;
 }
 
 .app-header-title {
-  font-size: 19px !important;
+  font-size: 20px !important;
   font-weight: 900 !important;
   color: #ffffff !important;
 }
 
 .app-header-btn {
-  height: 44px !important;
-  min-height: 44px !important;
+  height: 46px !important;
+  min-height: 46px !important;
   padding-left: 14px !important;
   padding-right: 14px !important;
   border-radius: 14px !important;
-  font-size: 13.5px !important;
+  font-size: 14px !important;
   font-weight: 900 !important;
 }
 
-/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE À 4 TOUCHES GÉANTES OUTDOOR */
+/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE (Z-INDEX 1000 - TOUJOURS VISIBLE) */
 .app-bottom-nav {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
   height: 86px !important;
   min-height: 86px !important;
   max-height: 96px !important;
@@ -255,7 +240,10 @@ body {
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   border-top: 2.5px solid #334155 !important;
-  z-index: 1000 !important; /* Toujours visible au-dessus de Leaflet et de la carte */
+  z-index: 1000 !important;
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  align-items: center !important;
 }
 
 .nav-btn-item {
@@ -278,17 +266,16 @@ body {
   transform: scale(0.92) !important;
 }
 
-/* Touches d'action larges au format pilule haute visibilité */
 .nav-icon-pill {
-  width: 62px !important;
-  height: 48px !important;
+  width: 66px !important;
+  height: 50px !important;
   border-radius: 16px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
   position: relative !important;
-  border: 2px solid rgba(255, 255, 255, 0.85) !important;
+  border: 2.5px solid rgba(255, 255, 255, 0.9) !important;
 }
 
 .nav-icon-pill i,
@@ -297,30 +284,29 @@ body {
   height: 28px !important;
 }
 
-/* Bouton central MON GPS surélevé géant (72px) avec radar */
+/* Bouton central MON GPS surélevé géant (76px) */
 #nav-gps-bubble {
-  width: 72px !important;
-  height: 72px !important;
+  width: 76px !important;
+  height: 76px !important;
   border-radius: 50% !important;
-  border: 4px solid #ffffff !important;
+  border: 4.5px solid #ffffff !important;
   background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5), 0 2px 8px rgba(0,0,0,0.8) !important;
-  margin-top: -16px !important; /* Effet d'élévation moderne */
+  margin-top: -18px !important;
   transition: transform 0.2s ease, background-color 0.2s ease !important;
 }
 
 #nav-gps-bubble i,
 #nav-gps-bubble svg {
-  width: 36px !important;
-  height: 36px !important;
+  width: 38px !important;
+  height: 38px !important;
 }
 
-/* Libellés sous les boutons en police ultra-épaisse et contrastée */
 .nav-label {
-  font-size: 13px !important;
+  font-size: 13.5px !important;
   font-weight: 900 !important;
   letter-spacing: 0.03em !important;
   line-height: 1 !important;
@@ -328,7 +314,160 @@ body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9) !important;
 }
 
-/* 3. MODALE GESTIONNAIRE DES TRACES GPX */
+/* 3. ZONE PRINCIPALE CARTE (Z-INDEX 1) */
+main {
+  position: fixed !important;
+  top: 62px !important;
+  bottom: 86px !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: calc(100dvh - 62px - 86px) !important;
+  z-index: 1 !important;
+}
+
+#map {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 4. VOILE DE FOND (Z-INDEX 920) */
+#drawer-backdrop {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 920 !important;
+  background-color: rgba(2, 6, 23, 0.7) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+
+/* 5. FENÊTRE PLEIN ÉCRAN GROUPE / PARTICIPANTS (Z-INDEX 950) */
+#users-panel {
+  position: fixed !important;
+  top: 62px !important;
+  bottom: 86px !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: calc(100dvh - 62px - 86px) !important;
+  max-height: calc(100dvh - 62px - 86px) !important;
+  z-index: 950 !important;
+  background-color: #1e293b !important; /* Solid Slate-800 - Haute clarté */
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease !important;
+}
+
+#users-panel.drawer-closed {
+  transform: translateY(100%) translateZ(0) !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  display: none !important;
+}
+
+#users-panel.drawer-open {
+  transform: translateY(0) translateZ(0) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: flex !important;
+}
+
+/* 6. FENÊTRE PLEIN ÉCRAN SECOURS & URGENCE (Z-INDEX 950) */
+#emergency-modal {
+  position: fixed !important;
+  top: 62px !important;
+  bottom: 86px !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: calc(100dvh - 62px - 86px) !important;
+  max-height: calc(100dvh - 62px - 86px) !important;
+  z-index: 950 !important;
+  background-color: #0f172a !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+#emergency-modal.hidden {
+  display: none !important;
+}
+
+#emergency-modal > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  border-radius: 0 !important;
+  border: none !important;
+  overflow-y: auto !important;
+  padding: 16px 20px !important;
+  background-color: #0f172a !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+
+/* 7. TIROIR PROFIL ALTIMÉTRIQUE (Z-INDEX 940) */
+#elevation-drawer {
+  z-index: 940 !important;
+}
+
+/* 8. TOUTES LES SOUS-MODALES & POPUPS DIALOGUES (Z-INDEX 3000 - PREMIER PLAN ABSOLU) */
+#invite-modal,
+#announcement-modal,
+#received-announcement-modal,
+#tracks-modal,
+#layer-modal,
+#room-modal,
+#profile-modal,
+#about-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 3000 !important;
+  background-color: rgba(2, 6, 23, 0.88) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+}
+
+#invite-modal.hidden,
+#announcement-modal.hidden,
+#received-announcement-modal.hidden,
+#tracks-modal.hidden,
+#layer-modal.hidden,
+#room-modal.hidden,
+#profile-modal.hidden,
+#about-modal.hidden {
+  display: none !important;
+}
+
+#invite-modal > div,
+#announcement-modal > div,
+#received-announcement-modal > div,
+#tracks-modal > div,
+#layer-modal > div,
+#room-modal > div,
+#profile-modal > div,
+#about-modal > div {
+  z-index: 3001 !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95) !important;
+}
+
+/* 9. CARTES DE TRACES DANS LE GESTIONNAIRE */
 .track-card-item {
   background-color: #0f172a !important;
   border: 2px solid #334155 !important;
@@ -349,7 +488,3 @@ body {
   opacity: 0.6 !important;
   border-color: #1e293b !important;
 }
-
-
-
-
