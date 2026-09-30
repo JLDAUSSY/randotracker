@@ -49,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v32 -->
-  <link rel="stylesheet" href="styles.css?v=32" />
+  <!-- Custom Styles with Cache-Busting v33 -->
+  <link rel="stylesheet" href="styles.css?v=33" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -60,11 +60,11 @@
   <header class="app-header bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-3 sm:px-5 flex items-center justify-between z-30 shadow-2xl shrink-0">
     <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
     <div id="brand-header-btn" class="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none group active:scale-95 transition shrink-0" title="Jean-Luc DAUSSY 2026">
-      <img src="logo.png?v=32" alt="Logo RandoTracker" class="app-header-logo rounded-xl shadow-lg border border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+      <img src="logo.png?v=33" alt="Logo RandoTracker" class="app-header-logo rounded-xl shadow-lg border border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
       <div class="flex flex-col justify-center">
         <div class="flex items-center gap-1.5">
           <span class="app-header-title font-black tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
-          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/40">v32</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/40">v33</span>
         </div>
         <span class="text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider mt-0.5 transition flex items-center gap-1 leading-none">
           <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
@@ -107,6 +107,9 @@
   <!-- ================================================================= -->
   <!-- CARTE PLEIN ÉCRAN (100% VISIBLE, AUCUN BANDEAU NE MASQUE LA CARTE) -->
   <!-- ================================================================= -->
+  <!-- ================================================================= -->
+  <!-- CARTE PLEIN ÉCRAN (100% VISIBLE, AUCUN BANDEAU NE MASQUE LA CARTE) -->
+  <!-- ================================================================= -->
   <main class="relative flex-1 w-full h-full overflow-hidden">
     
     <!-- LEAFLET MAP -->
@@ -126,45 +129,49 @@
       </button>
     </div>
 
-    <!-- VOILE D'ARRIÈRE-PLAN POUR TIROIRS (FERMETURE EN 1 CLIC) -->
-    <div id="drawer-backdrop" class="hidden fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm transition-opacity" onclick="closeAllDrawers()"></div>
+  </main>
 
-    <!-- ================================================================= -->
-    <!-- TIROIR : LISTE DES PARTICIPANTS (Nom, Vitesse, Écart, SOS) -->
-    <!-- ================================================================= -->
-    <aside id="users-panel" class="mobile-drawer drawer-closed absolute top-4 bottom-28 right-4 w-full sm:w-[460px] bg-slate-900/98 backdrop-blur-xl border-2 border-slate-700 sm:rounded-3xl shadow-2xl flex flex-col z-45 overflow-hidden">
-      <!-- En-tête Tiroir -->
-      <div class="p-5 border-b-2 border-slate-800 flex items-center justify-between bg-slate-900">
-        <div class="flex items-center gap-3">
-          <i data-lucide="users" class="w-8 h-8 text-blue-400"></i>
-          <div>
-            <h2 class="font-black text-xl sm:text-2xl text-white">Participants</h2>
-            <div class="text-xs text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
-              <span>Salon :</span>
-              <button id="open-room-btn" class="text-emerald-400 hover:text-emerald-300 underline font-mono font-black inline-flex items-center gap-1" title="Changer de salon">
-                <span id="active-room-name">RANDO-2026</span>
-                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-              </button>
-            </div>
+  <!-- VOILE D'ARRIÈRE-PLAN POUR TIROIRS (FERMETURE EN 1 CLIC) -->
+  <div id="drawer-backdrop" class="hidden fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm transition-opacity" onclick="closeAllDrawers(); closeEmergencyModal();"></div>
+
+  <!-- ================================================================= -->
+  <!-- FENÊTRE PLEIN ÉCRAN : LISTE DES PARTICIPANTS / GROUPE             -->
+  <!-- ================================================================= -->
+  <aside id="users-panel" class="mobile-drawer drawer-closed flex flex-col overflow-hidden">
+    <!-- En-tête Tiroir -->
+    <div class="p-5 border-b-2 border-slate-800 flex items-center justify-between bg-slate-900 shrink-0">
+      <div class="flex items-center gap-3">
+        <i data-lucide="users" class="w-8 h-8 text-blue-400"></i>
+        <div>
+          <h2 class="font-black text-xl sm:text-2xl text-white">Participants</h2>
+          <div class="text-xs text-slate-400 font-bold flex items-center gap-1.5 mt-0.5">
+            <span>Salon :</span>
+            <button id="open-room-btn" class="text-emerald-400 hover:text-emerald-300 underline font-mono font-black inline-flex items-center gap-1" title="Changer de salon">
+              <span id="active-room-name">RANDO-2026</span>
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            </button>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <span id="users-badge" class="text-sm font-black px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border-2 border-blue-500/40">1/10</span>
-          <button id="close-users-panel-btn" class="w-12 h-12 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 active:scale-90 bg-slate-800/80 border border-slate-700">
-            <i data-lucide="x" class="w-7 h-7"></i>
-          </button>
-        </div>
       </div>
+      <div class="flex items-center gap-2">
+        <span id="users-badge" class="text-sm font-black px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border-2 border-blue-500/40">1/10</span>
+        <button id="close-users-panel-btn" class="w-12 h-12 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 active:scale-90 bg-slate-800/80 border border-slate-700">
+          <i data-lucide="x" class="w-7 h-7"></i>
+        </button>
+      </div>
+    </div>
 
-      <!-- Actions : Diffuser un Message (Accessible à TOUS) + Outils Organisateur (Inviter, Purger, Reset) -->
+    <!-- Conteneur défilable du panneau Groupe -->
+    <div class="flex-1 overflow-y-auto">
+      <!-- Actions : Diffuser un Message + Outils Organisateur -->
       <div class="p-4 bg-slate-850 border-b-2 border-slate-800 flex flex-col gap-2.5">
-        <!-- Bouton Message Broadcast pour TOUS LES PARTICIPANTS (Organisateur & Invités) -->
+        <!-- Bouton Message Broadcast pour TOUS LES PARTICIPANTS -->
         <button id="btn-broadcast-all" onclick="openAnnouncementModal()" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl transition active:scale-95">
           <i data-lucide="megaphone" class="w-5 h-5 text-slate-950"></i>
           <span>📢 MESSAGE À TOUT LE GROUPE</span>
         </button>
 
-        <!-- Actions réservées uniquement à l'Organisateur -->
+        <!-- Actions réservées à l'Organisateur -->
         <div id="drawer-admin-actions" class="flex flex-col gap-2.5">
           <button id="drawer-invite-btn" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl transition active:scale-95">
             <i data-lucide="qr-code" class="w-5 h-5"></i>
@@ -255,33 +262,32 @@
         <span class="text-xs text-slate-400 font-bold" id="group-status-hint">Direct</span>
       </div>
 
-      <div id="users-list-container" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 max-h-[50vh] sm:max-h-none">
+      <div id="users-list-container" class="p-4 sm:p-5 space-y-4">
         <!-- Injected via JavaScript -->
       </div>
-    </aside>
+    </div>
+  </aside>
 
-    <!-- ================================================================= -->
-    <!-- TIROIR PROFIL ALTIMÉTRIQUE -->
-    <!-- ================================================================= -->
-    <div id="elevation-drawer" class="hidden fixed bottom-28 left-3 right-3 sm:left-auto sm:right-auto sm:bottom-8 sm:left-96 sm:right-96 bg-slate-900/98 backdrop-blur-xl border-2 border-slate-700/90 rounded-3xl shadow-2xl p-5 z-40 flex flex-col">
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center gap-3">
-          <div id="ele-drawer-color" class="w-4 h-4 rounded-full bg-emerald-500"></div>
-          <h3 id="ele-drawer-title" class="font-black text-base sm:text-lg text-white truncate max-w-[240px]">Profil Altimétrique</h3>
-        </div>
-        <div class="flex items-center gap-3">
-          <span id="ele-drawer-stats" class="text-sm sm:text-base text-slate-200 font-black">12.4 km | +580m D+</span>
-          <button id="close-ele-drawer-btn" class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 bg-slate-800/60 border border-slate-700">
-            <i data-lucide="x" class="w-5 h-5"></i>
-          </button>
-        </div>
+  <!-- ================================================================= -->
+  <!-- TIROIR PROFIL ALTIMÉTRIQUE                                        -->
+  <!-- ================================================================= -->
+  <div id="elevation-drawer" class="hidden fixed bottom-28 left-3 right-3 sm:left-auto sm:right-auto sm:bottom-8 sm:left-96 sm:right-96 bg-slate-900/98 backdrop-blur-xl border-2 border-slate-700/90 rounded-3xl shadow-2xl p-5 z-40 flex flex-col">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center gap-3">
+        <div id="ele-drawer-color" class="w-4 h-4 rounded-full bg-emerald-500"></div>
+        <h3 id="ele-drawer-title" class="font-black text-base sm:text-lg text-white truncate max-w-[240px]">Profil Altimétrique</h3>
       </div>
-      <div class="h-44 sm:h-56 w-full">
-        <canvas id="elevation-chart"></canvas>
+      <div class="flex items-center gap-3">
+        <span id="ele-drawer-stats" class="text-sm sm:text-base text-slate-200 font-black">12.4 km | +580m D+</span>
+        <button id="close-ele-drawer-btn" class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 bg-slate-800/60 border border-slate-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
       </div>
     </div>
-
-  </main>
+    <div class="h-44 sm:h-56 w-full">
+      <canvas id="elevation-chart"></canvas>
+    </div>
+  </div>
 
   <!-- ================================================================= -->
   <!-- BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE À 4 TOUCHES TACTILES GÉANTES -->
@@ -289,7 +295,7 @@
   <nav class="app-bottom-nav bg-slate-900/98 border-t-2 border-slate-800 grid grid-cols-4 items-center z-30 shrink-0 safe-bottom shadow-2xl px-1 sm:px-4">
     
     <!-- 1. 🚨 SOS Secours & Urgence (Rouge Vif) -->
-    <button id="nav-btn-sos" onclick="toggleEmergencyModal()" class="nav-btn-item text-red-400 hover:text-red-300" title="Secours 15 SAMU / 112 Pompiers & GPS">
+    <button id="nav-btn-sos" class="nav-btn-item text-red-400 hover:text-red-300" title="Secours 15 SAMU / 112 Pompiers & GPS">
       <div class="nav-icon-pill bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white border-white shadow-red-900/40">
         <span class="text-2xl sm:text-3xl select-none leading-none">🚨</span>
       </div>
@@ -297,7 +303,7 @@
     </button>
 
     <!-- 2. 🎯 Mon GPS (Vert Émeraude Pulsant en Relief) -->
-    <button id="nav-btn-gps" onclick="onNavGpsClick()" class="nav-btn-item text-white" title="Centrer sur ma position GPS">
+    <button id="nav-btn-gps" class="nav-btn-item text-white" title="Centrer sur ma position GPS">
       <div id="nav-gps-bubble" class="shadow-2xl animate-pulse">
         <i data-lucide="navigation" class="text-white stroke-[2.8]" id="nav-gps-icon"></i>
       </div>
@@ -305,7 +311,7 @@
     </button>
 
     <!-- 3. 🗺️ TOUTES LES TRACES / RECADRER (Bleu Royal) -->
-    <button id="nav-btn-traces" onclick="onNavTracesClick()" class="nav-btn-item text-blue-400 hover:text-blue-300" title="Recadrer la vue sur l'ensemble des parcours">
+    <button id="nav-btn-traces" class="nav-btn-item text-blue-400 hover:text-blue-300" title="Recadrer la vue sur l'ensemble des parcours">
       <div class="nav-icon-pill bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 text-white border-white/90 shadow-blue-900/40">
         <i data-lucide="maximize-2" class="text-white stroke-[2.8]"></i>
       </div>
@@ -313,7 +319,7 @@
     </button>
 
     <!-- 4. 👥 PARTICIPANTS (Indigo / Violet avec Badge) -->
-    <button id="nav-btn-users" onclick="toggleUsersDrawer()" class="nav-btn-item text-slate-200 hover:text-indigo-400" title="Voir les marcheurs du groupe">
+    <button id="nav-btn-users" class="nav-btn-item text-slate-200 hover:text-indigo-400" title="Voir les marcheurs du groupe">
       <div class="nav-icon-pill bg-slate-800 border-slate-600 shadow-indigo-950/40">
         <i data-lucide="users" class="text-indigo-400 stroke-[2.5]"></i>
         <span id="nav-users-badge" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-black flex items-center justify-center shadow-md border-2 border-slate-900">1</span>
@@ -853,7 +859,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v32 -->
-  <script src="app.js?v=32"></script>
+  <!-- Main Application Script with Cache-Busting v33 -->
+  <script src="app.js?v=33"></script>
 </body>
 </html>

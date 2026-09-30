@@ -1552,6 +1552,47 @@ function removeUserMarker(userId) {
   }
 }
 
+// ============================================================================
+// DÉDUPLICATION AUTOMATIQUE INTELLIGENTE DES RANDONNEURS (ANTI-DOUBLONS GHOSTS)
+// ============================================================================
+function deduplicateUsersByName() {
+  const myName = (state.myUser.name || '').trim().toLowerCase();
+  const byName = new Map();
+
+  state.otherUsers.forEach((user, id) => {
+    const userName = (user.name || '').trim().toLowerCase();
+
+    // 1. Si un participant porte exactement le même prénom/nom que Moi (ex: ancien test sur tablette)
+    if (userName && userName === myName && user.id !== state.myUser.id) {
+      console.log(`[Deduplication] Suppression automatique du doublon de moi-même (${user.name} - ${id})`);
+      removeUserMarker(id);
+      state.otherUsers.delete(id);
+      return;
+    }
+
+    // 2. Si deux participants distants portent le même nom (ex: rechargement/nouvel ID pour le même marcheur)
+    if (byName.has(userName)) {
+      const existing = byName.get(userName);
+      const existingTime = existing.lastSeen || 0;
+      const thisTime = user.lastSeen || 0;
+
+      // Conserver la session la plus fraîche/active
+      if (thisTime >= existingTime) {
+        console.log(`[Deduplication] Remplacement doublon de ${user.name} (${existing.id}) par la session la plus récente (${id})`);
+        removeUserMarker(existing.id);
+        state.otherUsers.delete(existing.id);
+        byName.set(userName, user);
+      } else {
+        console.log(`[Deduplication] Suppression session obsolète de ${user.name} (${id})`);
+        removeUserMarker(id);
+        state.otherUsers.delete(id);
+      }
+    } else {
+      byName.set(userName, user);
+    }
+  });
+}
+
 function renderUsersList() {
   const container = document.getElementById('users-list-container');
   if (!container) return;
@@ -1559,6 +1600,10 @@ function renderUsersList() {
   const now = Date.now();
   const maxAgeMs = 5 * 3600 * 1000; // 5 heures de rétention pour préserver le suivi en zone blanche
 
+  // 1. Dédupliquer automatiquement par nom avant le rendu
+  deduplicateUsersByName();
+
+  // 2. Nettoyer les expirés > 5h
   state.otherUsers.forEach((user, id) => {
     if (now - (user.lastSeen || 0) > maxAgeMs) {
       removeUserMarker(id);
@@ -2863,18 +2908,38 @@ window.addEventListener('offline', () => {
 // ÉCOUTEURS D'ÉVÉNEMENTS & INTERACTIONS
 // ============================================================================
 function setupEventListeners() {
-  // Navigation inférieure (4 touches géantes outdoor)
+  // Navigation inférieure (4 touches géantes outdoor - Assignation directe sans doublon)
   const navSos = document.getElementById('nav-btn-sos');
-  if (navSos) navSos.addEventListener('click', toggleEmergencyModal);
+  if (navSos) {
+    navSos.onclick = (e) => {
+      if (e) e.preventDefault();
+      toggleEmergencyModal();
+    };
+  }
 
   const navGps = document.getElementById('nav-btn-gps');
-  if (navGps) navGps.addEventListener('click', onNavGpsClick);
+  if (navGps) {
+    navGps.onclick = (e) => {
+      if (e) e.preventDefault();
+      onNavGpsClick();
+    };
+  }
 
   const navTraces = document.getElementById('nav-btn-traces');
-  if (navTraces) navTraces.addEventListener('click', onNavTracesClick);
+  if (navTraces) {
+    navTraces.onclick = (e) => {
+      if (e) e.preventDefault();
+      onNavTracesClick();
+    };
+  }
 
   const navUsers = document.getElementById('nav-btn-users');
-  if (navUsers) navUsers.addEventListener('click', toggleUsersDrawer);
+  if (navUsers) {
+    navUsers.onclick = (e) => {
+      if (e) e.preventDefault();
+      toggleUsersDrawer();
+    };
+  }
 
   // Boutons flottants sur la carte
   const centerBtn = document.getElementById('center-my-gps-btn');
@@ -3076,6 +3141,8 @@ function cleanStaleUsers() {
   const now = Date.now();
   const maxAgeMs = 5 * 3600 * 1000; // 5 heures pour préserver les positions en zone blanche
   let changed = false;
+
+  deduplicateUsersByName();
 
   state.otherUsers.forEach((user, id) => {
     if (now - (user.lastSeen || 0) > maxAgeMs) {
