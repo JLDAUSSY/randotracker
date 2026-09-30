@@ -293,11 +293,13 @@ function loadHikeSessionFromStorage() {
 
 function saveOtherUsersToStorage() {
   try {
-    const usersArr = Array.from(state.otherUsers.values());
+    const now = Date.now();
+    // Conserver les participants de la rando jusqu'à 5 heures (pour traverser les zones blanches)
+    const activeUsersArr = Array.from(state.otherUsers.values()).filter(u => (now - (u.lastSeen || 0)) < 5 * 3600 * 1000);
     localStorage.setItem('rando_saved_other_users', JSON.stringify({
-      savedAt: Date.now(),
+      savedAt: now,
       roomCode: state.roomCode,
-      users: usersArr
+      users: activeUsersArr
     }));
   } catch (e) {
     console.warn('[Storage] Erreur sauvegarde participants:', e);
@@ -311,15 +313,20 @@ function loadSavedOtherUsersFromStorage() {
     const data = JSON.parse(str);
     if (!data || data.roomCode !== state.roomCode || !Array.isArray(data.users)) return false;
 
-    // Si moins de 8h
-    const maxAgeMs = (state.shareDurationHours || 8) * 3600 * 1000;
-    if (Date.now() - data.savedAt < maxAgeMs) {
-      data.users.forEach(u => {
-        if (u && u.id && u.id !== state.myUser.id) {
-          state.otherUsers.set(u.id, u);
-          createOrUpdateUserMarker(u);
-        }
-      });
+    // Restaurer les participants de la session de moins de 5 heures
+    const now = Date.now();
+    const maxFreshnessMs = 5 * 3600 * 1000;
+    let loadedCount = 0;
+
+    data.users.forEach(u => {
+      if (u && u.id && u.id !== state.myUser.id && (now - (u.lastSeen || 0) < maxFreshnessMs)) {
+        state.otherUsers.set(u.id, u);
+        createOrUpdateUserMarker(u);
+        loadedCount++;
+      }
+    });
+
+    if (loadedCount > 0) {
       renderUsersList();
       return true;
     }
@@ -1399,20 +1406,25 @@ function updateHoverMapMarker(lat, lon) {
 function createOrUpdateUserMarker(user) {
   let marker = state.userMarkers.get(user.id);
   const isMe = user.id === state.myUser.id;
+  const now = Date.now();
+  const timeSinceSeenMs = now - (user.lastSeen || now);
+  const isZoneBlanche = !isMe && timeSinceSeenMs > 2 * 60 * 1000;
+  const minSinceSeen = Math.round(timeSinceSeenMs / 60000);
 
   const sosClass = user.isSos ? 'is-sos' : '';
-  const liveClass = !user.isSos ? 'is-live' : '';
+  const liveClass = (!user.isSos && !isZoneBlanche) ? 'is-live' : '';
   const roleBadge = user.role.includes('Guide') ? '👑' : user.role.includes('Serre-file') ? '🛡️' : '🥾';
 
   const html = `
     <div class="user-marker-pin" id="marker-${user.id}">
-      <div class="user-avatar-bubble ${liveClass} ${sosClass}" style="background-color: ${user.color || '#059669'};">
+      <div class="user-avatar-bubble ${liveClass} ${sosClass}" style="background-color: ${user.color || '#059669'}; ${isZoneBlanche ? 'opacity: 0.85; filter: saturate(0.8);' : ''}">
         <span>${user.icon || '🌲'}</span>
       </div>
-      <div class="user-label-tag">
+      <div class="user-label-tag" style="${isZoneBlanche ? 'border-color: #f59e0b; background: rgba(15,23,42,0.95);' : ''}">
         <span>${roleBadge}</span>
         <span>${user.name}</span>
         ${user.isSos ? '<span class="text-red-400 font-black ml-1 animate-pulse">SOS</span>' : ''}
+        ${isZoneBlanche ? '<span class="text-[10px] text-amber-300 font-black ml-1">🌲 ' + minSinceSeen + 'm</span>' : ''}
       </div>
     </div>
   `;
@@ -1448,6 +1460,7 @@ function createOrUpdateUserMarker(user) {
           <div class="flex items-center gap-2 mt-1 flex-wrap">
             <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold border border-slate-700">${user.role}</span>
             ${progress ? `<span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40">ETA ${progress.etaShort}</span>` : ''}
+            ${isZoneBlanche ? `<span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40">🌲 Zone blanche (${minSinceSeen} min)</span>` : ''}
           </div>
         </div>
       </div>
@@ -1503,8 +1516,8 @@ function createOrUpdateUserMarker(user) {
       ` : ''}
 
       <div class="text-[11px] text-slate-400 pt-2 border-t border-slate-800/80 flex items-center justify-between font-semibold">
-        <span>Signal GPS</span>
-        <span>${new Date(user.lastSeen).toLocaleTimeString()}</span>
+        <span>${isZoneBlanche ? '🌲 Zone blanche (dernière pos.)' : '🟢 Signal GPS direct'}</span>
+        <span class="${isZoneBlanche ? 'text-amber-300 font-bold' : 'text-slate-200'}">${new Date(user.lastSeen).toLocaleTimeString()} ${isZoneBlanche ? `(il y a ${minSinceSeen} min)` : ''}</span>
       </div>
 
       ${(!isMe && state.isOrganizer) ? `
@@ -1532,10 +1545,10 @@ function renderUsersList() {
   if (!container) return;
 
   const now = Date.now();
-  const maxAgeMs = 24 * 3600 * 1000;
+  const maxAgeMs = 5 * 3600 * 1000; // 5 heures de rétention pour préserver le suivi en zone blanche
 
   state.otherUsers.forEach((user, id) => {
-    if (now - user.lastSeen > maxAgeMs) {
+    if (now - (user.lastSeen || 0) > maxAgeMs) {
       removeUserMarker(id);
       state.otherUsers.delete(id);
     }
@@ -1610,14 +1623,16 @@ function renderUsersList() {
   container.innerHTML = otherUsersList.map(u => {
     const dist = calculateDistance(state.myUser.lat, state.myUser.lon, u.lat, u.lon);
     const distStr = dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`;
-    const isStale = (now - u.lastSeen) > (15 * 60 * 1000);
+    const timeSinceMs = now - (u.lastSeen || now);
+    const isZoneBlanche = timeSinceMs > 2 * 60 * 1000;
+    const minAgo = Math.max(1, Math.round(timeSinceMs / 60000));
     const progress = computeTrackProgress(u);
 
     return `
-      <div class="p-4 rounded-3xl bg-slate-800/95 border-2 ${u.isSos ? 'border-red-500 bg-red-950/40 shadow-red-500/20' : isStale ? 'border-slate-800 opacity-70' : 'border-slate-700'} hover:border-slate-500 transition flex flex-col gap-3 cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
+      <div class="p-4 rounded-3xl bg-slate-800/95 border-2 ${u.isSos ? 'border-red-500 bg-red-950/40 shadow-red-500/20' : isZoneBlanche ? 'border-amber-500/50 bg-slate-850' : 'border-slate-700'} hover:border-slate-500 transition flex flex-col gap-3 cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-3.5 min-w-0 flex-1">
-            <div class="w-14 h-14 rounded-full flex items-center justify-center text-3xl font-black text-white shrink-0 shadow-lg relative border-2 border-white/90" style="background-color: ${u.color || '#3b82f6'}">
+            <div class="w-14 h-14 rounded-full flex items-center justify-center text-3xl font-black text-white shrink-0 shadow-lg relative border-2 border-white/90" style="background-color: ${u.color || '#3b82f6'}; ${isZoneBlanche ? 'opacity: 0.85;' : ''}">
               ${u.icon || '🥾'}
               ${u.isSos ? '<span class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-white animate-ping"></span>' : ''}
             </div>
@@ -1625,7 +1640,7 @@ function renderUsersList() {
               <div class="flex items-center gap-2">
                 <span class="font-black text-lg sm:text-xl text-white truncate">${u.name}</span>
                 ${u.isSos ? '<span class="text-xs font-black px-2.5 py-0.5 rounded-full bg-red-600 text-white animate-pulse">SOS</span>' : ''}
-                ${isStale ? '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Signal Ancien</span>' : ''}
+                ${isZoneBlanche ? `<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">🌲 Zone blanche (${minAgo} min)</span>` : '<span class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">🟢 Direct</span>'}
               </div>
               <div class="flex items-center gap-2 text-xs sm:text-sm mt-1 flex-wrap">
                 <span class="text-slate-300 font-bold truncate">${u.role}</span>
@@ -1686,42 +1701,48 @@ function centerOnUser(userId) {
 }
 
 // ============================================================================
-// TIROIR DES PARTICIPANTS (SANS VOILE NOIR SUR LA CARTE)
+// TIROIR DES PARTICIPANTS (AVEC GESTION TACTILE & BACKDROP)
 // ============================================================================
 function toggleUsersDrawer() {
   const usersPanel = document.getElementById('users-panel');
+  const backdrop = document.getElementById('drawer-backdrop');
   if (!usersPanel) return;
 
-  if (state.activeDrawer === 'users') {
+  if (state.activeDrawer === 'users' && !usersPanel.classList.contains('drawer-closed')) {
     closeAllDrawers();
   } else {
     usersPanel.classList.remove('drawer-closed');
     usersPanel.classList.add('drawer-open');
+    if (backdrop) backdrop.classList.remove('hidden');
     state.activeDrawer = 'users';
     const navUsers = document.getElementById('nav-btn-users');
-    if (navUsers) navUsers.classList.add('text-blue-400');
+    if (navUsers) navUsers.classList.add('text-indigo-400');
   }
 }
 
 function openDrawer(panelName) {
   const usersPanel = document.getElementById('users-panel');
+  const backdrop = document.getElementById('drawer-backdrop');
   if (panelName === 'users' && usersPanel) {
     usersPanel.classList.remove('drawer-closed');
     usersPanel.classList.add('drawer-open');
+    if (backdrop) backdrop.classList.remove('hidden');
     state.activeDrawer = 'users';
     const navUsers = document.getElementById('nav-btn-users');
-    if (navUsers) navUsers.classList.add('text-blue-400');
+    if (navUsers) navUsers.classList.add('text-indigo-400');
   }
 }
 
 function closeAllDrawers() {
   const usersPanel = document.getElementById('users-panel');
+  const backdrop = document.getElementById('drawer-backdrop');
   if (usersPanel) {
     usersPanel.classList.add('drawer-closed');
     usersPanel.classList.remove('drawer-open');
   }
+  if (backdrop) backdrop.classList.add('hidden');
   const navUsers = document.getElementById('nav-btn-users');
-  if (navUsers) navUsers.classList.remove('text-blue-400');
+  if (navUsers) navUsers.classList.remove('text-indigo-400');
   state.activeDrawer = null;
 }
 
@@ -1746,8 +1767,8 @@ function startGpsWatch(useHighAccuracy = true) {
   const navLabel = document.getElementById('nav-gps-label');
 
   if (navLabel) navLabel.textContent = 'Recherche...';
-  if (navBubble) navBubble.className = 'w-18 h-18 rounded-full bg-amber-500/20 border-4 border-amber-500 flex items-center justify-center';
-  if (navIcon) navIcon.className = 'w-9 h-9 text-amber-400 animate-spin';
+  if (navBubble) navBubble.className = 'rounded-full bg-amber-500/30 border-3 sm:border-4 border-amber-400 flex items-center justify-center shadow-2xl transition animate-pulse';
+  if (navIcon) navIcon.className = 'text-amber-300 stroke-[2.8] animate-spin';
 
   if (!state.gpsStartTime) {
     state.gpsStartTime = Date.now();
@@ -1777,8 +1798,8 @@ function startGpsWatch(useHighAccuracy = true) {
 
     const accStr = `±${Math.round(pos.coords.accuracy)}m`;
     if (navLabel) navLabel.textContent = `GPS (${accStr})`;
-    if (navBubble) navBubble.className = 'w-18 h-18 rounded-full bg-emerald-600 border-4 border-white flex items-center justify-center shadow-2xl animate-pulse';
-    if (navIcon) navIcon.className = 'w-9 h-9 text-white';
+    if (navBubble) navBubble.className = 'rounded-full bg-emerald-600 border-3 sm:border-4 border-white flex items-center justify-center shadow-2xl transition animate-pulse';
+    if (navIcon) navIcon.className = 'text-white stroke-[2.8]';
 
     if (!state.accuracyCircle) {
       state.accuracyCircle = L.circle([state.myUser.lat, state.myUser.lon], {
@@ -1928,8 +1949,8 @@ function stopGpsWatch() {
   const navLabel = document.getElementById('nav-gps-label');
 
   if (navLabel) navLabel.textContent = 'Mon GPS';
-  if (navBubble) navBubble.className = 'w-18 h-18 rounded-full bg-slate-800 border-4 border-slate-600 flex items-center justify-center shadow-xl';
-  if (navIcon) navIcon.className = 'w-9 h-9 text-slate-300';
+  if (navBubble) navBubble.className = 'rounded-full bg-slate-800 border-3 sm:border-4 border-slate-600 flex items-center justify-center shadow-xl transition';
+  if (navIcon) navIcon.className = 'text-slate-300 stroke-[2]';
 }
 
 function toggleGps() {
@@ -2999,6 +3020,27 @@ function setupEventListeners() {
   });
 }
 
+// Watchdog de nettoyage automatique des participants inactifs (> 5 heures de silence)
+function cleanStaleUsers() {
+  const now = Date.now();
+  const maxAgeMs = 5 * 3600 * 1000; // 5 heures pour préserver les positions en zone blanche
+  let changed = false;
+
+  state.otherUsers.forEach((user, id) => {
+    if (now - (user.lastSeen || 0) > maxAgeMs) {
+      console.log(`[Watchdog] Nettoyage participant expiré (> 5h) : ${user.name} (${id})`);
+      removeUserMarker(id);
+      state.otherUsers.delete(id);
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    saveOtherUsersToStorage();
+    renderUsersList();
+  }
+}
+
 // ============================================================================
 // DÉMARRAGE DE L'APPLICATION
 // ============================================================================
@@ -3021,6 +3063,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   startHeartbeat();
+  setInterval(cleanStaleUsers, 10000); // Surveillance toutes les 10s
 
   lucide.createIcons();
 

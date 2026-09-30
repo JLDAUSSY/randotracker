@@ -11,7 +11,7 @@
 }
 
 html {
-  font-size: clamp(15px, 4vmin, 18px) !important; /* Échelle fluide proportionnelle à l'écran */
+  font-size: clamp(15px, 4vmin, 18px) !important;
   -webkit-tap-highlight-color: transparent;
   height: 100%;
 }
@@ -27,7 +27,7 @@ body {
 }
 
 .safe-bottom {
-  padding-bottom: calc(1.5rem + var(--sab));
+  padding-bottom: max(6px, env(safe-area-inset-bottom, 6px)) !important;
 }
 
 @keyframes pulse-glow {
@@ -261,61 +261,116 @@ body {
 }
 
 /* ========================================================================== */
-/* DIMENSIONNEMENT FLUIDE RESPONSIVE (OPTION A : CLAMP UNIVERSEL V29)         */
+/* DIMENSIONNEMENT FLUIDE ET HAUTE VISIBILITÉ OUTDOOR (VERSION V30)           */
 /* ========================================================================== */
 
-/* 1. EN-TÊTE SUPÉRIEUR COMPACT (Économise 25% de hauteur sur mobile) */
+/* 1. EN-TÊTE SUPÉRIEUR COMPACT ET TRÈS LISIBLE */
 .app-header {
-  height: clamp(54px, 7.5vh, 66px) !important;
+  height: clamp(56px, 7.8vh, 68px) !important;
+  min-height: 56px !important;
+  z-index: 1000 !important;
+  border-bottom: 2px solid #334155 !important;
 }
 
 .app-header-logo {
-  width: clamp(36px, 9vmin, 44px) !important;
-  height: clamp(36px, 9vmin, 44px) !important;
+  width: clamp(38px, 9.5vmin, 46px) !important;
+  height: clamp(38px, 9.5vmin, 46px) !important;
   border-radius: clamp(10px, 2.5vmin, 14px) !important;
 }
 
 .app-header-title {
-  font-size: clamp(16px, 4.2vmin, 22px) !important;
+  font-size: clamp(17px, 4.3vmin, 22px) !important;
 }
 
 .app-header-btn {
-  height: clamp(38px, 9vmin, 46px) !important;
-  padding-left: clamp(8px, 2vmin, 14px) !important;
-  padding-right: clamp(8px, 2vmin, 14px) !important;
-  border-radius: clamp(10px, 2.5vmin, 14px) !important;
+  height: clamp(40px, 9.5vmin, 46px) !important;
+  min-height: 40px !important;
+  padding-left: clamp(10px, 2.5vmin, 16px) !important;
+  padding-right: clamp(10px, 2.5vmin, 16px) !important;
+  border-radius: clamp(12px, 3vmin, 16px) !important;
+  font-size: clamp(12px, 3vmin, 14.5px) !important;
 }
 
-/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE À 4 TOUCHES */
+/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE À 4 TOUCHES TACTILES GÉANTES */
 .app-bottom-nav {
-  height: clamp(68px, 9.5vh, 84px) !important;
+  height: clamp(74px, 10.5vh, 90px) !important;
+  min-height: 74px !important;
+  max-height: 94px !important;
+  padding-bottom: max(6px, env(safe-area-inset-bottom, 6px)) !important;
+  padding-top: 4px !important;
+  background: rgba(15, 23, 42, 0.98) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-top: 2.5px solid #334155 !important;
+  z-index: 1000 !important; /* Toujours au premier plan au-dessus de Leaflet */
 }
 
+.nav-btn-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  padding: 2px 4px !important;
+  cursor: pointer !important;
+  touch-action: manipulation !important;
+  user-select: none !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.nav-btn-item:active {
+  transform: scale(0.92) !important;
+}
+
+.nav-icon-pill {
+  width: clamp(50px, 13vmin, 62px) !important;
+  height: clamp(40px, 10vmin, 48px) !important;
+  border-radius: clamp(14px, 3.5vmin, 18px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+  position: relative !important;
+  border-width: 2px !important;
+}
+
+.nav-icon-pill i,
+.nav-icon-pill svg {
+  width: clamp(22px, 5.8vmin, 28px) !important;
+  height: clamp(22px, 5.8vmin, 28px) !important;
+}
+
+/* Bouton central MON GPS en relief géant et pulsant */
 #nav-gps-bubble {
-  width: clamp(52px, 14vmin, 66px) !important;
-  height: clamp(52px, 14vmin, 66px) !important;
+  width: clamp(58px, 15vmin, 72px) !important;
+  height: clamp(58px, 15vmin, 72px) !important;
+  border-radius: 50% !important;
+  border: 3.5px solid #ffffff !important;
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.45), 0 2px 6px rgba(0,0,0,0.6) !important;
+  margin-top: -12px !important; /* Élévation moderne Floating Dock */
+  transition: transform 0.2s ease, background-color 0.2s ease !important;
 }
 
 #nav-gps-bubble i,
 #nav-gps-bubble svg {
-  width: clamp(26px, 7vmin, 34px) !important;
-  height: clamp(26px, 7vmin, 34px) !important;
-}
-
-.nav-icon-box {
-  width: clamp(40px, 10.5vmin, 48px) !important;
-  height: clamp(40px, 10.5vmin, 48px) !important;
-  border-radius: clamp(12px, 3vmin, 16px) !important;
-}
-
-.nav-icon-box i,
-.nav-icon-box svg {
-  width: clamp(20px, 5.2vmin, 26px) !important;
-  height: clamp(20px, 5.2vmin, 26px) !important;
+  width: clamp(28px, 7.5vmin, 36px) !important;
+  height: clamp(28px, 7.5vmin, 36px) !important;
 }
 
 .nav-label {
-  font-size: clamp(10px, 2.6vmin, 12px) !important;
+  font-size: clamp(11.5px, 2.9vmin, 13.5px) !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1 !important;
+  margin-top: 1px !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
 }
 
 /* 3. MODALE GESTIONNAIRE DES TRACES GPX */
