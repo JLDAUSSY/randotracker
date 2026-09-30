@@ -648,6 +648,12 @@ function updateProfileUI() {
   });
 }
 
+function closeProfileModal() {
+  const profileModal = document.getElementById('profile-modal');
+  if (profileModal) profileModal.classList.add('hidden');
+  closeAllDrawers(); // Ferme également le panneau participants pour revenir directement sur la carte
+}
+
 function saveUserProfile() {
   const name = document.getElementById('input-user-name').value.trim();
   const role = document.getElementById('input-user-role').value;
@@ -678,7 +684,7 @@ function saveUserProfile() {
 
   updateProfileUI();
   saveHikeSessionToStorage();
-  document.getElementById('profile-modal').classList.add('hidden');
+  closeProfileModal();
   broadcastMyPosition();
   showToast(`Profil enregistré : ${state.myUser.name} (${state.myUser.icon})`, 'success');
 }
@@ -2466,10 +2472,46 @@ function handleIncomingMessage(data) {
 // ============================================================================
 // DIFFUSION DE MESSAGES EN DIRECT POUR TOUT LE GROUPE (TOUS LES MARCHEURS)
 // ============================================================================
+function getMyGpsString() {
+  const lat = state.myUser.lat || 45.8920;
+  const lon = state.myUser.lon || 6.1550;
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lonDir = lon >= 0 ? 'E' : 'O';
+  const altStr = state.myUser.ele ? ` (Alt: ${Math.round(state.myUser.ele)}m)` : '';
+  return `📍 GPS: ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}${altStr} - `;
+}
+
+function insertGpsInCustomAnnouncement() {
+  const customInput = document.getElementById('announcement-custom-input');
+  if (customInput) {
+    const gpsStr = getMyGpsString();
+    const currentVal = customInput.value;
+    if (currentVal.startsWith('📍 GPS:')) {
+      const parts = currentVal.split(' - ');
+      if (parts.length > 1) {
+        customInput.value = gpsStr + parts.slice(1).join(' - ');
+      } else {
+        customInput.value = gpsStr;
+      }
+    } else {
+      customInput.value = gpsStr + currentVal;
+    }
+    customInput.focus();
+    customInput.setSelectionRange(customInput.value.length, customInput.value.length);
+  }
+}
+
 function openAnnouncementModal() {
   const modal = document.getElementById('announcement-modal');
   const customInput = document.getElementById('announcement-custom-input');
-  if (customInput) customInput.value = '';
+  if (customInput) {
+    // Préremplissage automatique avec les coordonnées GPS de l'émetteur
+    customInput.value = getMyGpsString();
+    setTimeout(() => {
+      customInput.focus();
+      customInput.setSelectionRange(customInput.value.length, customInput.value.length);
+    }, 50);
+  }
   if (modal) modal.classList.remove('hidden');
 }
 
@@ -2680,31 +2722,31 @@ function updateEmergencyModalGpsData() {
     if (country === 'FR') {
       numList.innerHTML = `
         <!-- 15 SAMU -->
-        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950 border-2 border-emerald-500/40 flex items-center justify-between gap-3 shadow-lg">
+        <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border-2 border-emerald-500/50 flex items-center justify-between gap-3 shadow-lg">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <span class="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">15</span>
-              <span class="text-base sm:text-lg font-black text-white truncate">SAMU (Urgences Médicales)</span>
+              <span class="text-sm sm:text-base font-black text-white truncate">SAMU (Urgences Médicales)</span>
             </div>
-            <p class="text-xs text-slate-400 font-semibold mt-1">Urgences médicales vitales, malaises graves, traumatismes.</p>
+            <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Urgences vitales, malaises graves, traumatismes.</p>
           </div>
-          <a href="tel:15" class="h-13 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 15">
-            <i data-lucide="phone-call" class="w-5 h-5"></i>
+          <a href="tel:15" onclick="notifyEmergencyCallTriggered('15 - SAMU (Urgences Médicales)', '15')" class="h-12 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 15">
+            <i data-lucide="phone-call" class="w-4 h-4"></i>
             <span>15</span>
           </a>
         </div>
 
         <!-- 112 POMPIERS & SECOURS MONTAGNE -->
-        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950 border-2 border-red-500/40 flex items-center justify-between gap-3 shadow-lg">
+        <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border-2 border-red-500/50 flex items-center justify-between gap-3 shadow-lg">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <span class="text-xs font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/40">112</span>
-              <span class="text-base sm:text-lg font-black text-white truncate">Sapeurs-Pompiers & Secours</span>
+              <span class="text-sm sm:text-base font-black text-white truncate">Sapeurs-Pompiers & Secours</span>
             </div>
-            <p class="text-xs text-slate-400 font-semibold mt-1">Pompiers, secours d'urgence, secours en montagne (PGHM/CRS).</p>
+            <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Pompiers, secours d'urgence, secours montagne (PGHM/CRS).</p>
           </div>
-          <a href="tel:112" class="h-13 px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 112">
-            <i data-lucide="phone-call" class="w-5 h-5"></i>
+          <a href="tel:112" onclick="notifyEmergencyCallTriggered('112 - Pompiers & Secours Montagne', '112')" class="h-12 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 112">
+            <i data-lucide="phone-call" class="w-4 h-4"></i>
             <span>112</span>
           </a>
         </div>
@@ -2714,12 +2756,12 @@ function updateEmergencyModalGpsData() {
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <span class="text-xs font-black px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/40">114</span>
-              <span class="text-sm font-black text-slate-200">SMS d'Urgence (Sans réseau vocal)</span>
+              <span class="text-xs sm:text-sm font-black text-slate-200">SMS d'Urgence (Sans réseau vocal)</span>
             </div>
-            <p class="text-[11px] text-slate-400 font-semibold mt-0.5">En cas de réseau vocal trop faible ou impossibilité de parler.</p>
+            <p class="text-[10px] sm:text-[11px] text-slate-400 font-semibold mt-0.5">Réseau vocal trop faible ou zone d'ombre GSM.</p>
           </div>
-          <a href="sms:114" class="h-11 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs flex items-center gap-1.5 shadow shrink-0 active:scale-95 transition" title="Envoyer un SMS au 114">
-            <i data-lucide="message-square" class="w-4 h-4"></i>
+          <a href="sms:114" onclick="notifyEmergencyCallTriggered('114 - SMS d\\'Urgence', '114')" class="h-10 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs flex items-center gap-1.5 shadow shrink-0 active:scale-95 transition" title="Envoyer un SMS au 114">
+            <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
             <span>SMS 114</span>
           </a>
         </div>
@@ -2727,31 +2769,31 @@ function updateEmergencyModalGpsData() {
     } else if (country === 'ES') {
       numList.innerHTML = `
         <!-- 112 EMERGENCIAS ESPAÑA -->
-        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950 border-2 border-red-500/40 flex items-center justify-between gap-3 shadow-lg">
+        <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border-2 border-red-500/50 flex items-center justify-between gap-3 shadow-lg">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <span class="text-xs font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/40">112</span>
-              <span class="text-base sm:text-lg font-black text-white truncate">112 Emergencias España</span>
+              <span class="text-sm sm:text-base font-black text-white truncate">112 Emergencias España</span>
             </div>
-            <p class="text-xs text-slate-400 font-semibold mt-1">Bomberos, Guardia Civil, Rescate en Montaña (GREIM).</p>
+            <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Bomberos, Guardia Civil, Rescate Montaña (GREIM).</p>
           </div>
-          <a href="tel:112" class="h-13 px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Llamar al 112">
-            <i data-lucide="phone-call" class="w-5 h-5"></i>
+          <a href="tel:112" onclick="notifyEmergencyCallTriggered('112 - Emergencias España', '112')" class="h-12 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Llamar al 112">
+            <i data-lucide="phone-call" class="w-4 h-4"></i>
             <span>112</span>
           </a>
         </div>
 
         <!-- 061 URGENCIAS MÉDICAS -->
-        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950 border-2 border-emerald-500/40 flex items-center justify-between gap-3 shadow-lg">
+        <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border-2 border-emerald-500/50 flex items-center justify-between gap-3 shadow-lg">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <span class="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">061</span>
-              <span class="text-base sm:text-lg font-black text-white truncate">061 Urgencias Sanitarias</span>
+              <span class="text-sm sm:text-base font-black text-white truncate">061 Urgencias Sanitarias</span>
             </div>
-            <p class="text-xs text-slate-400 font-semibold mt-1">Ambulancia y atención médica urgente.</p>
+            <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Ambulancia y atención médica urgente.</p>
           </div>
-          <a href="tel:061" class="h-13 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Llamar al 061">
-            <i data-lucide="phone-call" class="w-5 h-5"></i>
+          <a href="tel:061" onclick="notifyEmergencyCallTriggered('061 - Urgencias Sanitarias', '061')" class="h-12 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Llamar al 061">
+            <i data-lucide="phone-call" class="w-4 h-4"></i>
             <span>061</span>
           </a>
         </div>
@@ -2759,16 +2801,16 @@ function updateEmergencyModalGpsData() {
     } else {
       numList.innerHTML = `
         <!-- 112 EUROPE & INTERNATIONAL -->
-        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950 border-2 border-red-500/40 flex items-center justify-between gap-3 shadow-lg">
+        <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border-2 border-red-500/50 flex items-center justify-between gap-3 shadow-lg">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <span class="text-xs font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/40">112</span>
-              <span class="text-base sm:text-lg font-black text-white truncate">112 Numéro d'Urgence Européen</span>
+              <span class="text-sm sm:text-base font-black text-white truncate">112 Numéro d'Urgence Européen</span>
             </div>
-            <p class="text-xs text-slate-400 font-semibold mt-1">Numéro unique d'urgence valide en Europe et en Suisse (Pompiers, SAMU, Secours).</p>
+            <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Numéro unique européen (Pompiers, SAMU, Secours Montagne).</p>
           </div>
-          <a href="tel:112" class="h-13 px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 112">
-            <i data-lucide="phone-call" class="w-5 h-5"></i>
+          <a href="tel:112" onclick="notifyEmergencyCallTriggered('112 - Numéro d\\'Urgence Européen', '112')" class="h-12 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 112">
+            <i data-lucide="phone-call" class="w-4 h-4"></i>
             <span>112</span>
           </a>
         </div>
@@ -2790,6 +2832,21 @@ function updateEmergencyModalGpsData() {
   }
 
   lucide.createIcons();
+}
+
+function notifyEmergencyCallTriggered(serviceName, number) {
+  const banner = document.getElementById('emergency-call-in-progress');
+  const serviceEl = document.getElementById('emergency-call-service-name');
+  if (banner && serviceEl) {
+    serviceEl.textContent = serviceName || `Numéro ${number}`;
+    banner.classList.remove('hidden');
+  }
+  showToast(`📞 Appel vers le ${number} initié...`, 'info');
+}
+
+function dismissEmergencyCallBanner() {
+  const banner = document.getElementById('emergency-call-in-progress');
+  if (banner) banner.classList.add('hidden');
 }
 
 function toggleEmergencyModal() {
@@ -3156,8 +3213,8 @@ function setupEventListeners() {
 
   if (openProfileBtn) openProfileBtn.addEventListener('click', openProfile);
   if (editProfileBtn) editProfileBtn.addEventListener('click', openProfile);
-  if (closeProfileBtn) closeProfileBtn.addEventListener('click', () => profileModal.classList.add('hidden'));
-  if (cancelProfileBtn) cancelProfileBtn.addEventListener('click', () => profileModal.classList.add('hidden'));
+  if (closeProfileBtn) closeProfileBtn.addEventListener('click', closeProfileModal);
+  if (cancelProfileBtn) cancelProfileBtn.addEventListener('click', closeProfileModal);
 
   document.querySelectorAll('.avatar-opt').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3251,6 +3308,9 @@ window.addEventListener('DOMContentLoaded', () => {
 window.toggleEmergencyModal = toggleEmergencyModal;
 window.openEmergencyModal = openEmergencyModal;
 window.closeEmergencyModal = closeEmergencyModal;
+window.notifyEmergencyCallTriggered = notifyEmergencyCallTriggered;
+window.dismissEmergencyCallBanner = dismissEmergencyCallBanner;
+window.closeProfileModal = closeProfileModal;
 window.onNavGpsClick = onNavGpsClick;
 window.onNavTracesClick = onNavTracesClick;
 window.toggleUsersDrawer = toggleUsersDrawer;
@@ -3272,4 +3332,6 @@ window.setBaseLayer = setBaseLayer;
 window.centerOnUser = centerOnUser;
 window.applyUiScale = applyUiScale;
 window.loadSavedUiScale = loadSavedUiScale;
+window.getMyGpsString = getMyGpsString;
+window.insertGpsInCustomAnnouncement = insertGpsInCustomAnnouncement;
 

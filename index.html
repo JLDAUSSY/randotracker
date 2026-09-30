@@ -764,10 +764,16 @@
         </div>
       </div>
 
-      <!-- Message Personnalisé -->
+      <!-- Message Personnalisé avec préremplissage GPS -->
       <div class="pt-2 border-t border-slate-800">
-        <label class="block text-xs font-black text-slate-400 uppercase mb-2">Ou rédigez un message personnalisé</label>
-        <textarea id="announcement-custom-input" rows="2" placeholder="Ex: On ralentit l'allure, attendez le serre-file..." class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-3.5 text-sm sm:text-base text-white font-bold focus:outline-none focus:border-amber-500 shadow-inner resize-none"></textarea>
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-xs font-black text-slate-400 uppercase">Ou rédigez un message personnalisé</label>
+          <button type="button" onclick="insertGpsInCustomAnnouncement()" class="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 bg-slate-800 hover:bg-slate-750 px-2 py-0.5 rounded-lg border border-slate-700 active:scale-95 transition" title="Actualiser avec ma position GPS actuelle">
+            <i data-lucide="map-pin" class="w-3 h-3"></i>
+            <span>Actualiser GPS</span>
+          </button>
+        </div>
+        <textarea id="announcement-custom-input" rows="3" placeholder="Ex: On ralentit l'allure, attendez le serre-file..." class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-3.5 text-sm sm:text-base text-white font-bold focus:outline-none focus:border-amber-500 shadow-inner resize-none"></textarea>
       </div>
 
       <div class="pt-2 border-t-2 border-slate-800 flex justify-end gap-3">
@@ -812,80 +818,106 @@
   </div>
 
   <!-- ================================================================= -->
-  <!-- MODAL : SECOURS & APPELS D'URGENCE (15 SAMU / 112 POMPIERS / GPS) -->
+  <!-- MODAL : SECOURS & APPELS D'URGENCE (PARTITIONNÉE 50/50 HAUTE VISIBILITÉ) -->
   <!-- ================================================================= -->
-  <div id="emergency-modal" class="hidden fixed inset-0 z-55 bg-slate-950/95 backdrop-blur-lg flex items-center justify-center p-3 sm:p-4">
-    <div class="bg-slate-900 border-2 border-red-500/80 rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl flex flex-col gap-4 max-h-[95vh] overflow-y-auto">
+  <div id="emergency-modal" class="hidden">
+    <div class="emergency-modal-inner">
       
-      <!-- En-tête Modale Secours -->
-      <div class="flex items-center justify-between border-b-2 border-slate-800 pb-3.5">
-        <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-2xl bg-red-600/30 border-2 border-red-500 flex items-center justify-center text-2xl shadow-lg">
-            🚨
+      <!-- ============================================================= -->
+      <!-- MOITIÉ HAUTE FIXE (48%) : COORDONNÉES GPS ULTRA-LISIBLES      -->
+      <!-- ============================================================= -->
+      <div id="emergency-gps-top-half">
+        <!-- Barre de titre Secours -->
+        <div class="flex items-center justify-between pb-1.5 border-b border-slate-800">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-red-600/30 border border-red-500 flex items-center justify-center text-xl shadow-md">
+              🚨
+            </div>
+            <div>
+              <h3 class="font-black text-lg sm:text-xl text-white tracking-tight leading-tight">Secours & Urgence</h3>
+              <div class="flex items-center gap-2">
+                <span class="text-[11px] font-bold text-red-400">Coordonnées GPS & Appel</span>
+                <span id="emergency-country-tag" class="text-[10px] font-black px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  🇫🇷 France
+                </span>
+              </div>
+            </div>
           </div>
-          <div>
-            <h3 class="font-black text-xl sm:text-2xl text-white tracking-tight">Secours & Urgence</h3>
-            <p class="text-xs font-bold text-red-400">Numéros d'urgence & Coordonnées GPS</p>
+          <button onclick="closeEmergencyModal()" class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-white bg-slate-800 border border-slate-700 active:scale-90 transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- CARTOUCHE GPS HAUTE VISIBILITÉ (À DICTER SANS DÉFILEMENT) -->
+        <div class="rounded-xl bg-slate-950/90 border-2 border-emerald-500/60 p-2.5 sm:p-3 shadow-inner flex flex-col gap-2">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <!-- Format Décimal (DD) -->
+            <div class="bg-slate-900/90 rounded-lg p-2 border border-slate-800 flex flex-col justify-center">
+              <span class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase">Degrés Décimaux (DD) :</span>
+              <div id="emergency-gps-decimal" class="text-base sm:text-lg font-mono font-black text-white select-all">
+                45.89200° N, 6.15500° E
+              </div>
+            </div>
+
+            <!-- Format Degrés Minutes Secondes (DMS) -->
+            <div class="bg-slate-900/90 rounded-lg p-2 border border-slate-800 flex flex-col justify-center">
+              <span class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase">Degrés Minutes Secondes (DMS) :</span>
+              <div id="emergency-gps-dms" class="text-sm sm:text-base font-mono font-black text-emerald-300 select-all">
+                45° 53' 31" N, 6° 09' 18" E
+              </div>
+            </div>
+          </div>
+
+          <!-- Métadonnées (Altitude, Précision, Horodatage) & Copier -->
+          <div class="flex items-center justify-between gap-2 pt-0.5">
+            <span id="emergency-gps-meta" class="text-[11px] font-bold text-slate-300 truncate">Alt : -- m • Précision : ±-- m</span>
+            <button onclick="copyEmergencyGpsCoords()" class="py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-black flex items-center gap-1.5 border border-slate-700 active:scale-95 transition shrink-0" title="Copier les coordonnées GPS">
+              <i data-lucide="copy" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span id="copy-emergency-gps-text">Copier GPS</span>
+            </button>
           </div>
         </div>
-        <button onclick="closeEmergencyModal()" class="w-11 h-11 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white bg-slate-800 border border-slate-700 active:scale-90 transition">
-          <i data-lucide="x" class="w-6 h-6"></i>
-        </button>
       </div>
 
-      <!-- CARTOUCHE COORDONNÉES GPS ULTRA-LISIBLES (À DICTER AUX SECOURS) -->
-      <div class="p-4 rounded-2xl bg-slate-950 border-2 border-emerald-500/60 shadow-inner flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-            <i data-lucide="map-pin" class="w-4 h-4"></i>
-            Vos Coordonnées GPS (à dicter)
-          </span>
-          <span id="emergency-country-tag" class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-            🇫🇷 France
-          </span>
-        </div>
-
-        <!-- Format Décimal (DD) -->
-        <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex flex-col gap-0.5">
-          <span class="text-[10px] font-bold text-slate-400 uppercase">Degrés Décimaux (DD) :</span>
-          <div id="emergency-gps-decimal" class="text-lg sm:text-xl font-mono font-black text-white select-all">
-            45.89200° N, 6.15500° E
+      <!-- ============================================================= -->
+      <!-- MOITIÉ BASSE DÉROULANTE (52%) : APPELS TÉLÉPHONE & SOS        -->
+      <!-- ============================================================= -->
+      <div id="emergency-actions-bottom-half">
+        <!-- Bandeau Appel en cours (s'active au clic d'un numéro d'urgence) -->
+        <div id="emergency-call-in-progress" class="hidden bg-red-600/30 border-2 border-red-500 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-xl animate-pulse">
+          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <span class="text-2xl shrink-0">📞</span>
+            <div class="min-w-0 flex-1">
+              <div class="text-[10px] font-black text-red-300 uppercase tracking-wider">Appel déclenché</div>
+              <div id="emergency-call-service-name" class="text-sm font-black text-white truncate">15 - SAMU Urgences Médicales</div>
+              <div class="text-[10px] text-emerald-300 font-bold mt-0.5">📍 Dictez les coordonnées affichées ci-dessus</div>
+            </div>
           </div>
+          <button onclick="dismissEmergencyCallBanner()" class="text-xs font-black bg-slate-900 hover:bg-slate-800 px-3 py-1.5 rounded-xl text-slate-200 border border-slate-700 shrink-0">
+            Fermer
+          </button>
         </div>
 
-        <!-- Format Degrés Minutes Secondes (DMS) -->
-        <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex flex-col gap-0.5">
-          <span class="text-[10px] font-bold text-slate-400 uppercase">Degrés Minutes Secondes (DMS) :</span>
-          <div id="emergency-gps-dms" class="text-base sm:text-lg font-mono font-black text-emerald-300 select-all">
-            45° 53' 31" N, 6° 09' 18" E
-          </div>
+        <!-- Instructions Appel Secours -->
+        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+          <i data-lucide="phone-call" class="w-4 h-4 text-red-400"></i>
+          <span>Numéros d'urgence directe</span>
         </div>
 
-        <!-- Altitude, Précision, Heure -->
-        <div class="flex items-center justify-between text-xs text-slate-300 font-semibold px-1">
-          <span id="emergency-gps-meta">Alt : 450 m • Précision : ±8 m</span>
-          <span id="emergency-gps-time" class="text-slate-400 font-mono text-[11px]">--:--:--</span>
+        <!-- LISTE DYNAMIQUE DES NUMÉROS D'URGENCE (15, 112, 114...) -->
+        <div class="space-y-2.5" id="emergency-numbers-list">
+          <!-- Rempli par updateEmergencyModalGpsData() -->
         </div>
 
-        <!-- Bouton Copier dans le presse-papier -->
-        <button onclick="copyEmergencyGpsCoords()" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-black flex items-center justify-center gap-2 border border-slate-700 active:scale-95 transition">
-          <i data-lucide="copy" class="w-4 h-4 text-emerald-400"></i>
-          <span id="copy-emergency-gps-text">Copier les coordonnées complètes</span>
-        </button>
+        <!-- ALERTE GROUPE RANDOTRACKER -->
+        <div class="pt-2 border-t border-slate-800">
+          <button id="emergency-modal-group-sos-btn" onclick="toggleGroupSosAlert()" class="w-full py-3.5 px-4 rounded-2xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border-2 border-red-500/50 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-95 shadow-lg">
+            <i data-lucide="radio" class="w-5 h-5 text-red-400"></i>
+            <span id="emergency-modal-group-sos-text">🚨 Activer l'alerte SOS sur les téléphones du groupe</span>
+          </button>
+        </div>
       </div>
 
-      <!-- LISTE DES NUMÉROS D'URGENCE (AVEC BOUTON TÉLÉPHONE 📞) -->
-      <div class="space-y-2.5" id="emergency-numbers-list">
-        <!-- Rempli dynamiquement par JS selon le pays détecté (France: 15 SAMU, 112 Pompiers, 114 SMS) -->
-      </div>
-
-      <!-- ALERTE GROUPE RANDOTRACKER -->
-      <div class="pt-3 border-t-2 border-slate-800">
-        <button id="emergency-modal-group-sos-btn" onclick="toggleGroupSosAlert()" class="w-full py-3.5 px-4 rounded-2xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border-2 border-red-500/50 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-95">
-          <i data-lucide="radio" class="w-5 h-5 text-red-400"></i>
-          <span id="emergency-modal-group-sos-text">🚨 Activer l'alerte SOS sur les téléphones du groupe</span>
-        </button>
-      </div>
     </div>
   </div>
 

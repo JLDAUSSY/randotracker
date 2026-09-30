@@ -16,43 +16,12 @@
   --header-font-size: 14px;
 }
 
-/* MODES D'ÉCHELLE & LISIBILITÉ OUTDOOR */
-html.ui-scale-normal {
-  --ui-scale: 1;
-  --header-height: 62px;
-  --bottom-nav-height: 86px;
-  --pill-w: 66px;
-  --pill-h: 50px;
-  --gps-size: 76px;
-  --nav-font-size: 13.5px;
-}
-
-html.ui-scale-large {
-  --ui-scale: 1.15;
-  --header-height: 68px;
-  --bottom-nav-height: 94px;
-  --pill-w: 74px;
-  --pill-h: 54px;
-  --gps-size: 84px;
-  --nav-font-size: 15px;
-}
-
-html.ui-scale-xlarge {
-  --ui-scale: 1.30;
-  --header-height: 74px;
-  --bottom-nav-height: 102px;
-  --pill-w: 82px;
-  --pill-h: 58px;
-  --gps-size: 92px;
-  --nav-font-size: 16.5px;
-}
-
-/* ADAPTATION SMARTPHONE SELON LARGEUR D'ÉCRAN */
+/* Base media queries selon taille d'écran par défaut */
 @media (max-width: 360px) {
   :root {
     --header-height: 58px;
     --bottom-nav-height: 82px;
-    --pill-w: 56px;
+    --pill-w: 58px;
     --pill-h: 46px;
     --gps-size: 68px;
     --nav-font-size: 11.5px;
@@ -72,6 +41,81 @@ html.ui-scale-xlarge {
     --header-btn-h: 48px;
     --header-font-size: 15px;
   }
+}
+
+/* ========================================================================== */
+/* MODES D'ÉCHELLE & LISIBILITÉ OUTDOOR (SURCHARGE FORTE TOUS TÉLÉPHONES)    */
+/* ========================================================================== */
+html.ui-scale-normal {
+  --ui-scale: 1 !important;
+  --header-height: 62px !important;
+  --bottom-nav-height: 86px !important;
+  --pill-w: 66px !important;
+  --pill-h: 50px !important;
+  --gps-size: 76px !important;
+  --nav-font-size: 13.5px !important;
+  --header-btn-h: 46px !important;
+  --header-font-size: 14px !important;
+}
+
+html.ui-scale-large {
+  --ui-scale: 1.25 !important;
+  --header-height: 74px !important;
+  --bottom-nav-height: 100px !important;
+  --pill-w: 80px !important;
+  --pill-h: 60px !important;
+  --gps-size: 90px !important;
+  --nav-font-size: 16px !important;
+  --header-btn-h: 54px !important;
+  --header-font-size: 16px !important;
+}
+
+html.ui-scale-large .nav-pill svg,
+html.ui-scale-large .nav-pill i {
+  width: 32px !important;
+  height: 32px !important;
+}
+
+html.ui-scale-large #nav-gps-bubble {
+  width: 90px !important;
+  height: 90px !important;
+  margin-top: -24px !important;
+}
+
+html.ui-scale-large #nav-gps-bubble svg,
+html.ui-scale-large #nav-gps-bubble i {
+  width: 44px !important;
+  height: 44px !important;
+}
+
+html.ui-scale-xlarge {
+  --ui-scale: 1.50 !important;
+  --header-height: 86px !important;
+  --bottom-nav-height: 116px !important;
+  --pill-w: 94px !important;
+  --pill-h: 70px !important;
+  --gps-size: 104px !important;
+  --nav-font-size: 18.5px !important;
+  --header-btn-h: 62px !important;
+  --header-font-size: 18px !important;
+}
+
+html.ui-scale-xlarge .nav-pill svg,
+html.ui-scale-xlarge .nav-pill i {
+  width: 38px !important;
+  height: 38px !important;
+}
+
+html.ui-scale-xlarge #nav-gps-bubble {
+  width: 104px !important;
+  height: 104px !important;
+  margin-top: -30px !important;
+}
+
+html.ui-scale-xlarge #nav-gps-bubble svg,
+html.ui-scale-xlarge #nav-gps-bubble i {
+  width: 52px !important;
+  height: 52px !important;
 }
 
 /* RÈGLES CRITIQUES DE SECOURS (Anti-Flicker & Mode Hors-ligne) */
@@ -453,7 +497,7 @@ main {
   height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
   max-height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
   z-index: 950 !important;
-  background-color: #0f172a !important;
+  background-color: #020617 !important;
   padding: 0 !important;
   margin: 0 !important;
   border: none !important;
@@ -467,19 +511,41 @@ main {
   display: none !important;
 }
 
-#emergency-modal > div {
+.emergency-modal-inner {
   width: 100% !important;
   max-width: 100% !important;
   height: 100% !important;
   max-height: 100% !important;
-  border-radius: 0 !important;
-  border: none !important;
-  overflow-y: auto !important;
-  padding: 16px 20px !important;
-  background-color: #0f172a !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 16px !important;
+  overflow: hidden !important;
+  background-color: #020617 !important;
+}
+
+/* SECTION 1 HAUTE (45-50%) : COORDONNÉES GPS FIXES ULTRA-LISIBLES */
+#emergency-gps-top-half {
+  flex: 0 0 auto !important;
+  max-height: 48% !important;
+  background: linear-gradient(180deg, #090e17 0%, #0f172a 100%) !important;
+  border-bottom: 3px solid #ef4444 !important;
+  padding: 12px 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7) !important;
+  z-index: 10 !important;
+}
+
+/* SECTION 2 BASSE (50-55%) : APPELS TÉLÉPHONE & SOS DÉROULANT */
+#emergency-actions-bottom-half {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding: 14px 16px 20px 16px !important;
+  background-color: #0b1120 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
 }
 
 /* 7. TIROIR PROFIL ALTIMÉTRIQUE (Z-INDEX 940) */
