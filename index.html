@@ -49,22 +49,22 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v26 -->
-  <link rel="stylesheet" href="styles.css?v=26" />
+  <!-- Custom Styles with Cache-Busting v27 -->
+  <link rel="stylesheet" href="styles.css?v=27" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
   <!-- ================================================================= -->
   <!-- TOP HEADER GÉANT HAUTE VISIBILITÉ (100% LISIBLE SUR SMARTPHONES) -->
   <!-- ================================================================= -->
-  <header class="h-24 sm:h-26 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-3 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
+  <header class="app-header bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-3 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
     <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
     <div id="brand-header-btn" class="flex items-center gap-2.5 sm:gap-3.5 cursor-pointer select-none group active:scale-95 transition shrink-0" title="Jean-Luc DAUSSY 2026">
-      <img src="logo.png?v=26" alt="Logo RandoTracker" class="w-13 h-13 sm:w-15 sm:h-15 rounded-2xl shadow-xl border-2 border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+      <img src="logo.png?v=27" alt="Logo RandoTracker" class="app-header-logo rounded-2xl shadow-xl border-2 border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
       <div class="flex flex-col justify-center">
         <div class="flex items-center gap-2">
-          <span class="font-black text-xl sm:text-3xl tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
-          <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/50 inline-flex items-center leading-none">v26</span>
+          <span class="app-header-title font-black tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/50 inline-flex items-center leading-none">v27</span>
         </div>
         <span class="text-xs text-slate-300 group-hover:text-slate-100 font-bold tracking-wider mt-1 transition flex items-center gap-1 leading-none">
           <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
@@ -75,19 +75,19 @@
     <!-- Actions Haut Droite GÉANTES & HAUTE VISIBILITÉ -->
     <div class="flex items-center gap-2 sm:gap-3 shrink-0">
       <!-- Choix Fond de Carte (IGN / Topo) -->
-      <button id="open-layer-modal-btn" class="h-13 sm:h-14 px-3.5 sm:px-5 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-600 text-xs sm:text-sm font-black flex items-center gap-2 transition active:scale-95 shadow-xl" title="Choisir le fond de carte">
+      <button id="open-layer-modal-btn" class="app-header-btn bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-600 text-xs sm:text-sm font-black flex items-center gap-2 transition active:scale-95 shadow-xl" title="Choisir le fond de carte">
         <i data-lucide="layers" class="w-6 h-6 text-emerald-400 shrink-0"></i>
         <span id="active-layer-label" class="font-bold text-xs sm:text-sm">IGN France</span>
       </button>
 
       <!-- Bouton Inviter des Amis -->
-      <button id="header-invite-btn" class="h-13 sm:h-14 px-4 sm:px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-black flex items-center gap-2 shadow-xl border-2 border-blue-400 transition active:scale-95" title="Inviter des marcheurs">
+      <button id="header-invite-btn" class="app-header-btn bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-black flex items-center gap-2 shadow-xl border-2 border-blue-400 transition active:scale-95" title="Inviter des marcheurs">
         <i data-lucide="user-plus" class="w-6 h-6 shrink-0"></i>
         <span>Inviter</span>
       </button>
 
       <!-- Mon Profil -->
-      <button id="open-profile-btn" class="h-13 w-13 sm:h-14 sm:w-14 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-600 flex items-center justify-center transition active:scale-95 shadow-xl shrink-0" title="Mon Profil">
+      <button id="open-profile-btn" class="app-header-btn aspect-square !px-0 bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-600 flex items-center justify-center transition active:scale-95 shadow-xl shrink-0" title="Mon Profil">
         <div id="header-avatar-badge" class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-600 flex items-center justify-center text-xl sm:text-2xl font-black text-white shadow">
           🌲
         </div>
@@ -104,10 +104,10 @@
     <div id="map" class="w-full h-full z-0"></div>
 
     <!-- BANDEAU FLOTTANT DES TRACES GPX AVEC FLÈCHES INDICATRICES ULTRA-VISIBLES -->
-    <div id="quick-tracks-wrapper" class="absolute top-3 left-2 right-2 sm:left-6 sm:right-auto z-20 flex items-center max-w-[97vw] sm:max-w-4xl">
+    <div id="quick-tracks-wrapper" class="absolute top-3 left-2 right-2 sm:left-6 sm:right-auto z-20 flex items-center max-w-[calc(100vw-16px)] sm:max-w-4xl">
       <!-- Flèche Gauche (Apparaît si des traces sont cachées vers la gauche) -->
-      <button id="tracks-scroll-left" onclick="scrollTracksBar(-260)" style="display: none;" class="h-13 w-12 sm:h-14 sm:w-13 rounded-2xl bg-slate-900/98 hover:bg-slate-800 text-white border-2 border-emerald-400 flex items-center justify-center shadow-2xl shrink-0 mr-2 transition active:scale-90 z-30" title="Voir les parcours vers la gauche">
-        <i data-lucide="chevron-left" class="w-8 h-8 text-emerald-300 stroke-[3.5]"></i>
+      <button id="tracks-scroll-left" onclick="scrollTracksBar(-260)" style="display: none;" class="track-floating-arrow flex items-center justify-center shrink-0 mr-2 active:scale-90" title="Voir les parcours vers la gauche">
+        <i data-lucide="chevron-left" class="w-8 h-8 text-white stroke-[3.5]"></i>
       </button>
 
       <!-- Bandeau Défilant des Traces GPX -->
@@ -116,7 +116,7 @@
       </div>
 
       <!-- Flèche Droite (Apparaît si d'autres parcours sont masqués vers la droite) -->
-      <button id="tracks-scroll-right" onclick="scrollTracksBar(260)" style="display: none;" class="h-13 px-3.5 sm:h-14 sm:px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 text-white border-2 border-white flex items-center justify-center gap-1.5 shadow-2xl shrink-0 ml-2 transition active:scale-90 z-30 animate-pulse" title="Voir les autres parcours vers la droite">
+      <button id="tracks-scroll-right" onclick="scrollTracksBar(260)" style="display: none;" class="track-floating-arrow flex items-center justify-center gap-1.5 shrink-0 ml-2 active:scale-90 animate-pulse" title="Voir les autres parcours vers la droite">
         <span class="text-xs sm:text-sm font-black uppercase tracking-wider text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">Autres</span>
         <i data-lucide="chevron-right" class="w-7 h-7 text-white stroke-[3.5]"></i>
       </button>
@@ -136,24 +136,24 @@
       </button>
     </div>
 
-    <!-- BOUTONS FLOTTANTS SUR LA CARTE (FORMAT GÉANT OUTDOOR 86px x 86px) -->
-    <div class="absolute bottom-5 right-3 sm:right-5 z-20 flex flex-col gap-3.5 sm:gap-4">
-      <!-- 1. Bouton d'Urgence SOS (Rouge Géant Haute Visibilité) -->
-      <button id="floating-sos-btn" onclick="openEmergencyModal()" class="w-[84px] h-[84px] sm:w-[96px] sm:h-[96px] rounded-[26px] sm:rounded-[30px] bg-gradient-to-br from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-600 text-white shadow-2xl border-[3px] border-white flex flex-col items-center justify-center transition active:scale-90 ring-4 ring-red-950/40" title="Secours & Numéros d'Urgence (15 SAMU, 112 Pompiers, GPS)">
-        <span class="text-3xl sm:text-4xl leading-none select-none">🚨</span>
-        <span class="text-[11px] sm:text-xs font-black tracking-wider leading-none mt-1 text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">SOS</span>
+    <!-- BOUTONS FLOTTANTS SUR LA CARTE (DIMENSIONNEMENT FLUIDE PAR CLAMP) -->
+    <div class="absolute bottom-5 right-3 sm:right-5 z-20 flex flex-col gap-3 sm:gap-4">
+      <!-- 1. Bouton d'Urgence SOS (Rouge Fluide Haute Visibilité) -->
+      <button id="floating-sos-btn" onclick="openEmergencyModal()" class="map-floating-btn bg-gradient-to-br from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-600 text-white shadow-2xl border-white transition active:scale-90 ring-4 ring-red-950/40" title="Secours & Numéros d'Urgence (15 SAMU, 112 Pompiers, GPS)">
+        <span class="btn-emoji select-none">🚨</span>
+        <span class="btn-label text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">SOS</span>
       </button>
 
-      <!-- 2. Recadrer la vue sur toutes les traces (Bleu Royal Géant Haute Visibilité) -->
-      <button id="fit-all-btn" class="w-[84px] h-[84px] sm:w-[96px] sm:h-[96px] rounded-[26px] sm:rounded-[30px] bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-600 text-white shadow-2xl border-[3px] border-white flex flex-col items-center justify-center transition active:scale-90 ring-4 ring-blue-950/40" title="Recadrer la carte sur toutes les traces">
-        <i data-lucide="maximize-2" class="w-8 h-8 sm:w-10 sm:h-10 text-white stroke-[2.8]"></i>
-        <span class="text-[11px] sm:text-xs font-black tracking-wider leading-none mt-1 text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">TRACES</span>
+      <!-- 2. Recadrer la vue sur toutes les traces (Bleu Royal Fluide Haute Visibilité) -->
+      <button id="fit-all-btn" class="map-floating-btn bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-600 text-white shadow-2xl border-white transition active:scale-90 ring-4 ring-blue-950/40" title="Recadrer la carte sur toutes les traces">
+        <i data-lucide="maximize-2" class="btn-icon text-white stroke-[2.8]"></i>
+        <span class="btn-label text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">TRACES</span>
       </button>
       
-      <!-- 3. Centrer sur ma position GPS (Vert Émeraude Géant Haute Visibilité) -->
-      <button id="center-my-gps-btn" class="w-[84px] h-[84px] sm:w-[96px] sm:h-[96px] rounded-[26px] sm:rounded-[30px] bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-2xl border-[3px] border-white flex flex-col items-center justify-center transition active:scale-90 ring-4 ring-emerald-950/40" title="Centrer sur ma position GPS">
-        <i data-lucide="crosshair" class="w-8 h-8 sm:w-10 sm:h-10 text-white stroke-[2.8]"></i>
-        <span class="text-[11px] sm:text-xs font-black tracking-wider leading-none mt-1 text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">MON GPS</span>
+      <!-- 3. Centrer sur ma position GPS (Vert Émeraude Fluide Haute Visibilité) -->
+      <button id="center-my-gps-btn" class="map-floating-btn bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-2xl border-white transition active:scale-90 ring-4 ring-emerald-950/40" title="Centrer sur ma position GPS">
+        <i data-lucide="crosshair" class="btn-icon text-white stroke-[2.8]"></i>
+        <span class="btn-label text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">MON GPS</span>
       </button>
     </div>
 
@@ -312,42 +312,42 @@
   </main>
 
   <!-- ================================================================= -->
-  <!-- BARRE DU BAS : 3 BOUTONS DIRECTS & GÉANTS (Hauteur 104px) -->
+  <!-- BARRE DU BAS FLUIDE (OPTION A CLAMP) -->
   <!-- ================================================================= -->
-  <nav class="h-24 sm:h-26 bg-slate-900/98 border-t-2 border-slate-800 grid grid-cols-3 items-center z-30 shrink-0 safe-bottom shadow-2xl px-2 sm:px-6">
+  <nav class="app-bottom-nav bg-slate-900/98 border-t-2 border-slate-800 grid grid-cols-3 items-center z-30 shrink-0 safe-bottom shadow-2xl px-2 sm:px-6">
     
     <!-- Bouton 1 (Organisateur) : 📂 CHARGER GPX -->
-    <label id="nav-btn-gpx" for="gpx-file-input" class="cursor-pointer flex flex-col items-center justify-center gap-1.5 text-slate-200 hover:text-emerald-400 transition active:scale-95 py-2">
-      <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-lg">
-        <i data-lucide="upload-cloud" class="w-7 h-7 sm:w-8 sm:h-8 text-emerald-400"></i>
+    <label id="nav-btn-gpx" for="gpx-file-input" class="cursor-pointer flex flex-col items-center justify-center gap-1 text-slate-200 hover:text-emerald-400 transition active:scale-95 py-1">
+      <div class="nav-icon-box bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-lg">
+        <i data-lucide="upload-cloud" class="text-emerald-400"></i>
       </div>
-      <span class="text-xs sm:text-sm font-black tracking-wide">Charger GPX</span>
+      <span class="nav-label font-black tracking-wide">Charger GPX</span>
       <input type="file" id="gpx-file-input" accept=".gpx" class="hidden" multiple />
     </label>
 
     <!-- Bouton 1 (Invité / Marcheur) : ⛰️ PARCOURS & DÉNIVELÉ -->
-    <button id="nav-btn-ele" class="hidden flex flex-col items-center justify-center gap-1.5 text-slate-200 hover:text-emerald-400 transition active:scale-95 py-2" onclick="openGuestTrackView()">
-      <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-lg">
-        <i data-lucide="mountain" class="w-7 h-7 sm:w-8 sm:h-8 text-emerald-400"></i>
+    <button id="nav-btn-ele" class="hidden flex flex-col items-center justify-center gap-1 text-slate-200 hover:text-emerald-400 transition active:scale-95 py-1" onclick="openGuestTrackView()">
+      <div class="nav-icon-box bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-lg">
+        <i data-lucide="mountain" class="text-emerald-400"></i>
       </div>
-      <span class="text-xs sm:text-sm font-black tracking-wide">Parcours</span>
+      <span class="nav-label font-black tracking-wide">Parcours</span>
     </button>
 
-    <!-- Bouton 2 : 📍 MA POSITION GPS (GROS BOUTON VERT CENTRAL 76px) -->
-    <button id="nav-btn-gps" class="flex flex-col items-center justify-center gap-1 text-white transition active:scale-95 py-1">
-      <div id="nav-gps-bubble" class="w-18 h-18 sm:w-20 sm:h-20 rounded-full bg-emerald-600 border-4 border-white flex items-center justify-center shadow-2xl transition animate-pulse">
-        <i data-lucide="navigation" class="w-9 h-9 sm:w-10 sm:h-10 text-white" id="nav-gps-icon"></i>
+    <!-- Bouton 2 : 📍 MA POSITION GPS (BOUTON CENTRAL FLUIDE) -->
+    <button id="nav-btn-gps" class="flex flex-col items-center justify-center gap-0.5 text-white transition active:scale-95 py-0.5">
+      <div id="nav-gps-bubble" class="rounded-full bg-emerald-600 border-4 border-white flex items-center justify-center shadow-2xl transition animate-pulse">
+        <i data-lucide="navigation" class="text-white" id="nav-gps-icon"></i>
       </div>
-      <span class="text-xs sm:text-sm font-black text-emerald-300" id="nav-gps-label">Mon GPS</span>
+      <span class="nav-label font-black text-emerald-300" id="nav-gps-label">Mon GPS</span>
     </button>
 
     <!-- Bouton 3 : 👥 PARTICIPANTS (LISTE DES MARCHEURS) -->
-    <button id="nav-btn-users" class="flex flex-col items-center justify-center gap-1.5 text-slate-200 hover:text-blue-400 transition relative active:scale-95 py-2">
-      <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-lg relative">
-        <i data-lucide="users" class="w-7 h-7 sm:w-8 sm:h-8 text-blue-400"></i>
-        <span id="nav-users-badge" class="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-blue-500 text-white text-xs font-black flex items-center justify-center shadow-md border-2 border-slate-900">1</span>
+    <button id="nav-btn-users" class="flex flex-col items-center justify-center gap-1 text-slate-200 hover:text-blue-400 transition relative active:scale-95 py-1">
+      <div class="nav-icon-box bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-lg relative">
+        <i data-lucide="users" class="text-blue-400"></i>
+        <span id="nav-users-badge" class="absolute -top-1.5 -right-1.5 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-blue-500 text-white text-[10px] sm:text-xs font-black flex items-center justify-center shadow-md border-2 border-slate-900">1</span>
       </div>
-      <span class="text-xs sm:text-sm font-black tracking-wide">Participants</span>
+      <span class="nav-label font-black tracking-wide">Participants</span>
     </button>
 
   </nav>
@@ -827,7 +827,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v26 -->
-  <script src="app.js?v=26"></script>
+  <!-- Main Application Script with Cache-Busting v27 -->
+  <script src="app.js?v=27"></script>
 </body>
 </html>
