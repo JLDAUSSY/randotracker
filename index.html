@@ -49,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v34 -->
-  <link rel="stylesheet" href="styles.css?v=34" />
+  <!-- Custom Styles with Cache-Busting v35 -->
+  <link rel="stylesheet" href="styles.css?v=35" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -60,11 +60,11 @@
   <header class="app-header bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-3 sm:px-5 flex items-center justify-between z-30 shadow-2xl shrink-0">
     <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
     <div id="brand-header-btn" class="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none group active:scale-95 transition shrink-0" title="Jean-Luc DAUSSY 2026">
-      <img src="logo.png?v=34" alt="Logo RandoTracker" class="app-header-logo rounded-xl shadow-lg border border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+      <img src="logo.png?v=35" alt="Logo RandoTracker" class="app-header-logo rounded-xl shadow-lg border border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
       <div class="flex flex-col justify-center">
         <div class="flex items-center gap-1.5">
           <span class="app-header-title font-black tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
-          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/40">v34</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/40">v35</span>
         </div>
         <span class="text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider mt-0.5 transition flex items-center gap-1 leading-none">
           <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
@@ -487,6 +487,26 @@
           <i data-lucide="check" class="w-6 h-6 text-emerald-400 layer-check hidden"></i>
         </button>
       </div>
+
+      <!-- Option de Surimpression : Pentes & Relief Montagne IGN -->
+      <div class="pt-3 border-t-2 border-slate-800 space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🏔️</span>
+            <div>
+              <span class="text-xs font-black text-white uppercase block">Pentes & Relief Montagne IGN</span>
+              <span class="text-[10px] text-amber-400 font-bold">Sécurité avalanche (> 30°) & dénivelé</span>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="toggle-slopes-layer" class="sr-only peer" />
+            <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500 border border-slate-700"></div>
+          </label>
+        </div>
+        <p class="text-[10px] text-slate-400 font-semibold leading-snug">
+          Surimpression officielle des pentes fortes de montagne (Jaune > 30°, Orange > 35°, Rouge > 40°, Violet > 45°) sur fond IGN ou Satellite.
+        </p>
+      </div>
     </div>
   </div>
 
@@ -628,11 +648,11 @@
             </button>
             <button type="button" class="ui-scale-btn py-2.5 px-2 rounded-xl border-2 border-slate-700 bg-slate-800 text-slate-300 font-black text-xs flex flex-col items-center justify-center gap-1 transition active:scale-95 hover:border-slate-600" data-scale="large">
               <span class="text-sm">Grand</span>
-              <span class="text-[10px] font-mono text-emerald-400">+15%</span>
+              <span class="text-[10px] font-mono text-emerald-400">+35%</span>
             </button>
             <button type="button" class="ui-scale-btn py-2.5 px-2 rounded-xl border-2 border-slate-700 bg-slate-800 text-slate-300 font-black text-xs flex flex-col items-center justify-center gap-1 transition active:scale-95 hover:border-slate-600" data-scale="xlarge">
               <span class="text-sm">Géant</span>
-              <span class="text-[10px] font-mono text-amber-400">+30%</span>
+              <span class="text-[10px] font-mono text-amber-400">+65%</span>
             </button>
           </div>
         </div>
@@ -921,7 +941,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v34 -->
-  <script src="app.js?v=34"></script>
+  <!-- Main Application Script with Cache-Busting v35 -->
+  <script src="app.js?v=35"></script>
 </body>
 </html>

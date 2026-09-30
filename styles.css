@@ -1,16 +1,16 @@
 /* ========================================================================== */
-/* RANDOTRACKER V34 - STYLES FORMAT GÉANT & HAUTE VISIBILITÉ OUTDOOR         */
+/* RANDOTRACKER V35 - STYLES FORMAT GÉANT & HAUTE VISIBILITÉ OUTDOOR         */
 /* ========================================================================== */
 
 :root {
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --ui-scale: 1;
-  --header-height: 62px;
-  --bottom-nav-height: 86px;
-  --pill-w: 66px;
-  --pill-h: 50px;
-  --gps-size: 76px;
+  --header-height: 64px;
+  --bottom-nav-height: 88px;
+  --pill-w: 68px;
+  --pill-h: 52px;
+  --gps-size: 78px;
   --nav-font-size: 13.5px;
   --header-btn-h: 46px;
   --header-font-size: 14px;
@@ -19,24 +19,24 @@
 /* Base media queries selon taille d'écran par défaut */
 @media (max-width: 360px) {
   :root {
-    --header-height: 58px;
-    --bottom-nav-height: 82px;
-    --pill-w: 58px;
-    --pill-h: 46px;
-    --gps-size: 68px;
-    --nav-font-size: 11.5px;
-    --header-btn-h: 40px;
-    --header-font-size: 11.5px;
+    --header-height: 60px;
+    --bottom-nav-height: 84px;
+    --pill-w: 60px;
+    --pill-h: 48px;
+    --gps-size: 70px;
+    --nav-font-size: 12px;
+    --header-btn-h: 42px;
+    --header-font-size: 12px;
   }
 }
 
 @media (min-width: 416px) {
   :root {
-    --header-height: 66px;
-    --bottom-nav-height: 90px;
-    --pill-w: 72px;
-    --pill-h: 52px;
-    --gps-size: 82px;
+    --header-height: 68px;
+    --bottom-nav-height: 92px;
+    --pill-w: 74px;
+    --pill-h: 54px;
+    --gps-size: 84px;
     --nav-font-size: 14.5px;
     --header-btn-h: 48px;
     --header-font-size: 15px;
@@ -48,74 +48,188 @@
 /* ========================================================================== */
 html.ui-scale-normal {
   --ui-scale: 1 !important;
-  --header-height: 62px !important;
-  --bottom-nav-height: 86px !important;
-  --pill-w: 66px !important;
-  --pill-h: 50px !important;
-  --gps-size: 76px !important;
+  --header-height: 64px !important;
+  --bottom-nav-height: 88px !important;
+  --pill-w: 68px !important;
+  --pill-h: 52px !important;
+  --gps-size: 78px !important;
   --nav-font-size: 13.5px !important;
   --header-btn-h: 46px !important;
   --header-font-size: 14px !important;
 }
 
+/* MODE GRAND (+35%) */
 html.ui-scale-large {
-  --ui-scale: 1.25 !important;
-  --header-height: 74px !important;
-  --bottom-nav-height: 100px !important;
-  --pill-w: 80px !important;
-  --pill-h: 60px !important;
-  --gps-size: 90px !important;
-  --nav-font-size: 16px !important;
-  --header-btn-h: 54px !important;
-  --header-font-size: 16px !important;
+  --ui-scale: 1.35 !important;
+  --header-height: 82px !important;
+  --bottom-nav-height: 112px !important;
+  --pill-w: 88px !important;
+  --pill-h: 66px !important;
+  --gps-size: 98px !important;
+  --nav-font-size: 16.5px !important;
+  --header-btn-h: 58px !important;
+  --header-font-size: 16.5px !important;
+}
+
+html.ui-scale-large .app-header-logo {
+  width: 56px !important;
+  height: 56px !important;
+}
+
+html.ui-scale-large .app-header-title {
+  font-size: 22px !important;
+}
+
+html.ui-scale-large .app-header-btn {
+  height: 58px !important;
+  min-height: 58px !important;
+  font-size: 16.5px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  border-radius: 18px !important;
+}
+
+html.ui-scale-large .app-header-btn svg,
+html.ui-scale-large .app-header-btn i,
+html.ui-scale-large .app-header-btn [data-lucide] {
+  width: 28px !important;
+  height: 28px !important;
+}
+
+html.ui-scale-large #header-avatar-badge {
+  width: 44px !important;
+  height: 44px !important;
+  font-size: 22px !important;
+}
+
+html.ui-scale-large #header-track-dot {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+html.ui-scale-large .nav-icon-pill {
+  width: 88px !important;
+  height: 66px !important;
+  border-radius: 20px !important;
 }
 
 html.ui-scale-large .nav-pill svg,
-html.ui-scale-large .nav-pill i {
-  width: 32px !important;
-  height: 32px !important;
+html.ui-scale-large .nav-pill i,
+html.ui-scale-large .nav-icon-pill svg,
+html.ui-scale-large .nav-icon-pill i {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+html.ui-scale-large .nav-icon-pill span {
+  font-size: 34px !important;
 }
 
 html.ui-scale-large #nav-gps-bubble {
-  width: 90px !important;
-  height: 90px !important;
-  margin-top: -24px !important;
+  width: 98px !important;
+  height: 98px !important;
+  margin-top: -26px !important;
 }
 
 html.ui-scale-large #nav-gps-bubble svg,
 html.ui-scale-large #nav-gps-bubble i {
-  width: 44px !important;
-  height: 44px !important;
+  width: 48px !important;
+  height: 48px !important;
 }
 
+/* MODE GÉANT (+65% À +75%) */
 html.ui-scale-xlarge {
-  --ui-scale: 1.50 !important;
-  --header-height: 86px !important;
-  --bottom-nav-height: 116px !important;
-  --pill-w: 94px !important;
-  --pill-h: 70px !important;
-  --gps-size: 104px !important;
-  --nav-font-size: 18.5px !important;
-  --header-btn-h: 62px !important;
-  --header-font-size: 18px !important;
+  --ui-scale: 1.65 !important;
+  --header-height: 98px !important;
+  --bottom-nav-height: 130px !important;
+  --pill-w: 106px !important;
+  --pill-h: 82px !important;
+  --gps-size: 118px !important;
+  --nav-font-size: 19.5px !important;
+  --header-btn-h: 68px !important;
+  --header-font-size: 18.5px !important;
+}
+
+html.ui-scale-xlarge .app-header-logo {
+  width: 68px !important;
+  height: 68px !important;
+  border-radius: 16px !important;
+}
+
+html.ui-scale-xlarge .app-header-title {
+  font-size: 26px !important;
+}
+
+html.ui-scale-xlarge .app-header-btn {
+  height: 68px !important;
+  min-height: 68px !important;
+  font-size: 19px !important;
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+  border-radius: 22px !important;
+  border-width: 3px !important;
+}
+
+html.ui-scale-xlarge .app-header-btn svg,
+html.ui-scale-xlarge .app-header-btn i,
+html.ui-scale-xlarge .app-header-btn [data-lucide] {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+html.ui-scale-xlarge #header-avatar-badge {
+  width: 54px !important;
+  height: 54px !important;
+  font-size: 28px !important;
+}
+
+html.ui-scale-xlarge #header-track-dot {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+html.ui-scale-xlarge .nav-icon-pill {
+  width: 106px !important;
+  height: 82px !important;
+  border-radius: 24px !important;
+  border-width: 3.5px !important;
 }
 
 html.ui-scale-xlarge .nav-pill svg,
-html.ui-scale-xlarge .nav-pill i {
-  width: 38px !important;
-  height: 38px !important;
+html.ui-scale-xlarge .nav-pill i,
+html.ui-scale-xlarge .nav-icon-pill svg,
+html.ui-scale-xlarge .nav-icon-pill i {
+  width: 42px !important;
+  height: 42px !important;
+}
+
+html.ui-scale-xlarge .nav-icon-pill span {
+  font-size: 42px !important;
 }
 
 html.ui-scale-xlarge #nav-gps-bubble {
-  width: 104px !important;
-  height: 104px !important;
-  margin-top: -30px !important;
+  width: 118px !important;
+  height: 118px !important;
+  margin-top: -36px !important;
+  border-width: 5.5px !important;
 }
 
 html.ui-scale-xlarge #nav-gps-bubble svg,
 html.ui-scale-xlarge #nav-gps-bubble i {
-  width: 52px !important;
-  height: 52px !important;
+  width: 60px !important;
+  height: 60px !important;
+}
+
+html.ui-scale-xlarge .nav-label {
+  font-size: 19.5px !important;
+  margin-top: 5px !important;
+}
+
+/* RÈGLES CRITIQUES ANTI-SWIPE & ANTI-DISPARITION */
+html, body, main, #map, .app-header, .app-bottom-nav, #users-panel, #emergency-modal {
+  overscroll-behavior: none !important;
+  overscroll-behavior-x: none !important;
+  overscroll-behavior-y: none !important;
 }
 
 /* RÈGLES CRITIQUES DE SECOURS (Anti-Flicker & Mode Hors-ligne) */
@@ -294,14 +408,16 @@ body {
 /* ARCHITECTURE LAYOUT & Z-INDEX HIÉRARCHISÉ                                  */
 /* ========================================================================== */
 
-/* 1. EN-TÊTE SUPÉRIEUR (Z-INDEX 1000 - TOUJOURS VISIBLE) */
+/* 1. EN-TÊTE SUPÉRIEUR (Z-INDEX 1000 - TOUJOURS VISIBLE & SANCTUARISÉ) */
 .app-header {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  height: var(--header-height, 62px) !important;
-  min-height: var(--header-height, 62px) !important;
+  width: 100% !important;
+  height: var(--header-height, 64px) !important;
+  min-height: var(--header-height, 64px) !important;
+  max-height: var(--header-height, 64px) !important;
   z-index: 1000 !important;
   border-bottom: 2.5px solid #334155 !important;
   background-color: rgba(15, 23, 42, 0.98) !important;
@@ -310,6 +426,11 @@ body {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: translateZ(0) !important;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
 }
 
 .app-header-logo {
@@ -334,14 +455,16 @@ body {
   font-weight: 900 !important;
 }
 
-/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE (Z-INDEX 1000 - TOUJOURS VISIBLE) */
+/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE (Z-INDEX 1000 - TOUJOURS VISIBLE & SANCTUARISÉE) */
 .app-bottom-nav {
   position: fixed !important;
   bottom: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  height: var(--bottom-nav-height, 86px) !important;
-  min-height: var(--bottom-nav-height, 86px) !important;
+  width: 100% !important;
+  height: var(--bottom-nav-height, 88px) !important;
+  min-height: var(--bottom-nav-height, 88px) !important;
+  max-height: var(--bottom-nav-height, 88px) !important;
   padding-bottom: max(6px, env(safe-area-inset-bottom, 6px)) !important;
   padding-top: 4px !important;
   background: rgba(15, 23, 42, 0.98) !important;
@@ -352,6 +475,11 @@ body {
   display: grid !important;
   grid-template-columns: repeat(4, 1fr) !important;
   align-items: center !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: translateZ(0) !important;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
 }
 
 .nav-btn-item {
@@ -375,8 +503,8 @@ body {
 }
 
 .nav-icon-pill {
-  width: var(--pill-w, 66px) !important;
-  height: var(--pill-h, 50px) !important;
+  width: var(--pill-w, 68px) !important;
+  height: var(--pill-h, 52px) !important;
   border-radius: 16px !important;
   display: flex !important;
   align-items: center !important;
@@ -394,8 +522,8 @@ body {
 
 /* Bouton central MON GPS surélevé géant */
 #nav-gps-bubble {
-  width: var(--gps-size, 76px) !important;
-  height: var(--gps-size, 76px) !important;
+  width: var(--gps-size, 78px) !important;
+  height: var(--gps-size, 78px) !important;
   border-radius: 50% !important;
   border: 4.5px solid #ffffff !important;
   background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
@@ -425,18 +553,23 @@ body {
 /* 3. ZONE PRINCIPALE CARTE (Z-INDEX 1) */
 main {
   position: fixed !important;
-  top: var(--header-height, 62px) !important;
-  bottom: var(--bottom-nav-height, 86px) !important;
+  top: var(--header-height, 64px) !important;
+  bottom: var(--bottom-nav-height, 88px) !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
-  height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
+  height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
   z-index: 1 !important;
 }
 
 #map {
   width: 100% !important;
   height: 100% !important;
+}
+
+.leaflet-tile {
+  image-rendering: -webkit-optimize-contrast !important;
+  image-rendering: auto !important;
 }
 
 /* 4. VOILE DE FOND (Z-INDEX 920) */
@@ -452,14 +585,14 @@ main {
 /* 5. FENÊTRE PLEIN ÉCRAN GROUPE / PARTICIPANTS (Z-INDEX 950) */
 #users-panel {
   position: fixed !important;
-  top: var(--header-height, 62px) !important;
-  bottom: var(--bottom-nav-height, 86px) !important;
+  top: var(--header-height, 64px) !important;
+  bottom: var(--bottom-nav-height, 88px) !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
-  height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
-  max-height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
+  height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
+  max-height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
   z-index: 950 !important;
   background-color: #1e293b !important; /* Solid Slate-800 - Haute clarté */
   border: none !important;
@@ -485,17 +618,17 @@ main {
   display: flex !important;
 }
 
-/* 6. FENÊTRE PLEIN ÉCRAN SECOURS & URGENCE (Z-INDEX 950) */
+/* 6. FENÊTRE PLEIN ÉCRAN SECOURS & URGENCE (Z-INDEX 950 - PARTITION RIGIDE 50/50) */
 #emergency-modal {
   position: fixed !important;
-  top: var(--header-height, 62px) !important;
-  bottom: var(--bottom-nav-height, 86px) !important;
+  top: var(--header-height, 64px) !important;
+  bottom: var(--bottom-nav-height, 88px) !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
-  height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
-  max-height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
+  height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
+  max-height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
   z-index: 950 !important;
   background-color: #020617 !important;
   padding: 0 !important;
@@ -522,30 +655,40 @@ main {
   background-color: #020617 !important;
 }
 
-/* SECTION 1 HAUTE (45-50%) : COORDONNÉES GPS FIXES ULTRA-LISIBLES */
+/* SECTION 1 HAUTE (STRICTEMENT 50%) : COORDONNÉES GPS FIXES ULTRA-LISIBLES */
 #emergency-gps-top-half {
-  flex: 0 0 auto !important;
-  max-height: 48% !important;
+  flex: 0 0 50% !important;
+  height: 50% !important;
+  min-height: 50% !important;
+  max-height: 50% !important;
   background: linear-gradient(180deg, #090e17 0%, #0f172a 100%) !important;
-  border-bottom: 3px solid #ef4444 !important;
-  padding: 12px 16px !important;
+  border-bottom: 3.5px solid #ef4444 !important;
+  padding: 10px 14px !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 8px !important;
+  justify-content: space-between !important;
+  gap: 6px !important;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7) !important;
   z-index: 10 !important;
-}
-
-/* SECTION 2 BASSE (50-55%) : APPELS TÉLÉPHONE & SOS DÉROULANT */
-#emergency-actions-bottom-half {
-  flex: 1 1 auto !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch !important;
-  padding: 14px 16px 20px 16px !important;
+  box-sizing: border-box !important;
+}
+
+/* SECTION 2 BASSE (STRICTEMENT 50%) : APPELS TÉLÉPHONE & ACTIONS INTÉGRÉES */
+#emergency-actions-bottom-half {
+  flex: 0 0 50% !important;
+  height: 50% !important;
+  min-height: 50% !important;
+  max-height: 50% !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding: 10px 14px 18px 14px !important;
   background-color: #0b1120 !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 12px !important;
+  gap: 10px !important;
+  box-sizing: border-box !important;
 }
 
 /* 7. TIROIR PROFIL ALTIMÉTRIQUE (Z-INDEX 940) */
