@@ -2726,63 +2726,134 @@ function updateEmergencyModalGpsData() {
   const ele = state.myUser.ele || 0;
   const acc = state.myUser.accuracy || 10;
   const country = detectCountry(lat, lon);
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lonDir = lon >= 0 ? 'E' : 'O';
+  const ddStr = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+  const dmsStr = `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
 
   // 1. Affichage Degrés Décimaux (DD)
   const decimalEl = document.getElementById('emergency-gps-decimal');
   if (decimalEl) {
-    const latDir = lat >= 0 ? 'N' : 'S';
-    const lonDir = lon >= 0 ? 'E' : 'O';
-    decimalEl.textContent = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+    decimalEl.textContent = ddStr;
   }
 
   // 2. Affichage Degrés Minutes Secondes (DMS)
   const dmsEl = document.getElementById('emergency-gps-dms');
   if (dmsEl) {
-    dmsEl.textContent = `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
+    dmsEl.textContent = dmsStr;
   }
 
-  // 3. Métadonnées (Altitude, Précision, Horodatage)
+  // 3. Métadonnées (Altitude, Précision)
   const metaEl = document.getElementById('emergency-gps-meta');
   if (metaEl) {
     metaEl.textContent = `Alt : ${Math.round(ele)} m • Précision : ±${Math.round(acc)} m`;
   }
-  const timeEl = document.getElementById('emergency-gps-time');
-  if (timeEl) {
-    timeEl.textContent = new Date().toLocaleTimeString();
-  }
 
-  // 4. Tag Pays
+  // 4. Guide de dictée vocale
+  const dictateCoords = document.getElementById('dictate-coords');
+  const dictateAlt = document.getElementById('dictate-alt');
+  if (dictateCoords) dictateCoords.textContent = ddStr;
+  if (dictateAlt) dictateAlt.textContent = `${Math.round(ele)} m`;
+
+  // 5. Tag Pays
   const countryTag = document.getElementById('emergency-country-tag');
   if (countryTag) {
     if (country === 'FR') {
       countryTag.textContent = '🇫🇷 France';
-      countryTag.className = 'text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+      countryTag.className = 'text-[9px] font-black px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
     } else if (country === 'ES') {
       countryTag.textContent = '🇪🇸 Espagne';
-      countryTag.className = 'text-[11px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40';
+      countryTag.className = 'text-[9px] font-black px-2 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40';
     } else {
       countryTag.textContent = '🏔️ International';
-      countryTag.className = 'text-[11px] font-black px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40';
+      countryTag.className = 'text-[9px] font-black px-2 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40';
     }
   }
 
-  // 5. Rendu des boutons et numéros d'urgence
+  // 6. Rendu des boutons d'action 1-Clic
   renderEmergencyActionsPad();
 
-  // 6. État du bouton Alerte Groupe
+  // 7. État du bouton Alerte Groupe
   const groupSosBtn = document.getElementById('emergency-modal-group-sos-btn');
   const groupSosText = document.getElementById('emergency-modal-group-sos-text');
   if (groupSosBtn && groupSosText) {
     if (state.myUser.isSos) {
-      groupSosBtn.className = 'w-full py-3.5 px-4 rounded-2xl bg-red-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 animate-pulse shadow-xl transition active:scale-95';
+      groupSosBtn.className = 'w-full py-3 px-3 rounded-xl bg-red-600 text-white font-black text-xs flex items-center justify-center gap-2 animate-pulse shadow-xl transition active:scale-95';
       groupSosText.textContent = '⚠️ ALERTE SOS GROUPE ACTIVE (CLIQUEZ POUR ARRÊTER)';
     } else {
-      groupSosBtn.className = 'w-full py-3.5 px-4 rounded-2xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border-2 border-red-500/50 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-95';
+      groupSosBtn.className = 'w-full py-3 px-3 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border-2 border-red-500/50 font-black text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md';
       groupSosText.textContent = '🚨 Activer l\'alerte SOS sur les téléphones du groupe';
     }
   }
 
   lucide.createIcons();
+}
+
+function switchEmergencyTab(tab) {
+  const quickBtn = document.getElementById('tab-btn-quick-sos');
+  const dialerBtn = document.getElementById('tab-btn-dialer');
+  const quickContent = document.getElementById('tab-content-quick-sos');
+  const dialerContent = document.getElementById('tab-content-dialer');
+
+  if (tab === 'quick') {
+    if (quickBtn) {
+      quickBtn.className = 'py-2 px-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition border-2 border-red-500 bg-red-600/30 text-white shadow-md';
+    }
+    if (dialerBtn) {
+      dialerBtn.className = 'py-2 px-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition border-2 border-slate-700 bg-slate-800 text-slate-300 hover:text-white';
+    }
+    if (quickContent) quickContent.classList.remove('hidden');
+    if (dialerContent) dialerContent.classList.add('hidden');
+  } else {
+    if (dialerBtn) {
+      dialerBtn.className = 'py-2 px-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition border-2 border-blue-500 bg-blue-600/30 text-white shadow-md';
+    }
+    if (quickBtn) {
+      quickBtn.className = 'py-2 px-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition border-2 border-slate-700 bg-slate-800 text-slate-300 hover:text-white';
+    }
+    if (dialerContent) dialerContent.classList.remove('hidden');
+    if (quickContent) quickContent.classList.add('hidden');
+  }
+}
+
+function dialerAppend(ch) {
+  const input = document.getElementById('dialer-input');
+  if (input) {
+    input.value = (input.value + ch).trim();
+  }
+}
+
+function dialerBackspace() {
+  const input = document.getElementById('dialer-input');
+  if (input && input.value.length > 0) {
+    input.value = input.value.slice(0, -1);
+  }
+}
+
+function dialerClear() {
+  const input = document.getElementById('dialer-input');
+  if (input) input.value = '';
+}
+
+function dialerSetNumber(num) {
+  const input = document.getElementById('dialer-input');
+  if (input) input.value = num;
+}
+
+function dialerCall() {
+  const input = document.getElementById('dialer-input');
+  const num = input ? input.value.trim() : '';
+  if (!num) {
+    showToast('Veuillez composer un numéro à appeler', 'warning');
+    return;
+  }
+  makeEmergencyCall(num);
+}
+
+function dialerSms() {
+  const input = document.getElementById('dialer-input');
+  const num = input ? input.value.trim() : '';
+  sendEmergencySms(num);
 }
 
 function renderEmergencyActionsPad() {
@@ -2795,46 +2866,58 @@ function renderEmergencyActionsPad() {
 
   if (country === 'FR') {
     numList.innerHTML = `
-      <!-- 15 SAMU -->
-      <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border-2 border-emerald-500/60 flex items-center justify-between gap-3 shadow-lg hover:border-emerald-400 transition cursor-pointer" onclick="initiateEmergencyCall('15', 'SAMU Urgences Médicales', 'Urgences vitales, malaises graves, traumatismes.')">
-        <div class="min-w-0 flex-1">
+      <!-- 15 SAMU (Urgences Médicales) -->
+      <div class="p-2.5 rounded-2xl bg-slate-950 border-2 border-emerald-500/60 shadow-lg flex flex-col gap-2">
+        <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">15</span>
-            <span class="text-sm sm:text-base font-black text-white truncate">SAMU (Urgences Médicales)</span>
+            <span class="text-xs sm:text-sm font-black text-white">SAMU (Urgences Médicales)</span>
           </div>
-          <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Urgences vitales, malaises, traumatismes.</p>
+          <span class="text-[10px] text-slate-400 font-bold">Malaise / Traumatisme</span>
         </div>
-        <button type="button" class="h-12 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 15">
-          <i data-lucide="phone-call" class="w-4 h-4"></i>
-          <span>15</span>
-        </button>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" onclick="makeEmergencyCall('15', '15 - SAMU Urgences Médicales')" class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl active:scale-95 transition">
+            <i data-lucide="phone-call" class="w-4 h-4"></i>
+            <span>📞 Appeler 15</span>
+          </button>
+          <button type="button" onclick="sendEmergencySms('15')" class="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl active:scale-95 transition">
+            <i data-lucide="message-square" class="w-4 h-4"></i>
+            <span>💬 SMS GPS</span>
+          </button>
+        </div>
       </div>
 
       <!-- 112 POMPIERS & SECOURS MONTAGNE -->
-      <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border-2 border-red-500/60 flex items-center justify-between gap-3 shadow-lg hover:border-red-400 transition cursor-pointer" onclick="initiateEmergencyCall('112', 'Pompiers & Secours Montagne', 'Pompiers, secours d\\'urgence, secours montagne PGHM/CRS.')">
-        <div class="min-w-0 flex-1">
+      <div class="p-2.5 rounded-2xl bg-slate-950 border-2 border-red-500/60 shadow-lg flex flex-col gap-2">
+        <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="text-xs font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/40">112</span>
-            <span class="text-sm sm:text-base font-black text-white truncate">Sapeurs-Pompiers & Secours</span>
+            <span class="text-xs sm:text-sm font-black text-white">Pompiers & Secours Montagne</span>
           </div>
-          <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Pompiers, secours montagne (PGHM/CRS).</p>
+          <span class="text-[10px] text-slate-400 font-bold">PGHM / CRS / Accident</span>
         </div>
-        <button type="button" class="h-12 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 112">
-          <i data-lucide="phone-call" class="w-4 h-4"></i>
-          <span>112</span>
-        </button>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" onclick="makeEmergencyCall('112', '112 - Pompiers & Secours Montagne')" class="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl active:scale-95 transition">
+            <i data-lucide="phone-call" class="w-4 h-4"></i>
+            <span>📞 Appeler 112</span>
+          </button>
+          <button type="button" onclick="sendEmergencySms('112')" class="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl active:scale-95 transition">
+            <i data-lucide="message-square" class="w-4 h-4"></i>
+            <span>💬 SMS GPS</span>
+          </button>
+        </div>
       </div>
 
-      <!-- 114 SMS D'URGENCE -->
-      <div class="p-3 rounded-2xl bg-slate-950/90 border-2 border-blue-500/40 flex items-center justify-between gap-3 hover:border-blue-400 transition cursor-pointer" onclick="initiateEmergencyCall('114', 'SMS d\\'Urgence', 'Réseau vocal trop faible ou zone d\\'ombre GSM.')">
+      <!-- 114 SMS D'URGENCE SOURD / SANS RÉSEAU VOCAL -->
+      <div class="p-2.5 rounded-2xl bg-slate-950/90 border-2 border-purple-500/50 shadow flex items-center justify-between gap-2">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
-            <span class="text-xs font-black px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/40">114</span>
-            <span class="text-xs sm:text-sm font-black text-slate-200">SMS d'Urgence (Sans réseau vocal)</span>
+            <span class="text-xs font-black px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/40">114</span>
+            <span class="text-xs font-black text-slate-200">SMS National d'Urgence</span>
           </div>
-          <p class="text-[10px] sm:text-[11px] text-slate-400 font-semibold mt-0.5">Réseau vocal trop faible ou zone d'ombre GSM.</p>
+          <p class="text-[10px] text-slate-400 font-semibold mt-0.5">Réseau vocal faible ou zone d'ombre</p>
         </div>
-        <button type="button" class="h-10 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs flex items-center gap-1.5 shadow shrink-0 active:scale-95 transition" title="Envoyer un SMS au 114">
+        <button type="button" onclick="sendEmergencySms('114')" class="py-2 px-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs flex items-center gap-1.5 shadow shrink-0 active:scale-95 transition">
           <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
           <span>SMS 114</span>
         </button>
@@ -2843,50 +2926,68 @@ function renderEmergencyActionsPad() {
   } else if (country === 'ES') {
     numList.innerHTML = `
       <!-- 112 EMERGENCIAS ESPAÑA -->
-      <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border-2 border-red-500/60 flex items-center justify-between gap-3 shadow-lg hover:border-red-400 transition cursor-pointer" onclick="initiateEmergencyCall('112', 'Emergencias España', 'Bomberos, Guardia Civil, Rescate Montaña GREIM.')">
-        <div class="min-w-0 flex-1">
+      <div class="p-2.5 rounded-2xl bg-slate-950 border-2 border-red-500/60 shadow-lg flex flex-col gap-2">
+        <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="text-xs font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/40">112</span>
-            <span class="text-sm sm:text-base font-black text-white truncate">112 Emergencias España</span>
+            <span class="text-xs sm:text-sm font-black text-white">112 Emergencias España</span>
           </div>
-          <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Bomberos, Guardia Civil, Rescate GREIM.</p>
+          <span class="text-[10px] text-slate-400 font-bold">Bomberos / GREIM</span>
         </div>
-        <button type="button" class="h-12 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Llamar al 112">
-          <i data-lucide="phone-call" class="w-4 h-4"></i>
-          <span>112</span>
-        </button>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" onclick="makeEmergencyCall('112', '112 Emergencias')" class="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl active:scale-95 transition">
+            <i data-lucide="phone-call" class="w-4 h-4"></i>
+            <span>📞 Llamar 112</span>
+          </button>
+          <button type="button" onclick="sendEmergencySms('112')" class="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl active:scale-95 transition">
+            <i data-lucide="message-square" class="w-4 h-4"></i>
+            <span>💬 SMS GPS</span>
+          </button>
+        </div>
       </div>
 
       <!-- 061 URGENCIAS MÉDICAS -->
-      <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border-2 border-emerald-500/60 flex items-center justify-between gap-3 shadow-lg hover:border-emerald-400 transition cursor-pointer" onclick="initiateEmergencyCall('061', 'Urgencias Sanitarias', 'Ambulancia y atención médica urgente.')">
-        <div class="min-w-0 flex-1">
+      <div class="p-2.5 rounded-2xl bg-slate-950 border-2 border-emerald-500/60 shadow-lg flex flex-col gap-2">
+        <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">061</span>
-            <span class="text-sm sm:text-base font-black text-white truncate">061 Urgencias Sanitarias</span>
+            <span class="text-xs sm:text-sm font-black text-white">061 Urgencias Sanitarias</span>
           </div>
-          <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Ambulancia y atención médica urgente.</p>
+          <span class="text-[10px] text-slate-400 font-bold">Ambulancia</span>
         </div>
-        <button type="button" class="h-12 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Llamar al 061">
-          <i data-lucide="phone-call" class="w-4 h-4"></i>
-          <span>061</span>
-        </button>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" onclick="makeEmergencyCall('061', '061 Urgencias')" class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl active:scale-95 transition">
+            <i data-lucide="phone-call" class="w-4 h-4"></i>
+            <span>📞 Llamar 061</span>
+          </button>
+          <button type="button" onclick="sendEmergencySms('061')" class="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl active:scale-95 transition">
+            <i data-lucide="message-square" class="w-4 h-4"></i>
+            <span>💬 SMS GPS</span>
+          </button>
+        </div>
       </div>
     `;
   } else {
     numList.innerHTML = `
       <!-- 112 EUROPE & INTERNATIONAL -->
-      <div class="p-3 sm:p-3.5 rounded-2xl bg-slate-950 border-2 border-red-500/60 flex items-center justify-between gap-3 shadow-lg hover:border-red-400 transition cursor-pointer" onclick="initiateEmergencyCall('112', 'Numéro d\\'Urgence Européen', 'Numéro unique européen Pompiers, SAMU, Secours Montagne.')">
-        <div class="min-w-0 flex-1">
+      <div class="p-2.5 rounded-2xl bg-slate-950 border-2 border-red-500/60 shadow-lg flex flex-col gap-2">
+        <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="text-xs font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/40">112</span>
-            <span class="text-sm sm:text-base font-black text-white truncate">112 Numéro d'Urgence Européen</span>
+            <span class="text-xs sm:text-sm font-black text-white">112 International Emergency</span>
           </div>
-          <p class="text-[11px] text-slate-400 font-semibold mt-0.5">Numéro unique européen (Pompiers, SAMU, Secours).</p>
+          <span class="text-[10px] text-slate-400 font-bold">Rescue / Police</span>
         </div>
-        <button type="button" class="h-12 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 112">
-          <i data-lucide="phone-call" class="w-4 h-4"></i>
-          <span>112</span>
-        </button>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" onclick="makeEmergencyCall('112', '112 Emergency')" class="py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl active:scale-95 transition">
+            <i data-lucide="phone-call" class="w-4 h-4"></i>
+            <span>📞 Call 112</span>
+          </button>
+          <button type="button" onclick="sendEmergencySms('112')" class="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xl active:scale-95 transition">
+            <i data-lucide="message-square" class="w-4 h-4"></i>
+            <span>💬 SMS GPS</span>
+          </button>
+        </div>
       </div>
     `;
   }
@@ -2895,10 +2996,23 @@ function renderEmergencyActionsPad() {
 }
 
 function initiateEmergencyCall(number, serviceName, description) {
+  makeEmergencyCall(number, serviceName);
+}
+
+function makeEmergencyCall(number, serviceName) {
   copyEmergencyGpsCoords();
-  
-  const numList = document.getElementById('emergency-numbers-list');
-  if (!numList) return;
+  sendGpsNotification();
+  notifyEmergencyCallTriggered(serviceName || `Service ${number}`, number);
+
+  // Déclencher l'appel téléphonique nativement
+  setTimeout(() => {
+    window.location.href = `tel:${number.replace(/\s+/g, '')}`;
+  }, 100);
+}
+
+function sendEmergencySms(number) {
+  copyEmergencyGpsCoords();
+  sendGpsNotification();
 
   const lat = state.myUser.lat || 45.8920;
   const lon = state.myUser.lon || 6.1550;
@@ -2908,57 +3022,63 @@ function initiateEmergencyCall(number, serviceName, description) {
   const lonDir = lon >= 0 ? 'E' : 'O';
   const dmsStr = `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
   const ddStr = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
-  const time = new Date().toLocaleTimeString();
-  const smsBody = `🚨 URGENCE RANDOTRACKER\nCoordonnées : ${ddStr}\nFormat DMS : ${dmsStr}\nAlt : ${Math.round(ele)}m (±${Math.round(acc)}m)\nHeure : ${time}`;
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const myName = state.myUser.name || 'Randonneur';
 
-  numList.innerHTML = `
-    <!-- EN-TÊTE D'APPEL ACTIF -->
-    <div class="bg-red-600/30 border-2 border-red-500 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-xl">
-      <div class="flex items-center gap-3 min-w-0 flex-1">
-        <div class="w-11 h-11 rounded-xl bg-red-600 text-white flex items-center justify-center text-2xl font-black shrink-0 animate-bounce shadow-lg">
-          📞
-        </div>
-        <div class="min-w-0 flex-1">
-          <div class="text-[10px] font-black text-red-300 uppercase tracking-wider">Service Secours Sélectionné</div>
-          <div class="text-base sm:text-lg font-black text-white truncate">${number} - ${serviceName}</div>
-          <div class="text-[11px] text-emerald-300 font-bold mt-0.5">📍 Coordonnées copiées dans le presse-papier !</div>
-        </div>
-      </div>
-    </div>
+  const smsText = `🚨 URGENCE RANDOTRACKER (${myName})\nPosition : ${ddStr}\nFormat DMS : ${dmsStr}\nAlt : ${Math.round(ele)}m (±${Math.round(acc)}m)\nHeure : ${time}`;
+  
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const separator = isIOS ? '&' : '?';
+  const targetNum = number ? number.replace(/\s+/g, '') : '';
+  const smsUrl = targetNum ? `sms:${targetNum}${separator}body=${encodeURIComponent(smsText)}` : `sms:${separator}body=${encodeURIComponent(smsText)}`;
 
-    <!-- GUIDE DE DICTÉE VOCALE AU RÉGULATEUR -->
-    <div class="p-3 rounded-2xl bg-slate-950 border-2 border-emerald-500/80 shadow-lg flex flex-col gap-1.5">
-      <div class="flex items-center gap-2 text-xs font-black text-emerald-400 uppercase tracking-wide">
-        <span>🗣️ À DICTER AU RÉGULATEUR :</span>
-      </div>
-      <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs sm:text-sm text-slate-100 font-bold leading-relaxed">
-        « Je suis en détresse à <b class="text-emerald-300 select-all">${ddStr}</b>, soit <b class="text-emerald-300 select-all">${dmsStr}</b>, altitude <b class="text-white">${Math.round(ele)} mètres</b>. »
-      </div>
-    </div>
+  notifyEmergencyCallTriggered(targetNum ? `SMS vers ${targetNum}` : 'SMS d\'Urgence', targetNum);
 
-    <!-- BOUTONS D'ACTION APPEL ET SMS -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-      <a href="tel:${number}" onclick="showToast('Appel ${number} en cours... Les coordonnées restent affichées en haut !', 'info')" class="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm sm:text-base font-black flex items-center justify-center gap-2 shadow-2xl active:scale-95 transition">
-        <i data-lucide="phone-call" class="w-5 h-5"></i>
-        <span>📞 Lancer l'appel (${number})</span>
-      </a>
+  setTimeout(() => {
+    window.location.href = smsUrl;
+  }, 100);
+}
 
-      <a href="sms:${number === '114' ? '114' : ''}?body=${encodeURIComponent(smsBody)}" class="w-full py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-sm sm:text-base font-black flex items-center justify-center gap-2 shadow-2xl active:scale-95 transition">
-        <i data-lucide="message-square" class="w-5 h-5"></i>
-        <span>💬 Envoyer SMS avec GPS</span>
-      </a>
-    </div>
+function sendGpsNotification() {
+  const lat = state.myUser.lat || 45.8920;
+  const lon = state.myUser.lon || 6.1550;
+  const ele = state.myUser.ele || 0;
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lonDir = lon >= 0 ? 'E' : 'O';
+  const title = `🚨 GPS Secours : ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+  const body = `Alt : ${Math.round(ele)}m • ${toDMS(lat, true)} ${toDMS(lon, false)} (Copié au presse-papier)`;
 
-    <!-- RETOUR À LA LISTE DES NUMÉROS -->
-    <div class="pt-1">
-      <button onclick="renderEmergencyActionsPad()" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition">
-        <i data-lucide="chevron-left" class="w-4 h-4"></i>
-        <span>◀️ Voir les autres numéros (15, 112, 114)</span>
-      </button>
-    </div>
-  `;
-
-  lucide.createIcons();
+  try {
+    if ('Notification' in window) {
+      if (Notification.permission === 'granted') {
+        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then(reg => {
+            reg.showNotification(title, {
+              body: body,
+              icon: './icon-192.png',
+              badge: './icon-192.png',
+              tag: 'rando-emergency-gps',
+              renotify: true,
+              silent: false,
+              vibrate: [300, 100, 300]
+            });
+          }).catch(() => {
+            try { new Notification(title, { body: body, icon: './icon-192.png' }); } catch (e) {}
+          });
+        } else {
+          try { new Notification(title, { body: body, icon: './icon-192.png' }); } catch (e) {}
+        }
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(perm => {
+          if (perm === 'granted') {
+            sendGpsNotification();
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('[Notification GPS]', e);
+  }
 }
 
 function notifyEmergencyCallTriggered(serviceName, number) {
@@ -2968,7 +3088,7 @@ function notifyEmergencyCallTriggered(serviceName, number) {
     serviceEl.textContent = serviceName || `Numéro ${number}`;
     banner.classList.remove('hidden');
   }
-  showToast(`📞 Appel vers le ${number} initié...`, 'info');
+  showToast(`📞 Action d'urgence déclenchée ! Les coordonnées restent affichées en haut.`, 'info');
 }
 
 function dismissEmergencyCallBanner() {
@@ -2994,6 +3114,10 @@ function openEmergencyModal() {
     modal.classList.remove('hidden');
     pushModalState('emergency-modal');
   }
+
+  // Copie automatique préventive et envoi de notification au lancement
+  copyEmergencyGpsCoords();
+  sendGpsNotification();
 
   // Forcer une acquisition GPS haute précision fraîche
   if (navigator.geolocation) {
@@ -3037,7 +3161,7 @@ function copyEmergencyGpsCoords() {
       const copyTextEl = document.getElementById('copy-emergency-gps-text');
       if (copyTextEl) {
         copyTextEl.textContent = '✅ Coordonnées copiées !';
-        setTimeout(() => { copyTextEl.textContent = 'Copier les coordonnées complètes'; }, 3000);
+        setTimeout(() => { copyTextEl.textContent = 'Copier GPS'; }, 3000);
       }
     }).catch(() => {
       prompt('Copiez vos coordonnées GPS :', textToCopy);
@@ -3533,6 +3657,16 @@ window.loadSavedUiScale = loadSavedUiScale;
 window.getMyGpsString = getMyGpsString;
 window.insertGpsInCustomAnnouncement = insertGpsInCustomAnnouncement;
 window.pushModalState = pushModalState;
+window.makeEmergencyCall = makeEmergencyCall;
+window.sendEmergencySms = sendEmergencySms;
+window.sendGpsNotification = sendGpsNotification;
+window.switchEmergencyTab = switchEmergencyTab;
+window.dialerAppend = dialerAppend;
+window.dialerBackspace = dialerBackspace;
+window.dialerClear = dialerClear;
+window.dialerSetNumber = dialerSetNumber;
+window.dialerCall = dialerCall;
+window.dialerSms = dialerSms;
 window.isAnyModalOrDrawerOpen = isAnyModalOrDrawerOpen;
 window.closeAllModalsAndDrawers = closeAllModalsAndDrawers;
 

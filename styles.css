@@ -663,11 +663,11 @@ main {
   max-height: 50% !important;
   background: linear-gradient(180deg, #090e17 0%, #0f172a 100%) !important;
   border-bottom: 3.5px solid #ef4444 !important;
-  padding: 10px 14px !important;
+  padding: 8px 12px !important;
   display: flex !important;
   flex-direction: column !important;
   justify-content: space-between !important;
-  gap: 6px !important;
+  gap: 4px !important;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7) !important;
   z-index: 10 !important;
   overflow-y: auto !important;
@@ -683,12 +683,43 @@ main {
   max-height: 50% !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch !important;
-  padding: 10px 14px 18px 14px !important;
+  padding: 8px 12px 14px 12px !important;
   background-color: #0b1120 !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 10px !important;
+  gap: 8px !important;
   box-sizing: border-box !important;
+}
+
+/* Clavier Téléphonique Virtuel Tactile */
+.dialer-key {
+  background: #1e293b !important;
+  color: #ffffff !important;
+  border: 1.5px solid #334155 !important;
+  border-radius: 12px !important;
+  height: 42px !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.15s, transform 0.1s !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.dialer-key:active {
+  background: #3b82f6 !important;
+  transform: scale(0.92) !important;
+}
+
+.dialer-sub {
+  font-size: 8px !important;
+  color: #94a3b8 !important;
+  font-weight: 700 !important;
+  margin-top: -2px !important;
+  letter-spacing: 0.05em !important;
 }
 
 /* 7. TIROIR PROFIL ALTIMÉTRIQUE (Z-INDEX 940) */
