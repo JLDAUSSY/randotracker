@@ -261,95 +261,85 @@ body {
 }
 
 /* ========================================================================== */
-/* DIMENSIONNEMENT FLUIDE RESPONSIVE (OPTION A : CLAMP UNIVERSEL)             */
+/* DIMENSIONNEMENT FLUIDE RESPONSIVE (OPTION A : CLAMP UNIVERSEL V29)         */
 /* ========================================================================== */
 
-/* 1. BOUTONS FLOTTANTS SUR LA CARTE (🚨 SOS, 🗺️ TRACES, 🎯 MON GPS) */
-.map-floating-btn {
-  width: clamp(68px, 18vmin, 90px) !important;
-  height: clamp(68px, 18vmin, 90px) !important;
-  border-radius: clamp(22px, 5.5vmin, 28px) !important;
-  border-width: clamp(2.5px, 0.7vmin, 3.5px) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7) !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-}
-
-.map-floating-btn .btn-emoji {
-  font-size: clamp(26px, 7vmin, 36px) !important;
-  line-height: 1 !important;
-}
-
-.map-floating-btn .btn-icon {
-  width: clamp(28px, 7.5vmin, 38px) !important;
-  height: clamp(28px, 7.5vmin, 38px) !important;
-}
-
-.map-floating-btn .btn-label {
-  font-size: clamp(10px, 2.7vmin, 12px) !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.05em !important;
-  line-height: 1 !important;
-  margin-top: clamp(2px, 0.6vmin, 4px) !important;
-}
-
-/* 2. EN-TÊTE SUPÉRIEUR FLUIDE */
+/* 1. EN-TÊTE SUPÉRIEUR COMPACT (Économise 25% de hauteur sur mobile) */
 .app-header {
-  height: clamp(68px, 10vh, 92px) !important;
+  height: clamp(54px, 7.5vh, 66px) !important;
 }
 
 .app-header-logo {
-  width: clamp(42px, 11vmin, 56px) !important;
-  height: clamp(42px, 11vmin, 56px) !important;
-  border-radius: clamp(12px, 3vmin, 18px) !important;
+  width: clamp(36px, 9vmin, 44px) !important;
+  height: clamp(36px, 9vmin, 44px) !important;
+  border-radius: clamp(10px, 2.5vmin, 14px) !important;
 }
 
 .app-header-title {
-  font-size: clamp(18px, 4.8vmin, 26px) !important;
+  font-size: clamp(16px, 4.2vmin, 22px) !important;
 }
 
 .app-header-btn {
-  height: clamp(42px, 10.5vmin, 54px) !important;
-  padding-left: clamp(10px, 2.5vmin, 18px) !important;
-  padding-right: clamp(10px, 2.5vmin, 18px) !important;
-  border-radius: clamp(12px, 3vmin, 18px) !important;
+  height: clamp(38px, 9vmin, 46px) !important;
+  padding-left: clamp(8px, 2vmin, 14px) !important;
+  padding-right: clamp(8px, 2vmin, 14px) !important;
+  border-radius: clamp(10px, 2.5vmin, 14px) !important;
 }
 
-/* 3. BARRE DE NAVIGATION INFÉRIEURE FLUIDE */
+/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE À 4 TOUCHES */
 .app-bottom-nav {
-  height: clamp(72px, 10.5vh, 96px) !important;
+  height: clamp(68px, 9.5vh, 84px) !important;
 }
 
 #nav-gps-bubble {
-  width: clamp(58px, 15.5vmin, 76px) !important;
-  height: clamp(58px, 15.5vmin, 76px) !important;
+  width: clamp(52px, 14vmin, 66px) !important;
+  height: clamp(52px, 14vmin, 66px) !important;
 }
 
 #nav-gps-bubble i,
 #nav-gps-bubble svg {
-  width: clamp(28px, 7.5vmin, 38px) !important;
-  height: clamp(28px, 7.5vmin, 38px) !important;
+  width: clamp(26px, 7vmin, 34px) !important;
+  height: clamp(26px, 7vmin, 34px) !important;
 }
 
 .nav-icon-box {
-  width: clamp(42px, 11vmin, 52px) !important;
-  height: clamp(42px, 11vmin, 52px) !important;
-  border-radius: clamp(12px, 3vmin, 18px) !important;
+  width: clamp(40px, 10.5vmin, 48px) !important;
+  height: clamp(40px, 10.5vmin, 48px) !important;
+  border-radius: clamp(12px, 3vmin, 16px) !important;
 }
 
 .nav-icon-box i,
 .nav-icon-box svg {
-  width: clamp(22px, 5.8vmin, 28px) !important;
-  height: clamp(22px, 5.8vmin, 28px) !important;
+  width: clamp(20px, 5.2vmin, 26px) !important;
+  height: clamp(20px, 5.2vmin, 26px) !important;
 }
 
 .nav-label {
-  font-size: clamp(10.5px, 2.7vmin, 13px) !important;
+  font-size: clamp(10px, 2.6vmin, 12px) !important;
 }
+
+/* 3. MODALE GESTIONNAIRE DES TRACES GPX */
+.track-card-item {
+  background-color: #0f172a !important;
+  border: 2px solid #334155 !important;
+  border-radius: 18px !important;
+  transition: border-color 0.2s ease, transform 0.15s ease !important;
+}
+
+.track-card-item:hover {
+  border-color: #10b981 !important;
+}
+
+.track-card-item.is-visible-track {
+  border-color: #10b981 !important;
+  background-color: #0b1d28 !important;
+}
+
+.track-card-item.is-hidden-track {
+  opacity: 0.6 !important;
+  border-color: #1e293b !important;
+}
+
 
 
 

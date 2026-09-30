@@ -1,5 +1,5 @@
-// Service Worker pour RandoTracker PWA - Version 27
-const CACHE_NAME = 'rando-tracker-v27';
+// Service Worker pour RandoTracker PWA - Version 29
+const CACHE_NAME = 'rando-tracker-v29';
 const TILES_CACHE_NAME = 'rando-tiles-v1';
 
 const STATIC_ASSETS = [
@@ -12,6 +12,7 @@ const STATIC_ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './favicon.png',
+  './RandoTracker_Mode_d_emploi.pdf',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
@@ -22,7 +23,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v27...');
+  console.log('[SW] Installation v29...');
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {

@@ -396,7 +396,38 @@ function clearOnlyParticipants() {
   });
 }
 
-// ============================================================================
+function deleteParticipant(userId) {
+  const user = state.otherUsers.get(userId);
+  const userName = user ? user.name : 'ce marcheur';
+
+  if (!confirm(`Voulez-vous vraiment supprimer ${userName} de la session et de la carte ?`)) {
+    return;
+  }
+
+  // 1. Fermer le popup de la carte s'il est ouvert
+  if (state.map) {
+    state.map.closePopup();
+  }
+
+  // 2. Supprimer le marqueur de la carte et de la collection
+  removeUserMarker(userId);
+  state.otherUsers.delete(userId);
+
+  // 3. Mettre à jour le stockage local persistant
+  saveOtherUsersToStorage();
+
+  // 4. Mettre à jour l'interface utilisateur
+  renderUsersList();
+  showToast(`Participant ${userName} supprimé de la session.`, 'info');
+
+  // 5. Diffuser l'exclusion aux autres téléphones du groupe
+  publishMessage({
+    type: 'kick_user',
+    targetUserId: userId,
+    from: state.myUser.id
+  });
+}
+
 // ============================================================================
 // GESTION DES RÔLES : ORGANISATEUR vs INVITÉ / MARCHEUR
 // ============================================================================
@@ -455,6 +486,9 @@ function applyRoleUI() {
     }
   }
 
+  // Mettre à jour les marqueurs sur la carte et la liste
+  state.otherUsers.forEach(u => createOrUpdateUserMarker(u));
+  renderUsersList();
   renderQuickTracksBar();
 }
 
@@ -600,9 +634,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=27')
+    navigator.serviceWorker.register('./sw.js?v=29')
       .then((reg) => {
-        console.log('[PWA] Service Worker v27 actif:', reg.scope);
+        console.log('[PWA] Service Worker v29 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -706,6 +740,13 @@ function initMap() {
   setTimeout(() => {
     if (state.map) state.map.invalidateSize();
   }, 200);
+
+  // Rafraîchir les icônes à l'ouverture des fenêtres popups de la carte
+  state.map.on('popupopen', () => {
+    if (window.lucide && lucide.createIcons) {
+      lucide.createIcons();
+    }
+  });
 
   // Support Glisser-Déposer direct de fichiers GPX sur la carte
   const mapDiv = document.getElementById('map');
@@ -1043,108 +1084,139 @@ function renderTrackOnMap(track) {
 }
 
 // ============================================================================
-// BANDEAU FLOTTANT RAPIDE DES TRACES GPX & FLÈCHES INDICATRICES
+// GESTIONNAIRE DES PARCOURS & TRACES GPX (MODALE & SÉLECTEUR HEADER)
 // ============================================================================
-function scrollTracksBar(delta) {
-  const bar = document.getElementById('quick-tracks-bar');
-  if (bar) {
-    bar.scrollBy({ left: delta, behavior: 'smooth' });
-    setTimeout(updateTracksScrollArrows, 150);
-    setTimeout(updateTracksScrollArrows, 350);
-  }
+function openTracksModal() {
+  const modal = document.getElementById('tracks-modal');
+  if (!modal) return;
+  renderTracksModalContent();
+  modal.classList.remove('hidden');
 }
 
-function updateTracksScrollArrows() {
-  const bar = document.getElementById('quick-tracks-bar');
-  const leftBtn = document.getElementById('tracks-scroll-left');
-  const rightBtn = document.getElementById('tracks-scroll-right');
-  if (!bar || !leftBtn || !rightBtn) return;
-
-  const scrollLeft = Math.round(bar.scrollLeft);
-  const maxScrollLeft = Math.round(bar.scrollWidth - bar.clientWidth);
-
-  // Flèche gauche visible si le bandeau est défilé de plus de 8px vers la droite
-  if (scrollLeft > 8) {
-    leftBtn.style.display = 'flex';
-  } else {
-    leftBtn.style.display = 'none';
-  }
-
-  // Flèche droite visible si du contenu dépasse vers la droite (plus de 8px)
-  if (maxScrollLeft > 12 && scrollLeft < maxScrollLeft - 8) {
-    rightBtn.style.display = 'flex';
-  } else {
-    rightBtn.style.display = 'none';
-  }
+function closeTracksModal() {
+  const modal = document.getElementById('tracks-modal');
+  if (modal) modal.classList.add('hidden');
 }
 
 function renderQuickTracksBar() {
-  const bar = document.getElementById('quick-tracks-bar');
-  if (!bar) return;
+  // 1. Mettre à jour le sélecteur de trace compact dans le Header
+  const headerDot = document.getElementById('header-track-dot');
+  const headerLabel = document.getElementById('header-track-label');
+
+  if (headerLabel && headerDot) {
+    if (state.tracks.length === 0) {
+      headerDot.style.backgroundColor = '#94a3b8';
+      headerLabel.textContent = state.isOrganizer ? '+ Traces (0)' : 'Traces (0)';
+    } else if (state.tracks.length === 1) {
+      headerDot.style.backgroundColor = state.tracks[0].color.hex || '#10b981';
+      headerLabel.textContent = `${state.tracks[0].name} (${state.tracks[0].totalDistance.toFixed(1)} km)`;
+    } else {
+      headerDot.style.backgroundColor = state.tracks[0].color.hex || '#10b981';
+      headerLabel.textContent = `${state.tracks.length} Traces (${state.tracks[0].name}...)`;
+    }
+  }
+
+  // 2. Mettre à jour le contenu de la modale de gestion des traces
+  renderTracksModalContent();
+}
+
+function renderTracksModalContent() {
+  const list = document.getElementById('tracks-modal-list');
+  const countLabel = document.getElementById('tracks-modal-count-label');
+  const adminActions = document.getElementById('tracks-modal-admin-actions');
+  const clearBtn = document.getElementById('tracks-modal-clear-btn');
+
+  if (countLabel) {
+    countLabel.textContent = `${state.tracks.length} parcours chargé(s) (max ${MAX_TRACKS})`;
+  }
+
+  if (adminActions) {
+    if (state.isOrganizer && state.tracks.length < MAX_TRACKS) {
+      adminActions.classList.remove('hidden');
+    } else {
+      adminActions.classList.add('hidden');
+    }
+  }
+
+  if (clearBtn) {
+    if (state.isOrganizer && state.tracks.length > 0) {
+      clearBtn.classList.remove('hidden');
+    } else {
+      clearBtn.classList.add('hidden');
+    }
+  }
+
+  if (!list) return;
 
   if (state.tracks.length === 0) {
-    if (state.isOrganizer) {
-      bar.innerHTML = `
-        <div class="track-pill-card is-visible-track flex items-center gap-2.5 p-2.5 shadow-2xl">
-          <label for="gpx-file-input" class="cursor-pointer flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm sm:text-base px-5 py-3 rounded-xl shadow transition active:scale-95">
-            <i data-lucide="upload-cloud" class="w-6 h-6"></i>
-            <span>📂 Charger vos GPX (jusqu'à 5)</span>
+    list.innerHTML = `
+      <div class="text-center py-8 px-4 bg-slate-800/60 rounded-3xl border border-slate-700/80 text-slate-300 text-sm flex flex-col items-center gap-3 shadow-inner">
+        <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-400 flex items-center justify-center shadow-inner text-2xl">
+          🗺️
+        </div>
+        <div>
+          <div class="font-black text-white text-base">Aucun parcours GPX chargé</div>
+          <div class="text-xs text-slate-400 mt-1 font-semibold">
+            ${state.isOrganizer ? 'Chargez 1 à 5 fichiers GPX pour vos différents groupes de marcheurs.' : 'En attente de la transmission des parcours par le guide...'}
+          </div>
+        </div>
+        ${state.isOrganizer ? `
+          <label for="gpx-file-input" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition cursor-pointer">
+            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+            <span>📂 Charger un fichier GPX</span>
           </label>
-        </div>
-      `;
-    } else {
-      bar.innerHTML = `
-        <div class="track-pill-card flex items-center gap-3 px-5 py-3 shadow-2xl text-slate-100 text-xs sm:text-sm font-bold">
-          <span class="inline-block w-3 h-3 rounded-full bg-amber-400 animate-pulse"></span>
-          <span>En attente de la transmission des traces du guide...</span>
-        </div>
-      `;
-    }
+        ` : ''}
+      </div>
+    `;
     lucide.createIcons();
-    setTimeout(updateTracksScrollArrows, 60);
     return;
   }
 
-  const tracksHtml = state.tracks.map((track) => `
-    <div class="track-pill-card ${track.visible ? 'is-visible-track' : 'is-hidden-track'} flex items-center gap-2.5 px-4 py-2.5 shrink-0">
-      <button onclick="toggleTrackVisibility('${track.id}')" class="flex items-center gap-2.5 text-white active:scale-95 text-left" title="Afficher/Masquer">
-        <span class="w-5 h-5 rounded-full border-2 border-white shrink-0 shadow-md" style="background-color: ${track.color.hex}"></span>
-        <span class="track-name-title truncate max-w-[150px] sm:max-w-[240px]">${track.name}</span>
-        <span class="track-dist-pill">${track.totalDistance.toFixed(1)} km</span>
-      </button>
-      <div class="h-6 w-[1.5px] bg-slate-700 mx-0.5"></div>
-      <button onclick="openElevationDrawer('${track.id}')" class="track-icon-btn" title="Profil altimétrique">
-        <i data-lucide="bar-chart-2" class="w-5 h-5 text-emerald-400"></i>
-      </button>
-      <button onclick="zoomToTrack('${track.id}')" class="track-icon-btn" title="Centrer">
-        <i data-lucide="maximize" class="w-5 h-5 text-blue-400"></i>
-      </button>
-      ${state.isOrganizer ? `
-        <button onclick="removeTrack('${track.id}')" class="track-icon-btn hover:text-red-400" title="Supprimer">
-          <i data-lucide="x" class="w-5 h-5 text-red-400"></i>
+  list.innerHTML = state.tracks.map((track) => `
+    <div class="track-card-item ${track.visible ? 'is-visible-track' : 'is-hidden-track'} p-4 shadow-xl flex flex-col gap-3">
+      <!-- Ligne 1 : Nom, Couleur et Statut -->
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
+          <span class="w-5 h-5 rounded-full border-2 border-white shrink-0 shadow-md" style="background-color: ${track.color.hex};"></span>
+          <div class="min-w-0 flex-1">
+            <div class="font-black text-white text-base truncate leading-tight">${track.name}</div>
+            <div class="flex items-center gap-2 mt-1 text-xs">
+              <span class="font-mono font-black text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded-lg">${track.totalDistance.toFixed(1)} km</span>
+              <span class="font-mono font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded-lg">+${Math.round(track.eleGain || 0)}m D+</span>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="toggleTrackVisibility('${track.id}')" class="px-3 py-1.5 rounded-xl ${track.visible ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/50' : 'bg-slate-800 text-slate-400 border border-slate-700'} text-xs font-black transition active:scale-95 shrink-0" title="Afficher ou masquer cette trace sur la carte">
+          ${track.visible ? '👁️ Visible' : '🙈 Masquée'}
         </button>
-      ` : ''}
+      </div>
+
+      <!-- Ligne 2 : Actions Rapides -->
+      <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800">
+        <button onclick="zoomToTrack('${track.id}'); closeTracksModal();" class="py-2 px-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-blue-300 hover:text-white font-black text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition active:scale-95" title="Centrer la carte sur cette trace">
+          <i data-lucide="maximize" class="w-4 h-4 text-blue-400"></i>
+          <span>Centrer</span>
+        </button>
+        <button onclick="openElevationDrawer('${track.id}'); closeTracksModal();" class="py-2 px-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-emerald-300 hover:text-white font-black text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition active:scale-95" title="Voir le profil altimétrique">
+          <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-400"></i>
+          <span>Dénivelé</span>
+        </button>
+        ${state.isOrganizer ? `
+          <button onclick="removeTrack('${track.id}')" class="py-2 px-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 hover:text-white font-black text-xs flex items-center justify-center gap-1.5 border border-red-500/40 transition active:scale-95" title="Supprimer cette trace">
+            <i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i>
+            <span>Supprimer</span>
+          </button>
+        ` : `
+          <button onclick="zoomToTrack('${track.id}'); closeTracksModal();" class="py-2 px-2 rounded-xl bg-slate-800/80 text-slate-300 font-bold text-xs flex items-center justify-center gap-1.5 border border-slate-700">
+            <span>Trace active</span>
+          </button>
+        `}
+      </div>
     </div>
   `).join('');
 
-  const addPill = (state.isOrganizer && state.tracks.length < MAX_TRACKS) ? `
-    <label for="gpx-file-input" class="cursor-pointer flex items-center gap-2 bg-slate-900 border-2 border-dashed border-emerald-400 hover:border-emerald-300 text-emerald-300 rounded-2xl px-4 py-2.5 font-black text-xs sm:text-sm shadow-2xl shrink-0 active:scale-95">
-      <i data-lucide="plus" class="w-5 h-5"></i>
-      <span>GPX (${state.tracks.length}/5)</span>
-    </label>
-  ` : '';
-
-  const clearPill = state.isOrganizer ? `
-    <button onclick="clearHikeSession()" class="flex items-center gap-2 bg-red-950 hover:bg-red-900 border-2 border-red-500 text-red-200 font-black text-xs sm:text-sm px-4 py-2.5 rounded-2xl shadow-2xl shrink-0 active:scale-95 transition" title="Effacer toutes les traces pour démarrer une nouvelle rando">
-      <i data-lucide="trash-2" class="w-5 h-5 text-red-400"></i>
-      <span>Nouvelle Rando</span>
-    </button>
-  ` : '';
-
-  bar.innerHTML = tracksHtml + addPill + clearPill;
   lucide.createIcons();
-  setTimeout(updateTracksScrollArrows, 80);
-  setTimeout(updateTracksScrollArrows, 300);
 }
 
 function toggleTrackVisibility(trackId) {
@@ -1434,6 +1506,15 @@ function createOrUpdateUserMarker(user) {
         <span>Signal GPS</span>
         <span>${new Date(user.lastSeen).toLocaleTimeString()}</span>
       </div>
+
+      ${(!isMe && state.isOrganizer) ? `
+        <div class="pt-2 border-t border-slate-700/80">
+          <button onclick="deleteParticipant('${user.id}')" class="w-full py-2.5 px-3 rounded-xl bg-red-600/20 hover:bg-red-600/35 text-red-300 hover:text-white border border-red-500/50 hover:border-red-400 font-black text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md" title="Supprimer ce marcheur de la session">
+            <i data-lucide="user-x" class="w-4 h-4 text-red-400"></i>
+            <span>Supprimer ce marcheur</span>
+          </button>
+        </div>
+      ` : ''}
     </div>
   `);
 }
@@ -1560,6 +1641,12 @@ function renderUsersList() {
               <span class="text-slate-500">•</span>
               <span class="${u.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${u.battery}% 🔋</span>
             </div>
+            ${state.isOrganizer ? `
+              <button onclick="event.stopPropagation(); deleteParticipant('${u.id}')" class="mt-2 px-2.5 py-1 rounded-xl bg-red-600/20 hover:bg-red-600/40 border border-red-500/50 text-red-300 hover:text-white font-black text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm" title="Supprimer ce marcheur">
+                <i data-lucide="user-x" class="w-3.5 h-3.5 text-red-400"></i>
+                <span>Supprimer</span>
+              </button>
+            ` : ''}
           </div>
         </div>
 
@@ -2210,6 +2297,15 @@ function handleIncomingMessage(data) {
       renderUsersList();
       showToast('Salon des marcheurs purgé par l\'organisateur.', 'info');
     }
+  } else if (data.type === 'kick_user') {
+    if (data.targetUserId === state.myUser.id) {
+      showToast('⚠️ Vous avez été retiré de la session par l\'organisateur.', 'warning');
+    } else if (state.otherUsers.has(data.targetUserId)) {
+      state.otherUsers.delete(data.targetUserId);
+      removeUserMarker(data.targetUserId);
+      saveOtherUsersToStorage();
+      renderUsersList();
+    }
   } else if (data.type === 'broadcast_announcement') {
     handleReceivedAnnouncement(data);
   } else if (data.type === 'user_left') {
@@ -2742,13 +2838,6 @@ function setupEventListeners() {
   // Fermetures tiroirs
   const closeUsers = document.getElementById('close-users-panel-btn');
   if (closeUsers) closeUsers.addEventListener('click', closeAllDrawers);
-
-  // Défilement bandeau traces GPX et flèches de défilement
-  const quickTracksBar = document.getElementById('quick-tracks-bar');
-  if (quickTracksBar) {
-    quickTracksBar.addEventListener('scroll', updateTracksScrollArrows);
-  }
-  window.addEventListener('resize', updateTracksScrollArrows);
 
   // Import GPX Multifichiers (1 à 5 fichiers sélectionnés d'un coup)
   const gpxInput = document.getElementById('gpx-file-input');
