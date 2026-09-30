@@ -2866,54 +2866,58 @@ function renderEmergencyActionsPad() {
 
   if (country === 'FR') {
     numList.innerHTML = `
-      <!-- 1. 🟢 BOUTON 15 SAMU -->
+      <!-- 1. 🟢 BOUTON 15 SAMU (France 🇫🇷) -->
       <button type="button" onclick="makeEmergencyCall('15')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-400/40">
         <span class="emergency-btn-badge">15</span>
+        <span class="emergency-flag" title="France">🇫🇷</span>
         <div class="text-left flex-1 min-w-0">
-          <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+          <div class="emergency-btn-title flex items-center gap-2">
             <span>📞 SAMU</span>
-            <span class="text-xs opacity-80 font-normal">Urgences Médicales</span>
+            <span class="emergency-btn-sub opacity-80 font-normal">Urgences Médicales</span>
           </div>
-          <div class="text-[11px] text-emerald-100 opacity-90 truncate">Malaise, traumatisme, urgence vitale</div>
+          <div class="emergency-btn-sub text-emerald-100 opacity-90 truncate">Malaise, traumatisme, détresse vitale</div>
         </div>
         <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
       </button>
 
-      <!-- 2. 🔴 BOUTON 112 POMPIERS & SECOURS MONTAGNE -->
+      <!-- 2. 🔴 BOUTON 112 POMPIERS & SECOURS MONTAGNE (Europe 🇪🇺) -->
       <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white border-red-400/40">
         <span class="emergency-btn-badge">112</span>
+        <span class="emergency-flag" title="Union Européenne">🇪🇺</span>
         <div class="text-left flex-1 min-w-0">
-          <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+          <div class="emergency-btn-title flex items-center gap-2">
             <span>📞 Secours & Pompiers</span>
           </div>
-          <div class="text-[11px] text-red-100 opacity-90 truncate">Secours montagne PGHM / CRS, accident</div>
+          <div class="emergency-btn-sub text-red-100 opacity-90 truncate">PGHM / CRS Montagne, Pompiers, Gendarmerie</div>
         </div>
         <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
       </button>
 
-      <!-- 3. 🟣 BOUTON 114 SMS D'URGENCE AVEC GPS -->
+      <!-- 3. 🟣 BOUTON 114 SMS D'URGENCE (France 🇫🇷) -->
       <button type="button" onclick="sendEmergencySms('114')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 hover:to-purple-500 text-white border-purple-400/40">
         <span class="emergency-btn-badge">114</span>
+        <span class="emergency-flag" title="France (Relais SMS National)">🇫🇷</span>
         <div class="text-left flex-1 min-w-0">
-          <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+          <div class="emergency-btn-title flex items-center gap-2">
             <span>💬 SMS d'Urgence</span>
-            <span class="text-[10px] bg-purple-900/60 px-2 py-0.5 rounded-full border border-purple-300/40 font-mono">avec GPS</span>
+            <span class="text-xs bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-300/50 font-mono">avec GPS</span>
           </div>
-          <div class="text-[11px] text-purple-100 opacity-90 truncate">Zone sans réseau vocal / Sourd / Muet</div>
+          <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Zone blanche voix / Sourd / Muet / Blessé silencieux</div>
         </div>
         <i data-lucide="message-square" class="w-6 h-6 text-white shrink-0"></i>
       </button>
     `;
   } else if (country === 'ES') {
     numList.innerHTML = `
-      <!-- 1. 🔴 BOUTON 112 EMERGENCIAS -->
+      <!-- 1. 🔴 BOUTON 112 EMERGENCIAS (Europe 🇪🇺 & España 🇪🇸) -->
       <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
         <span class="emergency-btn-badge">112</span>
+        <span class="emergency-flag" title="Unión Europea">🇪🇺</span>
         <div class="text-left flex-1 min-w-0">
-          <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+          <div class="emergency-btn-title flex items-center gap-2">
             <span>📞 112 Emergencias España</span>
           </div>
-          <div class="text-[11px] text-red-100 opacity-90 truncate">Bomberos, Guardia Civil, Rescate GREIM</div>
+          <div class="emergency-btn-sub text-red-100 opacity-90 truncate">Bomberos, Guardia Civil, Rescate GREIM</div>
         </div>
         <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
       </button>
@@ -2921,11 +2925,12 @@ function renderEmergencyActionsPad() {
       <!-- 2. 🟢 BOUTON 061 URGENCIAS -->
       <button type="button" onclick="makeEmergencyCall('061')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 text-white border-emerald-400/40">
         <span class="emergency-btn-badge">061</span>
+        <span class="emergency-flag" title="España">🇪🇸</span>
         <div class="text-left flex-1 min-w-0">
-          <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+          <div class="emergency-btn-title flex items-center gap-2">
             <span>📞 061 Urgencias Sanitarias</span>
           </div>
-          <div class="text-[11px] text-emerald-100 opacity-90 truncate">Ambulancia y atención médica urgente</div>
+          <div class="emergency-btn-sub text-emerald-100 opacity-90 truncate">Ambulancia y atención médica urgente</div>
         </div>
         <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
       </button>
@@ -2933,11 +2938,12 @@ function renderEmergencyActionsPad() {
       <!-- 3. 🟣 BOUTON 112 SMS CON GPS -->
       <button type="button" onclick="sendEmergencySms('112')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 text-white border-purple-400/40">
         <span class="emergency-btn-badge">SMS</span>
+        <span class="emergency-flag" title="España">🇪🇸</span>
         <div class="text-left flex-1 min-w-0">
-          <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+          <div class="emergency-btn-title flex items-center gap-2">
             <span>💬 SMS de Emergencia</span>
           </div>
-          <div class="text-[11px] text-purple-100 opacity-90 truncate">Mensaje de auxilio con coordenadas GPS</div>
+          <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Mensaje de auxilio con coordenadas GPS</div>
         </div>
         <i data-lucide="message-square" class="w-6 h-6 text-white shrink-0"></i>
       </button>
@@ -2947,11 +2953,12 @@ function renderEmergencyActionsPad() {
       <!-- 1. 🔴 BOUTON 112 INTERNATIONAL -->
       <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
         <span class="emergency-btn-badge">112</span>
+        <span class="emergency-flag" title="Europe & International">🇪🇺</span>
         <div class="text-left flex-1 min-w-0">
-          <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+          <div class="emergency-btn-title flex items-center gap-2">
             <span>📞 112 International Emergency</span>
           </div>
-          <div class="text-[11px] text-red-100 opacity-90 truncate">European & International Rescue Number</div>
+          <div class="emergency-btn-sub text-red-100 opacity-90 truncate">European & International Rescue Number</div>
         </div>
         <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
       </button>
@@ -2959,12 +2966,13 @@ function renderEmergencyActionsPad() {
       <!-- 2. 🟣 BOUTON SMS EMERGENCY WITH GPS -->
       <button type="button" onclick="sendEmergencySms('')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 text-white border-purple-400/40">
         <span class="emergency-btn-badge">SMS</span>
+        <span class="emergency-flag" title="International">🌐</span>
         <div class="text-left flex-1 min-w-0">
-          <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+          <div class="emergency-btn-title flex items-center gap-2">
             <span>💬 Emergency SMS</span>
-            <span class="text-[10px] bg-purple-900/60 px-2 py-0.5 rounded-full border border-purple-300/40 font-mono">with GPS</span>
+            <span class="text-xs bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-300/50 font-mono">with GPS</span>
           </div>
-          <div class="text-[11px] text-purple-100 opacity-90 truncate">Send emergency SMS with full GPS coordinates</div>
+          <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Send emergency SMS with full GPS coordinates</div>
         </div>
         <i data-lucide="message-square" class="w-6 h-6 text-white shrink-0"></i>
       </button>

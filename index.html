@@ -49,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v35 -->
-  <link rel="stylesheet" href="styles.css?v=35" />
+  <!-- Custom Styles with Cache-Busting v38 -->
+  <link rel="stylesheet" href="styles.css?v=38" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -873,16 +873,16 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <!-- Format Décimal (DD) -->
             <div class="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800 flex flex-col justify-center">
-              <span class="text-[9px] font-bold text-slate-400 uppercase">Degrés Décimaux (DD) :</span>
-              <div id="emergency-gps-decimal" class="text-base sm:text-lg font-mono font-black text-white select-all leading-tight">
+              <span class="emergency-gps-label">Degrés Décimaux (DD) :</span>
+              <div id="emergency-gps-decimal" class="font-mono font-black select-all">
                 43.12244° N, 5.77957° E
               </div>
             </div>
 
             <!-- Format Degrés Minutes Secondes (DMS) -->
             <div class="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800 flex flex-col justify-center">
-              <span class="text-[9px] font-bold text-slate-400 uppercase">Degrés Minutes Secondes (DMS) :</span>
-              <div id="emergency-gps-dms" class="text-xs sm:text-sm font-mono font-black text-emerald-300 select-all leading-tight">
+              <span class="emergency-gps-label">Degrés Minutes Secondes (DMS) :</span>
+              <div id="emergency-gps-dms" class="font-mono font-black select-all">
                 43° 07' 21" N, 5° 46' 46" E
               </div>
             </div>
@@ -890,7 +890,7 @@
 
           <!-- Métadonnées & Copier -->
           <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
-            <span id="emergency-gps-meta" class="text-xs font-bold text-slate-300 truncate">Alt : -- m • Précision : ±-- m</span>
+            <span id="emergency-gps-meta" class="truncate">Alt : -- m • Précision : ±-- m</span>
             <button onclick="copyEmergencyGpsCoords()" class="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-emerald-300 text-xs font-black flex items-center gap-1.5 border border-slate-700 active:scale-95 transition shrink-0" title="Copier les coordonnées GPS">
               <i data-lucide="copy" class="w-3.5 h-3.5 text-emerald-400"></i>
               <span id="copy-emergency-gps-text">Copier GPS</span>
@@ -900,7 +900,7 @@
 
         <!-- GUIDE DE DICTÉE VOCALE DIRECTEMENT VISIBLE -->
         <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs sm:text-sm text-slate-200 font-bold leading-snug flex items-center gap-2 shrink-0">
-          <span class="text-lg shrink-0">🗣️</span>
+          <span class="text-xl shrink-0">🗣️</span>
           <span class="truncate" id="emergency-dictation-preview">« Je suis en détresse à <b class="text-emerald-400" id="dictate-coords">43.12244° N, 5.77957° E</b>, alt. <b class="text-white" id="dictate-alt">-- m</b> »</span>
         </div>
       </div>
@@ -913,40 +913,43 @@
         <!-- 3 GRANDS BOUTONS DIRECTS (REMPLIS PAR renderEmergencyActionsPad) -->
         <div class="flex flex-col gap-2.5 w-full" id="emergency-numbers-list">
           
-          <!-- 1. 🟢 BOUTON 15 SAMU -->
+          <!-- 1. 🟢 BOUTON 15 SAMU (France 🇫🇷) -->
           <button type="button" onclick="makeEmergencyCall('15')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-400/40">
             <span class="emergency-btn-badge">15</span>
+            <span class="emergency-flag" title="France">🇫🇷</span>
             <div class="text-left flex-1 min-w-0">
-              <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+              <div class="emergency-btn-title flex items-center gap-2">
                 <span>📞 SAMU</span>
-                <span class="text-xs opacity-80 font-normal">Urgences Médicales</span>
+                <span class="emergency-btn-sub opacity-80 font-normal">Urgences Médicales</span>
               </div>
-              <div class="text-[11px] text-emerald-100 opacity-90 truncate">Malaise, traumatisme, urgence vitale</div>
+              <div class="emergency-btn-sub text-emerald-100 opacity-90 truncate">Malaise, traumatisme, détresse vitale</div>
             </div>
             <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
           </button>
 
-          <!-- 2. 🔴 BOUTON 112 POMPIERS & SECOURS MONTAGNE -->
+          <!-- 2. 🔴 BOUTON 112 POMPIERS & SECOURS MONTAGNE (Europe 🇪🇺) -->
           <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white border-red-400/40">
             <span class="emergency-btn-badge">112</span>
+            <span class="emergency-flag" title="Union Européenne">🇪🇺</span>
             <div class="text-left flex-1 min-w-0">
-              <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+              <div class="emergency-btn-title flex items-center gap-2">
                 <span>📞 Secours & Pompiers</span>
               </div>
-              <div class="text-[11px] text-red-100 opacity-90 truncate">Secours montagne PGHM / CRS, accident</div>
+              <div class="emergency-btn-sub text-red-100 opacity-90 truncate">PGHM / CRS Montagne, Pompiers, Gendarmerie</div>
             </div>
             <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
           </button>
 
-          <!-- 3. 🟣 BOUTON 114 SMS D'URGENCE AVEC GPS -->
+          <!-- 3. 🟣 BOUTON 114 SMS D'URGENCE (France 🇫🇷) -->
           <button type="button" onclick="sendEmergencySms('114')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 hover:to-purple-500 text-white border-purple-400/40">
             <span class="emergency-btn-badge">114</span>
+            <span class="emergency-flag" title="France (Relais SMS National)">🇫🇷</span>
             <div class="text-left flex-1 min-w-0">
-              <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+              <div class="emergency-btn-title flex items-center gap-2">
                 <span>💬 SMS d'Urgence</span>
-                <span class="text-[10px] bg-purple-900/60 px-2 py-0.5 rounded-full border border-purple-300/40 font-mono">avec GPS</span>
+                <span class="text-xs bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-300/50 font-mono">avec GPS</span>
               </div>
-              <div class="text-[11px] text-purple-100 opacity-90 truncate">Zone sans réseau vocal / Sourd / Muet</div>
+              <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Zone blanche voix / Sourd / Muet / Blessé silencieux</div>
             </div>
             <i data-lucide="message-square" class="w-6 h-6 text-white shrink-0"></i>
           </button>
@@ -966,7 +969,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v37 -->
-  <script src="app.js?v=37"></script>
+  <!-- Main Application Script with Cache-Busting v38 -->
+  <script src="app.js?v=38"></script>
 </body>
 </html>
