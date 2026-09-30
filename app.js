@@ -509,9 +509,46 @@ function openGuestTrackView() {
 }
 
 // ============================================================================
-// GESTION DU PROFIL UTILISATEUR & PERSISTANCE LOCALSTORAGE
+// GESTION DU PROFIL UTILISATEUR & ÉCHELLE DE LISIBILITÉ OUTDOOR
 // ============================================================================
+function applyUiScale(scale = 'normal') {
+  document.documentElement.classList.remove('ui-scale-normal', 'ui-scale-large', 'ui-scale-xlarge');
+  if (scale === 'large') {
+    document.documentElement.classList.add('ui-scale-large');
+  } else if (scale === 'xlarge') {
+    document.documentElement.classList.add('ui-scale-xlarge');
+  } else {
+    document.documentElement.classList.add('ui-scale-normal');
+  }
+
+  localStorage.setItem('rando_ui_scale', scale);
+
+  // Mettre à jour l'état visuel des boutons de zoom/lisibilité
+  document.querySelectorAll('.ui-scale-btn').forEach(btn => {
+    const btnScale = btn.getAttribute('data-scale');
+    if (btnScale === scale) {
+      btn.className = 'ui-scale-btn py-2.5 px-2 rounded-xl border-2 border-emerald-500 bg-emerald-600/30 text-white font-black text-xs flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow-md';
+    } else {
+      btn.className = 'ui-scale-btn py-2.5 px-2 rounded-xl border-2 border-slate-700 bg-slate-800 text-slate-300 font-black text-xs flex flex-col items-center justify-center gap-1 transition active:scale-95 hover:border-slate-600';
+    }
+  });
+
+  // Forcer Leaflet à recalculer sa taille géométrique
+  if (state.map) {
+    setTimeout(() => {
+      state.map.invalidateSize();
+    }, 100);
+  }
+}
+
+function loadSavedUiScale() {
+  const savedScale = localStorage.getItem('rando_ui_scale') || 'normal';
+  applyUiScale(savedScale);
+}
+
 function loadUserProfile() {
+  loadSavedUiScale();
+
   const savedName = localStorage.getItem('rando_user_name');
   const savedRole = localStorage.getItem('rando_user_role');
   const savedIcon = localStorage.getItem('rando_user_icon');
@@ -599,6 +636,16 @@ function updateProfileUI() {
       btn.classList.add('border-transparent');
     }
   });
+
+  const savedScale = localStorage.getItem('rando_ui_scale') || 'normal';
+  document.querySelectorAll('.ui-scale-btn').forEach(btn => {
+    const btnScale = btn.getAttribute('data-scale');
+    if (btnScale === savedScale) {
+      btn.className = 'ui-scale-btn py-2.5 px-2 rounded-xl border-2 border-emerald-500 bg-emerald-600/30 text-white font-black text-xs flex flex-col items-center justify-center gap-1 transition active:scale-95 shadow-md';
+    } else {
+      btn.className = 'ui-scale-btn py-2.5 px-2 rounded-xl border-2 border-slate-700 bg-slate-800 text-slate-300 font-black text-xs flex flex-col items-center justify-center gap-1 transition active:scale-95 hover:border-slate-600';
+    }
+  });
 }
 
 function saveUserProfile() {
@@ -641,9 +688,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=29')
+    navigator.serviceWorker.register('./sw.js?v=34')
       .then((reg) => {
-        console.log('[PWA] Service Worker v29 actif:', reg.scope);
+        console.log('[PWA] Service Worker v34 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -3134,6 +3181,14 @@ function setupEventListeners() {
       if (text) sendAnnouncement(text);
     });
   });
+
+  // Boutons de réglage de l'échelle d'affichage & lisibilité outdoor
+  document.querySelectorAll('.ui-scale-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const scale = btn.getAttribute('data-scale');
+      if (scale) applyUiScale(scale);
+    });
+  });
 }
 
 // Watchdog de nettoyage automatique des participants inactifs (> 5 heures de silence)
@@ -3215,4 +3270,6 @@ window.copyEmergencyGpsCoords = copyEmergencyGpsCoords;
 window.toggleGroupSosAlert = toggleGroupSosAlert;
 window.setBaseLayer = setBaseLayer;
 window.centerOnUser = centerOnUser;
+window.applyUiScale = applyUiScale;
+window.loadSavedUiScale = loadSavedUiScale;
 

@@ -1,12 +1,77 @@
 /* ========================================================================== */
-/* RANDOTRACKER V32 - STYLES FORMAT GÉANT & HAUTE VISIBILITÉ OUTDOOR         */
+/* RANDOTRACKER V34 - STYLES FORMAT GÉANT & HAUTE VISIBILITÉ OUTDOOR         */
 /* ========================================================================== */
 
 :root {
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
+  --ui-scale: 1;
   --header-height: 62px;
   --bottom-nav-height: 86px;
+  --pill-w: 66px;
+  --pill-h: 50px;
+  --gps-size: 76px;
+  --nav-font-size: 13.5px;
+  --header-btn-h: 46px;
+  --header-font-size: 14px;
+}
+
+/* MODES D'ÉCHELLE & LISIBILITÉ OUTDOOR */
+html.ui-scale-normal {
+  --ui-scale: 1;
+  --header-height: 62px;
+  --bottom-nav-height: 86px;
+  --pill-w: 66px;
+  --pill-h: 50px;
+  --gps-size: 76px;
+  --nav-font-size: 13.5px;
+}
+
+html.ui-scale-large {
+  --ui-scale: 1.15;
+  --header-height: 68px;
+  --bottom-nav-height: 94px;
+  --pill-w: 74px;
+  --pill-h: 54px;
+  --gps-size: 84px;
+  --nav-font-size: 15px;
+}
+
+html.ui-scale-xlarge {
+  --ui-scale: 1.30;
+  --header-height: 74px;
+  --bottom-nav-height: 102px;
+  --pill-w: 82px;
+  --pill-h: 58px;
+  --gps-size: 92px;
+  --nav-font-size: 16.5px;
+}
+
+/* ADAPTATION SMARTPHONE SELON LARGEUR D'ÉCRAN */
+@media (max-width: 360px) {
+  :root {
+    --header-height: 58px;
+    --bottom-nav-height: 82px;
+    --pill-w: 56px;
+    --pill-h: 46px;
+    --gps-size: 68px;
+    --nav-font-size: 11.5px;
+    --header-btn-h: 40px;
+    --header-font-size: 11.5px;
+  }
+}
+
+@media (min-width: 416px) {
+  :root {
+    --header-height: 66px;
+    --bottom-nav-height: 90px;
+    --pill-w: 72px;
+    --pill-h: 52px;
+    --gps-size: 82px;
+    --nav-font-size: 14.5px;
+    --header-btn-h: 48px;
+    --header-font-size: 15px;
+  }
 }
 
 /* RÈGLES CRITIQUES DE SECOURS (Anti-Flicker & Mode Hors-ligne) */
@@ -191,8 +256,8 @@ body {
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  height: 62px !important;
-  min-height: 62px !important;
+  height: var(--header-height, 62px) !important;
+  min-height: var(--header-height, 62px) !important;
   z-index: 1000 !important;
   border-bottom: 2.5px solid #334155 !important;
   background-color: rgba(15, 23, 42, 0.98) !important;
@@ -210,18 +275,18 @@ body {
 }
 
 .app-header-title {
-  font-size: 20px !important;
+  font-size: clamp(16px, 4vw, 20px) !important;
   font-weight: 900 !important;
   color: #ffffff !important;
 }
 
 .app-header-btn {
-  height: 46px !important;
-  min-height: 46px !important;
-  padding-left: 14px !important;
-  padding-right: 14px !important;
+  height: var(--header-btn-h, 46px) !important;
+  min-height: var(--header-btn-h, 46px) !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
   border-radius: 14px !important;
-  font-size: 14px !important;
+  font-size: var(--header-font-size, 14px) !important;
   font-weight: 900 !important;
 }
 
@@ -231,9 +296,8 @@ body {
   bottom: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  height: 86px !important;
-  min-height: 86px !important;
-  max-height: 96px !important;
+  height: var(--bottom-nav-height, 86px) !important;
+  min-height: var(--bottom-nav-height, 86px) !important;
   padding-bottom: max(6px, env(safe-area-inset-bottom, 6px)) !important;
   padding-top: 4px !important;
   background: rgba(15, 23, 42, 0.98) !important;
@@ -267,8 +331,8 @@ body {
 }
 
 .nav-icon-pill {
-  width: 66px !important;
-  height: 50px !important;
+  width: var(--pill-w, 66px) !important;
+  height: var(--pill-h, 50px) !important;
   border-radius: 16px !important;
   display: flex !important;
   align-items: center !important;
@@ -284,10 +348,10 @@ body {
   height: 28px !important;
 }
 
-/* Bouton central MON GPS surélevé géant (76px) */
+/* Bouton central MON GPS surélevé géant */
 #nav-gps-bubble {
-  width: 76px !important;
-  height: 76px !important;
+  width: var(--gps-size, 76px) !important;
+  height: var(--gps-size, 76px) !important;
   border-radius: 50% !important;
   border: 4.5px solid #ffffff !important;
   background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
@@ -306,7 +370,7 @@ body {
 }
 
 .nav-label {
-  font-size: 13.5px !important;
+  font-size: var(--nav-font-size, 13.5px) !important;
   font-weight: 900 !important;
   letter-spacing: 0.03em !important;
   line-height: 1 !important;
@@ -317,12 +381,12 @@ body {
 /* 3. ZONE PRINCIPALE CARTE (Z-INDEX 1) */
 main {
   position: fixed !important;
-  top: 62px !important;
-  bottom: 86px !important;
+  top: var(--header-height, 62px) !important;
+  bottom: var(--bottom-nav-height, 86px) !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
-  height: calc(100dvh - 62px - 86px) !important;
+  height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
   z-index: 1 !important;
 }
 
@@ -344,14 +408,14 @@ main {
 /* 5. FENÊTRE PLEIN ÉCRAN GROUPE / PARTICIPANTS (Z-INDEX 950) */
 #users-panel {
   position: fixed !important;
-  top: 62px !important;
-  bottom: 86px !important;
+  top: var(--header-height, 62px) !important;
+  bottom: var(--bottom-nav-height, 86px) !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
-  height: calc(100dvh - 62px - 86px) !important;
-  max-height: calc(100dvh - 62px - 86px) !important;
+  height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
+  max-height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
   z-index: 950 !important;
   background-color: #1e293b !important; /* Solid Slate-800 - Haute clarté */
   border: none !important;
@@ -380,14 +444,14 @@ main {
 /* 6. FENÊTRE PLEIN ÉCRAN SECOURS & URGENCE (Z-INDEX 950) */
 #emergency-modal {
   position: fixed !important;
-  top: 62px !important;
-  bottom: 86px !important;
+  top: var(--header-height, 62px) !important;
+  bottom: var(--bottom-nav-height, 86px) !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
-  height: calc(100dvh - 62px - 86px) !important;
-  max-height: calc(100dvh - 62px - 86px) !important;
+  height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
+  max-height: calc(100dvh - var(--header-height, 62px) - var(--bottom-nav-height, 86px)) !important;
   z-index: 950 !important;
   background-color: #0f172a !important;
   padding: 0 !important;
