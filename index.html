@@ -49,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v22 -->
-  <link rel="stylesheet" href="styles.css?v=22" />
+  <!-- Custom Styles with Cache-Busting v24 -->
+  <link rel="stylesheet" href="styles.css?v=24" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -60,11 +60,11 @@
   <header class="h-20 sm:h-22 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-2.5 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
     <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
     <div id="brand-header-btn" class="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group active:scale-95 transition shrink-0" title="Jean-Luc DAUSSY 2026">
-      <img src="logo.png?v=22" alt="Logo RandoTracker" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl shadow-xl border-2 border-emerald-500/40 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+      <img src="logo.png?v=24" alt="Logo RandoTracker" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl shadow-xl border-2 border-emerald-500/40 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
       <div class="flex flex-col justify-center">
         <div class="flex items-center gap-1.5 sm:gap-2">
           <span class="font-black text-lg sm:text-2xl tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40 inline-flex items-center leading-none translate-y-[2px]">v22</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40 inline-flex items-center leading-none translate-y-[2px]">v24</span>
         </div>
         <span class="text-[11px] text-slate-400 group-hover:text-slate-200 font-bold tracking-wider mt-0.5 transition flex items-center gap-1 leading-none">
           <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-300 group-hover:text-emerald-400">JLD</span>
@@ -123,15 +123,23 @@
     </div>
 
     <!-- BOUTONS FLOTTANTS SUR LA CARTE (64px x 64px) -->
-    <div class="absolute bottom-6 right-4 z-20 flex flex-col gap-4">
-      <!-- Recadrer la vue sur toutes les traces -->
-      <button id="fit-all-btn" class="w-16 h-16 rounded-3xl bg-slate-900/98 backdrop-blur-md border-2 border-slate-700 text-slate-100 hover:text-white shadow-2xl flex items-center justify-center transition active:scale-90" title="Recadrer la carte sur les traces">
-        <i data-lucide="maximize-2" class="w-8 h-8 text-emerald-400"></i>
+    <div class="absolute bottom-6 right-4 z-20 flex flex-col gap-3.5">
+      <!-- Bouton d'Urgence SOS (Rouge Géant Haute Visibilité) -->
+      <button id="floating-sos-btn" onclick="openEmergencyModal()" class="w-16 h-16 rounded-3xl bg-gradient-to-br from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-2xl border-2 border-red-300 flex flex-col items-center justify-center transition active:scale-90" title="Secours & Numéros d'Urgence (15 SAMU, 112 Pompiers, GPS)">
+        <span class="text-2xl leading-none">🚨</span>
+        <span class="text-[10px] font-black tracking-wider leading-none mt-1 text-red-100 drop-shadow">SOS</span>
+      </button>
+
+      <!-- Recadrer la vue sur toutes les traces (Bleu Azur Haute Visibilité) -->
+      <button id="fit-all-btn" class="w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white shadow-2xl border-2 border-blue-300 flex flex-col items-center justify-center transition active:scale-90" title="Recadrer la carte sur toutes les traces">
+        <i data-lucide="maximize-2" class="w-7 h-7 text-white"></i>
+        <span class="text-[10px] font-black tracking-tight leading-none mt-1 text-blue-100 drop-shadow">TRACES</span>
       </button>
       
-      <!-- Centrer sur ma position GPS -->
-      <button id="center-my-gps-btn" class="w-16 h-16 rounded-3xl bg-slate-900/98 backdrop-blur-md border-2 border-slate-700 text-slate-100 hover:text-white shadow-2xl flex items-center justify-center transition active:scale-90" title="Centrer sur ma position GPS">
-        <i data-lucide="crosshair" class="w-8 h-8 text-emerald-400"></i>
+      <!-- Centrer sur ma position GPS (Vert Émeraude Haute Visibilité) -->
+      <button id="center-my-gps-btn" class="w-16 h-16 rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-2xl border-2 border-emerald-300 flex flex-col items-center justify-center transition active:scale-90" title="Centrer sur ma position GPS">
+        <i data-lucide="crosshair" class="w-7 h-7 text-white"></i>
+        <span class="text-[10px] font-black tracking-tight leading-none mt-1 text-emerald-100 drop-shadow">MON GPS</span>
       </button>
     </div>
 
@@ -727,7 +735,85 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v22 -->
-  <script src="app.js?v=22"></script>
+  <!-- ================================================================= -->
+  <!-- MODAL : SECOURS & APPELS D'URGENCE (15 SAMU / 112 POMPIERS / GPS) -->
+  <!-- ================================================================= -->
+  <div id="emergency-modal" class="hidden fixed inset-0 z-55 bg-slate-950/95 backdrop-blur-lg flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-slate-900 border-2 border-red-500/80 rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl flex flex-col gap-4 max-h-[95vh] overflow-y-auto">
+      
+      <!-- En-tête Modale Secours -->
+      <div class="flex items-center justify-between border-b-2 border-slate-800 pb-3.5">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-red-600/30 border-2 border-red-500 flex items-center justify-center text-2xl shadow-lg">
+            🚨
+          </div>
+          <div>
+            <h3 class="font-black text-xl sm:text-2xl text-white tracking-tight">Secours & Urgence</h3>
+            <p class="text-xs font-bold text-red-400">Numéros d'urgence & Coordonnées GPS</p>
+          </div>
+        </div>
+        <button onclick="closeEmergencyModal()" class="w-11 h-11 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white bg-slate-800 border border-slate-700 active:scale-90 transition">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+
+      <!-- CARTOUCHE COORDONNÉES GPS ULTRA-LISIBLES (À DICTER AUX SECOURS) -->
+      <div class="p-4 rounded-2xl bg-slate-950 border-2 border-emerald-500/60 shadow-inner flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+            <i data-lucide="map-pin" class="w-4 h-4"></i>
+            Vos Coordonnées GPS (à dicter)
+          </span>
+          <span id="emergency-country-tag" class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+            🇫🇷 France
+          </span>
+        </div>
+
+        <!-- Format Décimal (DD) -->
+        <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex flex-col gap-0.5">
+          <span class="text-[10px] font-bold text-slate-400 uppercase">Degrés Décimaux (DD) :</span>
+          <div id="emergency-gps-decimal" class="text-lg sm:text-xl font-mono font-black text-white select-all">
+            45.89200° N, 6.15500° E
+          </div>
+        </div>
+
+        <!-- Format Degrés Minutes Secondes (DMS) -->
+        <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 flex flex-col gap-0.5">
+          <span class="text-[10px] font-bold text-slate-400 uppercase">Degrés Minutes Secondes (DMS) :</span>
+          <div id="emergency-gps-dms" class="text-base sm:text-lg font-mono font-black text-emerald-300 select-all">
+            45° 53' 31" N, 6° 09' 18" E
+          </div>
+        </div>
+
+        <!-- Altitude, Précision, Heure -->
+        <div class="flex items-center justify-between text-xs text-slate-300 font-semibold px-1">
+          <span id="emergency-gps-meta">Alt : 450 m • Précision : ±8 m</span>
+          <span id="emergency-gps-time" class="text-slate-400 font-mono text-[11px]">--:--:--</span>
+        </div>
+
+        <!-- Bouton Copier dans le presse-papier -->
+        <button onclick="copyEmergencyGpsCoords()" class="w-full py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-black flex items-center justify-center gap-2 border border-slate-700 active:scale-95 transition">
+          <i data-lucide="copy" class="w-4 h-4 text-emerald-400"></i>
+          <span id="copy-emergency-gps-text">Copier les coordonnées complètes</span>
+        </button>
+      </div>
+
+      <!-- LISTE DES NUMÉROS D'URGENCE (AVEC BOUTON TÉLÉPHONE 📞) -->
+      <div class="space-y-2.5" id="emergency-numbers-list">
+        <!-- Rempli dynamiquement par JS selon le pays détecté (France: 15 SAMU, 112 Pompiers, 114 SMS) -->
+      </div>
+
+      <!-- ALERTE GROUPE RANDOTRACKER -->
+      <div class="pt-3 border-t-2 border-slate-800">
+        <button id="emergency-modal-group-sos-btn" onclick="toggleGroupSosAlert()" class="w-full py-3.5 px-4 rounded-2xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border-2 border-red-500/50 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-95">
+          <i data-lucide="radio" class="w-5 h-5 text-red-400"></i>
+          <span id="emergency-modal-group-sos-text">🚨 Activer l'alerte SOS sur les téléphones du groupe</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Application Script with Cache-Busting v24 -->
+  <script src="app.js?v=24"></script>
 </body>
 </html>

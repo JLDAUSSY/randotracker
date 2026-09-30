@@ -600,9 +600,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=22')
+    navigator.serviceWorker.register('./sw.js?v=24')
       .then((reg) => {
-        console.log('[PWA] Service Worker v22 actif:', reg.scope);
+        console.log('[PWA] Service Worker v24 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -624,71 +624,88 @@ function initPWA() {
 // INITIALISATION DE LA CARTE AVEC MOTEUR CANVAS ULTRA-RAPIDE
 // ============================================================================
 function initMap() {
+  const savedLat = parseFloat(localStorage.getItem('rando_last_lat'));
+  const savedLon = parseFloat(localStorage.getItem('rando_last_lon'));
+  const hasSavedPos = !isNaN(savedLat) && !isNaN(savedLon);
+  const initialCenter = hasSavedPos ? [savedLat, savedLon] : [45.8960, 6.1680];
+  const initialZoom = hasSavedPos ? 14 : 13;
+
   state.map = L.map('map', {
-    center: [45.8960, 6.1680],
-    zoom: 13,
+    center: initialCenter,
+    zoom: initialZoom,
     zoomControl: false,
-    preferCanvas: true
+    preferCanvas: true,
+    fadeAnimation: true
   });
 
   L.control.zoom({ position: 'bottomright' }).addTo(state.map);
 
-  // 1. Fond IGN Géoplateforme (Plan IGN V2 France)
+  // 1. Fond IGN Géoplateforme (Plan IGN V2 France) - Optimisé
   state.layers.ign = L.tileLayer(
     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.ign.fr/" target="_blank">IGN France</a>',
-      updateWhenIdle: false,
-      keepBuffer: 3
+      updateWhenIdle: true,
+      updateInterval: 150,
+      keepBuffer: 1
     }
   );
 
-  // 2. Fond IGN España (MTN Topographique 1:25 000 / CNIG Espagne)
+  // 2. Fond IGN España (MTN Topographique 1:25 000 / CNIG Espagne) - Optimisé
   state.layers.ign_es = L.tileLayer(
     'https://www.ign.es/wmts/mapa-raster?service=WMTS&request=GetTile&version=1.0.0&layer=MTN&style=default&tilematrixset=GoogleMapsCompatible&tilematrix={z}&tilerow={y}&tilecol={x}&format=image/jpeg',
     {
       maxZoom: 18,
       attribution: '&copy; <a href="https://www.ign.es/" target="_blank">IGN España / CNIG</a>',
-      updateWhenIdle: false,
-      keepBuffer: 3
+      updateWhenIdle: true,
+      updateInterval: 150,
+      keepBuffer: 1
     }
   );
 
-  // 3. Fond OpenTopoMap (Courbes de niveau & Sentiers Monde)
+  // 3. Fond OpenTopoMap (Courbes de niveau & Sentiers Monde) - Optimisé
   state.layers.opentopo = L.tileLayer(
     'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     {
       maxZoom: 17,
       attribution: '&copy; OpenTopoMap',
-      updateWhenIdle: false,
-      keepBuffer: 3
+      subdomains: 'abc',
+      updateWhenIdle: true,
+      updateInterval: 150,
+      keepBuffer: 1
     }
   );
 
-  // 4. Fond IGN Orthophoto (Photos Aériennes Satellite)
+  // 4. Fond IGN Orthophoto (Photos Aériennes Satellite) - Optimisé
   state.layers.satellite = L.tileLayer(
     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     {
       maxZoom: 19,
       attribution: '&copy; IGN Satellite',
-      updateWhenIdle: false,
-      keepBuffer: 3
+      updateWhenIdle: true,
+      updateInterval: 150,
+      keepBuffer: 1
     }
   );
 
-  // 5. Fond OpenStreetMap standard
+  // 5. Fond OpenStreetMap standard - Optimisé
   state.layers.osm = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap',
-      updateWhenIdle: false,
-      keepBuffer: 3
+      updateWhenIdle: true,
+      updateInterval: 150,
+      keepBuffer: 1
     }
   );
 
   state.layers.ign.addTo(state.map);
+
+  setTimeout(() => {
+    if (state.map) state.map.invalidateSize();
+  }, 200);
 
   // Support Glisser-Déposer direct de fichiers GPX sur la carte
   const mapDiv = document.getElementById('map');
@@ -1629,6 +1646,11 @@ function startGpsWatch(useHighAccuracy = true) {
     state.myUser.speed = pos.coords.speed ? (pos.coords.speed * 3.6) : 0.0;
     state.myUser.accuracy = pos.coords.accuracy || 10;
 
+    try {
+      localStorage.setItem('rando_last_lat', String(pos.coords.latitude));
+      localStorage.setItem('rando_last_lon', String(pos.coords.longitude));
+    } catch (e) {}
+
     const accStr = `±${Math.round(pos.coords.accuracy)}m`;
     if (navLabel) navLabel.textContent = `GPS (${accStr})`;
     if (navBubble) navBubble.className = 'w-18 h-18 rounded-full bg-emerald-600 border-4 border-white flex items-center justify-center shadow-2xl animate-pulse';
@@ -1648,6 +1670,11 @@ function startGpsWatch(useHighAccuracy = true) {
     }
 
     broadcastMyPosition();
+
+    const emergencyModal = document.getElementById('emergency-modal');
+    if (emergencyModal && !emergencyModal.classList.contains('hidden')) {
+      updateEmergencyModalGpsData();
+    }
 
     if (!state.hasAutoCenteredGps) {
       state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
@@ -1696,6 +1723,60 @@ function startGpsWatch(useHighAccuracy = true) {
     timeout: 15000,
     maximumAge: 2000
   });
+
+  // Activer le forçage périodique actif du GPS matériel (Dual-Engine Polling)
+  startGpsForcedWatchdog(onPositionSuccess);
+
+  // Activer le maintien d'activité en tâche de fond (écran éteint dans la poche)
+  startBackgroundKeepAlive();
+}
+
+// Watchdog de forçage GPS matériel (Évite les creux d'inactivité du système)
+let gpsForcedInterval = null;
+function startGpsForcedWatchdog(onSuccessCallback) {
+  if (gpsForcedInterval) clearInterval(gpsForcedInterval);
+  gpsForcedInterval = setInterval(() => {
+    if (state.isTrackingGps && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        onSuccessCallback,
+        (e) => { console.warn('[GPS Watchdog] Polling passif:', e.code); },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    }
+  }, 7000);
+}
+
+function stopGpsForcedWatchdog() {
+  if (gpsForcedInterval) {
+    clearInterval(gpsForcedInterval);
+    gpsForcedInterval = null;
+  }
+}
+
+// Maintien d'activité en arrière-plan (Background Audio Keep-Alive)
+let silentAudioKeeper = null;
+function startBackgroundKeepAlive() {
+  if (!silentAudioKeeper) {
+    try {
+      // 1 seconde de silence MP3 encodée en base64 pour maintenir la boucle JavaScript active
+      const silentMp3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA//OEAAAAAAAAAAAAAAAAAAAAAAAADQAAAAAAA';
+      silentAudioKeeper = new Audio(silentMp3);
+      silentAudioKeeper.loop = true;
+      silentAudioKeeper.volume = 0.01;
+      silentAudioKeeper.play().catch(() => {});
+    } catch (e) {
+      console.warn('[KeepAlive] Audio non initialisé:', e);
+    }
+  }
+}
+
+function stopBackgroundKeepAlive() {
+  if (silentAudioKeeper) {
+    try {
+      silentAudioKeeper.pause();
+      silentAudioKeeper = null;
+    } catch (e) {}
+  }
 }
 
 function stopGpsWatch() {
@@ -1711,6 +1792,9 @@ function stopGpsWatch() {
     clearInterval(state.expiryCheckInterval);
     state.expiryCheckInterval = null;
   }
+
+  stopGpsForcedWatchdog();
+  stopBackgroundKeepAlive();
 
   state.isTrackingGps = false;
   state.gpsStartTime = null;
@@ -2247,6 +2331,267 @@ function playAnnouncementAlert() {
   }
 }
 
+// ============================================================================
+// GESTION DES SECOURS & APPELS D'URGENCE (15 SAMU / 112 POMPIERS / COORDONNÉES GPS)
+// ============================================================================
+function toDMS(val, isLat) {
+  if (typeof val !== 'number' || isNaN(val)) return '--';
+  const absVal = Math.abs(val);
+  const deg = Math.floor(absVal);
+  const minFloat = (absVal - deg) * 60;
+  const min = Math.floor(minFloat);
+  const sec = Math.round((minFloat - min) * 60);
+  const dir = isLat ? (val >= 0 ? 'N' : 'S') : (val >= 0 ? 'E' : 'O');
+  return `${deg}° ${min.toString().padStart(2, '0')}' ${sec.toString().padStart(2, '0')}" ${dir}`;
+}
+
+function updateEmergencyModalGpsData() {
+  const modal = document.getElementById('emergency-modal');
+  if (!modal) return;
+
+  const lat = state.myUser.lat || 45.8920;
+  const lon = state.myUser.lon || 6.1550;
+  const ele = state.myUser.ele || 0;
+  const acc = state.myUser.accuracy || 10;
+  const country = detectCountry(lat, lon);
+
+  // 1. Affichage Degrés Décimaux (DD)
+  const decimalEl = document.getElementById('emergency-gps-decimal');
+  if (decimalEl) {
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const lonDir = lon >= 0 ? 'E' : 'O';
+    decimalEl.textContent = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+  }
+
+  // 2. Affichage Degrés Minutes Secondes (DMS)
+  const dmsEl = document.getElementById('emergency-gps-dms');
+  if (dmsEl) {
+    dmsEl.textContent = `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
+  }
+
+  // 3. Métadonnées (Altitude, Précision, Horodatage)
+  const metaEl = document.getElementById('emergency-gps-meta');
+  if (metaEl) {
+    metaEl.textContent = `Alt : ${Math.round(ele)} m • Précision : ±${Math.round(acc)} m`;
+  }
+  const timeEl = document.getElementById('emergency-gps-time');
+  if (timeEl) {
+    timeEl.textContent = new Date().toLocaleTimeString();
+  }
+
+  // 4. Tag Pays
+  const countryTag = document.getElementById('emergency-country-tag');
+  if (countryTag) {
+    if (country === 'FR') {
+      countryTag.textContent = '🇫🇷 France';
+      countryTag.className = 'text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+    } else if (country === 'ES') {
+      countryTag.textContent = '🇪🇸 Espagne';
+      countryTag.className = 'text-[11px] font-black px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40';
+    } else {
+      countryTag.textContent = '🏔️ International';
+      countryTag.className = 'text-[11px] font-black px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40';
+    }
+  }
+
+  // 5. Numéros d'urgence adaptés selon la géolocalisation
+  const numList = document.getElementById('emergency-numbers-list');
+  if (numList) {
+    if (country === 'FR') {
+      numList.innerHTML = `
+        <!-- 15 SAMU -->
+        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950 border-2 border-emerald-500/40 flex items-center justify-between gap-3 shadow-lg">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">15</span>
+              <span class="text-base sm:text-lg font-black text-white truncate">SAMU (Urgences Médicales)</span>
+            </div>
+            <p class="text-xs text-slate-400 font-semibold mt-1">Urgences médicales vitales, malaises graves, traumatismes.</p>
+          </div>
+          <a href="tel:15" class="h-13 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 15">
+            <i data-lucide="phone-call" class="w-5 h-5"></i>
+            <span>15</span>
+          </a>
+        </div>
+
+        <!-- 112 POMPIERS & SECOURS MONTAGNE -->
+        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950 border-2 border-red-500/40 flex items-center justify-between gap-3 shadow-lg">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/40">112</span>
+              <span class="text-base sm:text-lg font-black text-white truncate">Sapeurs-Pompiers & Secours</span>
+            </div>
+            <p class="text-xs text-slate-400 font-semibold mt-1">Pompiers, secours d'urgence, secours en montagne (PGHM/CRS).</p>
+          </div>
+          <a href="tel:112" class="h-13 px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 112">
+            <i data-lucide="phone-call" class="w-5 h-5"></i>
+            <span>112</span>
+          </a>
+        </div>
+
+        <!-- 114 SMS D'URGENCE -->
+        <div class="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/40">114</span>
+              <span class="text-sm font-black text-slate-200">SMS d'Urgence (Sans réseau vocal)</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-semibold mt-0.5">En cas de réseau vocal trop faible ou impossibilité de parler.</p>
+          </div>
+          <a href="sms:114" class="h-11 px-3.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs flex items-center gap-1.5 shadow shrink-0 active:scale-95 transition" title="Envoyer un SMS au 114">
+            <i data-lucide="message-square" class="w-4 h-4"></i>
+            <span>SMS 114</span>
+          </a>
+        </div>
+      `;
+    } else if (country === 'ES') {
+      numList.innerHTML = `
+        <!-- 112 EMERGENCIAS ESPAÑA -->
+        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950 border-2 border-red-500/40 flex items-center justify-between gap-3 shadow-lg">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/40">112</span>
+              <span class="text-base sm:text-lg font-black text-white truncate">112 Emergencias España</span>
+            </div>
+            <p class="text-xs text-slate-400 font-semibold mt-1">Bomberos, Guardia Civil, Rescate en Montaña (GREIM).</p>
+          </div>
+          <a href="tel:112" class="h-13 px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Llamar al 112">
+            <i data-lucide="phone-call" class="w-5 h-5"></i>
+            <span>112</span>
+          </a>
+        </div>
+
+        <!-- 061 URGENCIAS MÉDICAS -->
+        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950 border-2 border-emerald-500/40 flex items-center justify-between gap-3 shadow-lg">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">061</span>
+              <span class="text-base sm:text-lg font-black text-white truncate">061 Urgencias Sanitarias</span>
+            </div>
+            <p class="text-xs text-slate-400 font-semibold mt-1">Ambulancia y atención médica urgente.</p>
+          </div>
+          <a href="tel:061" class="h-13 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Llamar al 061">
+            <i data-lucide="phone-call" class="w-5 h-5"></i>
+            <span>061</span>
+          </a>
+        </div>
+      `;
+    } else {
+      numList.innerHTML = `
+        <!-- 112 EUROPE & INTERNATIONAL -->
+        <div class="p-3.5 sm:p-4 rounded-2xl bg-slate-950 border-2 border-red-500/40 flex items-center justify-between gap-3 shadow-lg">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-black px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/40">112</span>
+              <span class="text-base sm:text-lg font-black text-white truncate">112 Numéro d'Urgence Européen</span>
+            </div>
+            <p class="text-xs text-slate-400 font-semibold mt-1">Numéro unique d'urgence valide en Europe et en Suisse (Pompiers, SAMU, Secours).</p>
+          </div>
+          <a href="tel:112" class="h-13 px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-base flex items-center gap-2 shadow-xl shrink-0 active:scale-95 transition" title="Appeler le 112">
+            <i data-lucide="phone-call" class="w-5 h-5"></i>
+            <span>112</span>
+          </a>
+        </div>
+      `;
+    }
+  }
+
+  // 6. État du bouton Alerte Groupe
+  const groupSosBtn = document.getElementById('emergency-modal-group-sos-btn');
+  const groupSosText = document.getElementById('emergency-modal-group-sos-text');
+  if (groupSosBtn && groupSosText) {
+    if (state.myUser.isSos) {
+      groupSosBtn.className = 'w-full py-3.5 px-4 rounded-2xl bg-red-600 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 animate-pulse shadow-xl transition active:scale-95';
+      groupSosText.textContent = '⚠️ ALERTE SOS GROUPE ACTIVE (CLIQUEZ POUR ARRÊTER)';
+    } else {
+      groupSosBtn.className = 'w-full py-3.5 px-4 rounded-2xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border-2 border-red-500/50 font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-95';
+      groupSosText.textContent = '🚨 Activer l\'alerte SOS sur les téléphones du groupe';
+    }
+  }
+
+  lucide.createIcons();
+}
+
+function openEmergencyModal() {
+  updateEmergencyModalGpsData();
+  const modal = document.getElementById('emergency-modal');
+  if (modal) modal.classList.remove('hidden');
+
+  // Forcer une acquisition GPS haute précision fraîche
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        state.myUser.lat = pos.coords.latitude;
+        state.myUser.lon = pos.coords.longitude;
+        if (pos.coords.altitude !== null && !isNaN(pos.coords.altitude)) state.myUser.ele = Math.round(pos.coords.altitude);
+        state.myUser.accuracy = pos.coords.accuracy || 10;
+        updateEmergencyModalGpsData();
+      },
+      (err) => { console.warn('[Emergency GPS]', err); },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  }
+}
+
+function closeEmergencyModal() {
+  const modal = document.getElementById('emergency-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function copyEmergencyGpsCoords() {
+  const lat = state.myUser.lat || 45.8920;
+  const lon = state.myUser.lon || 6.1550;
+  const ele = state.myUser.ele || 0;
+  const acc = state.myUser.accuracy || 10;
+  const time = new Date().toLocaleTimeString();
+
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lonDir = lon >= 0 ? 'E' : 'O';
+
+  const textToCopy = `🚨 URGENCE RANDOTRACKER\nCoordonnées GPS : ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}\nFormat DMS : ${toDMS(lat, true)}, ${toDMS(lon, false)}\nAltitude : ${Math.round(ele)} m (Précision : ±${Math.round(acc)} m)\nRelevé à : ${time}`;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      showToast('📋 Coordonnées GPS copiées dans le presse-papier !', 'success');
+      const copyTextEl = document.getElementById('copy-emergency-gps-text');
+      if (copyTextEl) {
+        copyTextEl.textContent = '✅ Coordonnées copiées !';
+        setTimeout(() => { copyTextEl.textContent = 'Copier les coordonnées complètes'; }, 3000);
+      }
+    }).catch(() => {
+      prompt('Copiez vos coordonnées GPS :', textToCopy);
+    });
+  } else {
+    prompt('Copiez vos coordonnées GPS :', textToCopy);
+  }
+}
+
+function toggleGroupSosAlert() {
+  state.myUser.isSos = !state.myUser.isSos;
+  
+  const sosBtn = document.getElementById('sos-toggle-btn');
+  const sosText = document.getElementById('sos-btn-text');
+
+  if (state.myUser.isSos) {
+    if (sosBtn) {
+      sosBtn.classList.remove('bg-red-600/20', 'text-red-400');
+      sosBtn.classList.add('bg-red-600', 'text-white', 'animate-pulse');
+    }
+    if (sosText) sosText.textContent = '⚠️ ALERTE SOS ACTIVE (ANNULER)';
+    showToast('🚨 ALERTE SOS DIFFUSÉE AU GROUPE !', 'error');
+  } else {
+    if (sosBtn) {
+      sosBtn.classList.add('bg-red-600/20', 'text-red-400');
+      sosBtn.classList.remove('bg-red-600', 'text-white', 'animate-pulse');
+    }
+    if (sosText) sosText.textContent = '🚨 SIGNALER UN PROBLÈME / SOS';
+    showToast('Alerte SOS désactivée', 'info');
+  }
+
+  updateEmergencyModalGpsData();
+  broadcastMyPosition();
+}
+
 // Heartbeat périodique (toutes les 5 secondes) pour garantir la présence même à l'arrêt
 let heartbeatInterval = null;
 function startHeartbeat() {
@@ -2258,17 +2603,61 @@ function startHeartbeat() {
   }, 5000);
 }
 
-// Réveil lors du retour sur l'onglet / l'application
+// Gestion du Wake Lock (Évite que l'écran s'éteigne pendant la marche active)
+let screenWakeLock = null;
+async function requestScreenWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      screenWakeLock = await navigator.wakeLock.request('screen');
+      screenWakeLock.addEventListener('release', () => {
+        screenWakeLock = null;
+      });
+    } catch (err) {
+      console.warn('[WakeLock] Maintien écran indisponible:', err);
+    }
+  }
+}
+
+// 1. Réveil automatique lors du déverrouillage de l'écran ou retour sur l'onglet
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    if (mqttClient && mqttClient.connected) {
+    console.log('[App] Réveil de l\'écran / Retour application');
+    if (!mqttClient || !mqttClient.connected) {
+      initMqttSync();
+    } else {
       broadcastMyPosition();
       publishMessage({
         type: 'request_presence',
         from: state.myUser.id
       });
     }
+
+    if (state.isTrackingGps) {
+      requestScreenWakeLock();
+    }
   }
+});
+
+// 2. Reconnexion automatique instantanée lors du retour de la 4G/5G/Wi-Fi
+window.addEventListener('online', () => {
+  console.log('[Réseau] Rétablissement de la connexion mobile 4G/5G');
+  showToast('📶 Réseau 4G rétabli - Synchronisation...', 'success');
+  if (!mqttClient || !mqttClient.connected) {
+    initMqttSync();
+  } else {
+    broadcastMyPosition();
+    publishMessage({
+      type: 'request_presence',
+      from: state.myUser.id
+    });
+  }
+});
+
+// 3. Notification discrète en cas de passage en zone blanche
+window.addEventListener('offline', () => {
+  console.log('[Réseau] Passage en zone blanche (Hors-ligne)');
+  updateConnectionStatus(false);
+  showToast('🌲 Zone blanche (Hors-réseau) - GPS actif', 'info');
 });
 
 // ============================================================================
@@ -2429,25 +2818,10 @@ function setupEventListeners() {
     });
   }
 
-  // Alerte SOS Randonneur
+  // Secours & Urgence (15 SAMU / 112 Pompiers / Coordonnées GPS)
   const sosBtn = document.getElementById('sos-toggle-btn');
-  const sosText = document.getElementById('sos-btn-text');
   if (sosBtn) {
-    sosBtn.addEventListener('click', () => {
-      state.myUser.isSos = !state.myUser.isSos;
-      if (state.myUser.isSos) {
-        sosBtn.classList.remove('bg-red-600/20', 'text-red-400');
-        sosBtn.classList.add('bg-red-600', 'text-white', 'animate-pulse');
-        if (sosText) sosText.textContent = '⚠️ ALERTE SOS ACTIVE (ANNULER)';
-        showToast('🚨 ALERTE SOS ENVOYÉE AU GROUPE !', 'error');
-      } else {
-        sosBtn.classList.add('bg-red-600/20', 'text-red-400');
-        sosBtn.classList.remove('bg-red-600', 'text-white', 'animate-pulse');
-        if (sosText) sosText.textContent = '🚨 SIGNALER UN PROBLÈME / SOS';
-        showToast('Alerte SOS désactivée', 'info');
-      }
-      broadcastMyPosition();
-    });
+    sosBtn.addEventListener('click', openEmergencyModal);
   }
 
   // Modal Profil Utilisateur (Nom, Rôle, 12 Avatars, Trace GPX Suivie, Durée limite)

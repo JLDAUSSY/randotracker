@@ -1,5 +1,6 @@
-// Service Worker pour RandoTracker PWA - Version 22
-const CACHE_NAME = 'rando-tracker-v22';
+// Service Worker pour RandoTracker PWA - Version 24
+const CACHE_NAME = 'rando-tracker-v24';
+const TILES_CACHE_NAME = 'rando-tiles-v1';
 
 const STATIC_ASSETS = [
   './',
@@ -21,7 +22,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v22...');
+  console.log('[SW] Installation v24...');
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -33,12 +34,12 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation v22...');
+  console.log('[SW] Activation v24...');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key !== CACHE_NAME && key !== TILES_CACHE_NAME) {
             console.log('[SW] Suppression ancien cache:', key);
             return caches.delete(key);
           }
@@ -55,7 +56,35 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network First avec Fallback Cache
+  // 1. STRATÉGIE CACHE-FIRST ULTRA-RAPIDE POUR LES TUILES DE CARTE (IGN, OpenTopo, OSM)
+  const isMapTile = url.hostname.includes('data.geopf.fr') ||
+                    url.hostname.includes('opentopomap.org') ||
+                    url.hostname.includes('openstreetmap.org') ||
+                    url.hostname.includes('ign.es');
+
+  if (isMapTile) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          // Tuile déjà en cache : affichage INSTANTANÉ (0 ms)
+          return cachedResponse;
+        }
+        // Sinon, téléchargement réseau et mise en cache automatique
+        return fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(TILES_CACHE_NAME).then((tileCache) => tileCache.put(event.request, clone));
+          }
+          return networkResponse;
+        }).catch(() => {
+          return new Response('', { status: 408, statusText: 'Tile Offline' });
+        });
+      })
+    );
+    return;
+  }
+
+  // 2. STRATÉGIE NETWORK-FIRST POUR LES FICHIERS DE L'APPLICATION
   event.respondWith(
     fetch(event.request)
       .then((response) => {
