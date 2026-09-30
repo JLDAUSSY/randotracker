@@ -135,11 +135,25 @@ body {
   background: #0f172a !important;
 }
 
-/* TIROIRS MOBILES GRAND FORMAT ACCÉLÉRÉS MATÉRIELLEMENT */
+/* ========================================================================== */
+/* TIROIR PARTICIPANTS & MODALES HAUTE LISIBILITÉ (OUTDOOR HIGH CONTRAST)    */
+/* ========================================================================== */
+
+#drawer-backdrop {
+  z-index: 1100 !important;
+  background-color: rgba(2, 6, 23, 0.65) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
 .mobile-drawer {
+  background-color: #1e293b !important; /* Solid Slate-800 - Lumineux, aucun effet de noirceur */
+  border: 2.5px solid #475569 !important;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.85) !important;
+  z-index: 1200 !important;
   transform: translateZ(0);
   will-change: transform, opacity;
-  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease !important;
 }
 
 @media (max-width: 768px) {
@@ -149,160 +163,99 @@ body {
     right: 0 !important;
     bottom: 0 !important;
     top: auto !important;
-    max-height: 85vh !important;
-    border-top-left-radius: 32px !important;
-    border-top-right-radius: 32px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 90vh !important;
+    max-height: 90vh !important;
+    border-top-left-radius: 28px !important;
+    border-top-right-radius: 28px !important;
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
-    width: 100% !important;
-    z-index: 45 !important;
+    border-bottom: none !important;
   }
   
   .mobile-drawer.drawer-closed {
     transform: translateY(115%) translateZ(0) !important;
-    opacity: 0;
-    pointer-events: none;
+    opacity: 0 !important;
+    pointer-events: none !important;
   }
   
   .mobile-drawer.drawer-open {
     transform: translateY(0) translateZ(0) !important;
-    opacity: 1;
-    pointer-events: auto;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
 }
 
 @media (min-width: 769px) {
+  .mobile-drawer {
+    position: fixed !important;
+    right: 1.5rem !important;
+    top: 5rem !important;
+    bottom: 6.5rem !important;
+    width: 480px !important;
+    max-width: 90vw !important;
+    border-radius: 28px !important;
+  }
   .mobile-drawer.drawer-closed {
-    opacity: 0;
-    pointer-events: none;
+    opacity: 0 !important;
+    pointer-events: none !important;
     transform: translateX(115%) translateZ(0) !important;
   }
   .mobile-drawer.drawer-open {
-    opacity: 1;
-    pointer-events: auto;
+    opacity: 1 !important;
+    pointer-events: auto !important;
     transform: translateX(0) translateZ(0) !important;
   }
 }
 
-/* BANDEAU TRACES GPX & FLÈCHES FLOTTANTES (100% OPAQUE & HAUTE LISIBILITÉ OUTDOOR) */
-#quick-tracks-bar::-webkit-scrollbar {
-  display: none;
-}
-#quick-tracks-bar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.track-pill-card {
-  background-color: #020617 !important; /* 100% OPAQUE NOIR/SLATE - AUCUNE TRANSPARENCE */
-  border: 3px solid #334155 !important;
-  border-radius: clamp(16px, 4.5vmin, 22px) !important;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.2) !important;
-  color: #ffffff !important;
-  padding: clamp(5px, 1.2vmin, 8px) clamp(10px, 2.5vmin, 16px) !important;
-}
-
-.track-pill-card.is-visible-track {
-  border-color: #10b981 !important;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.95), 0 0 12px rgba(16, 185, 129, 0.4) !important;
-}
-
-.track-pill-card.is-hidden-track {
-  opacity: 0.55 !important;
-  border-color: #1e293b !important;
-}
-
-.track-name-title {
-  color: #ffffff !important;
-  font-weight: 900 !important;
-  font-size: clamp(13.5px, 3.6vmin, 16px) !important;
-  line-height: 1.2 !important;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important;
-}
-
-.track-dist-pill {
-  background-color: #064e3b !important;
-  color: #6ee7b7 !important;
-  border: 1.5px solid #10b981 !important;
-  font-family: monospace !important;
-  font-weight: 900 !important;
-  font-size: clamp(11.5px, 3vmin, 13.5px) !important;
-  padding: clamp(2px, 0.5vmin, 4px) clamp(6px, 1.5vmin, 9px) !important;
-  border-radius: 10px !important;
-  white-space: nowrap !important;
-}
-
-.track-icon-btn {
-  background-color: #0f172a !important;
-  border: 1.5px solid #334155 !important;
-  border-radius: 12px !important;
-  color: #ffffff !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: clamp(34px, 9vmin, 40px) !important;
-  height: clamp(34px, 9vmin, 40px) !important;
-  transition: transform 0.15s ease, background-color 0.15s ease !important;
-}
-
-.track-icon-btn:active {
-  transform: scale(0.9) !important;
-}
-
-.track-floating-arrow {
-  background: linear-gradient(135deg, #059669 0%, #0f766e 100%) !important;
-  color: #ffffff !important;
-  border: 2.5px solid #ffffff !important;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.9) !important;
-  border-radius: clamp(14px, 3.5vmin, 18px) !important;
-  font-weight: 900 !important;
-  cursor: pointer !important;
-  z-index: 35 !important;
-}
-
 /* ========================================================================== */
-/* DIMENSIONNEMENT FLUIDE ET HAUTE VISIBILITÉ OUTDOOR (VERSION V30)           */
+/* DIMENSIONNEMENT GÉANT & VISIBILITÉ PERMANENTE (VERSION V31)                */
 /* ========================================================================== */
 
-/* 1. EN-TÊTE SUPÉRIEUR COMPACT ET TRÈS LISIBLE */
+/* 1. EN-TÊTE SUPÉRIEUR LISIBLE & AÉRÉ */
 .app-header {
-  height: clamp(56px, 7.8vh, 68px) !important;
-  min-height: 56px !important;
+  height: 62px !important;
+  min-height: 62px !important;
   z-index: 1000 !important;
   border-bottom: 2px solid #334155 !important;
+  background-color: rgba(15, 23, 42, 0.98) !important;
 }
 
 .app-header-logo {
-  width: clamp(38px, 9.5vmin, 46px) !important;
-  height: clamp(38px, 9.5vmin, 46px) !important;
-  border-radius: clamp(10px, 2.5vmin, 14px) !important;
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 12px !important;
 }
 
 .app-header-title {
-  font-size: clamp(17px, 4.3vmin, 22px) !important;
+  font-size: 19px !important;
+  font-weight: 900 !important;
+  color: #ffffff !important;
 }
 
 .app-header-btn {
-  height: clamp(40px, 9.5vmin, 46px) !important;
-  min-height: 40px !important;
-  padding-left: clamp(10px, 2.5vmin, 16px) !important;
-  padding-right: clamp(10px, 2.5vmin, 16px) !important;
-  border-radius: clamp(12px, 3vmin, 16px) !important;
-  font-size: clamp(12px, 3vmin, 14.5px) !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+  border-radius: 14px !important;
+  font-size: 13.5px !important;
+  font-weight: 900 !important;
 }
 
-/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE À 4 TOUCHES TACTILES GÉANTES */
+/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE À 4 TOUCHES GÉANTES OUTDOOR */
 .app-bottom-nav {
-  height: clamp(74px, 10.5vh, 90px) !important;
-  min-height: 74px !important;
-  max-height: 94px !important;
+  height: 86px !important;
+  min-height: 86px !important;
+  max-height: 96px !important;
   padding-bottom: max(6px, env(safe-area-inset-bottom, 6px)) !important;
   padding-top: 4px !important;
   background: rgba(15, 23, 42, 0.98) !important;
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   border-top: 2.5px solid #334155 !important;
-  z-index: 1000 !important; /* Toujours au premier plan au-dessus de Leaflet */
+  z-index: 1000 !important; /* Toujours visible au-dessus de Leaflet et de la carte */
 }
 
 .nav-btn-item {
@@ -325,52 +278,54 @@ body {
   transform: scale(0.92) !important;
 }
 
+/* Touches d'action larges au format pilule haute visibilité */
 .nav-icon-pill {
-  width: clamp(50px, 13vmin, 62px) !important;
-  height: clamp(40px, 10vmin, 48px) !important;
-  border-radius: clamp(14px, 3.5vmin, 18px) !important;
+  width: 62px !important;
+  height: 48px !important;
+  border-radius: 16px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
   position: relative !important;
-  border-width: 2px !important;
+  border: 2px solid rgba(255, 255, 255, 0.85) !important;
 }
 
 .nav-icon-pill i,
 .nav-icon-pill svg {
-  width: clamp(22px, 5.8vmin, 28px) !important;
-  height: clamp(22px, 5.8vmin, 28px) !important;
+  width: 28px !important;
+  height: 28px !important;
 }
 
-/* Bouton central MON GPS en relief géant et pulsant */
+/* Bouton central MON GPS surélevé géant (72px) avec radar */
 #nav-gps-bubble {
-  width: clamp(58px, 15vmin, 72px) !important;
-  height: clamp(58px, 15vmin, 72px) !important;
+  width: 72px !important;
+  height: 72px !important;
   border-radius: 50% !important;
-  border: 3.5px solid #ffffff !important;
+  border: 4px solid #ffffff !important;
   background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.45), 0 2px 6px rgba(0,0,0,0.6) !important;
-  margin-top: -12px !important; /* Élévation moderne Floating Dock */
+  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5), 0 2px 8px rgba(0,0,0,0.8) !important;
+  margin-top: -16px !important; /* Effet d'élévation moderne */
   transition: transform 0.2s ease, background-color 0.2s ease !important;
 }
 
 #nav-gps-bubble i,
 #nav-gps-bubble svg {
-  width: clamp(28px, 7.5vmin, 36px) !important;
-  height: clamp(28px, 7.5vmin, 36px) !important;
+  width: 36px !important;
+  height: 36px !important;
 }
 
+/* Libellés sous les boutons en police ultra-épaisse et contrastée */
 .nav-label {
-  font-size: clamp(11.5px, 2.9vmin, 13.5px) !important;
+  font-size: 13px !important;
   font-weight: 900 !important;
-  letter-spacing: 0.02em !important;
+  letter-spacing: 0.03em !important;
   line-height: 1 !important;
-  margin-top: 1px !important;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
+  margin-top: 2px !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9) !important;
 }
 
 /* 3. MODALE GESTIONNAIRE DES TRACES GPX */
