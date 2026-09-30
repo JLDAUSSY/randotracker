@@ -600,9 +600,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=24')
+    navigator.serviceWorker.register('./sw.js?v=25')
       .then((reg) => {
-        console.log('[PWA] Service Worker v24 actif:', reg.scope);
+        console.log('[PWA] Service Worker v25 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -1043,8 +1043,44 @@ function renderTrackOnMap(track) {
 }
 
 // ============================================================================
-// BANDEAU FLOTTANT RAPIDE DES TRACES GPX
+// BANDEAU FLOTTANT RAPIDE DES TRACES GPX & FLÈCHES INDICATRICES
 // ============================================================================
+function scrollTracksBar(delta) {
+  const bar = document.getElementById('quick-tracks-bar');
+  if (bar) {
+    bar.scrollBy({ left: delta, behavior: 'smooth' });
+    setTimeout(updateTracksScrollArrows, 200);
+  }
+}
+
+function updateTracksScrollArrows() {
+  const bar = document.getElementById('quick-tracks-bar');
+  const leftBtn = document.getElementById('tracks-scroll-left');
+  const rightBtn = document.getElementById('tracks-scroll-right');
+  if (!bar || !leftBtn || !rightBtn) return;
+
+  const scrollLeft = bar.scrollLeft;
+  const maxScrollLeft = bar.scrollWidth - bar.clientWidth;
+
+  // Flèche gauche visible si le bandeau est défilé de plus de 10px vers la droite
+  if (scrollLeft > 10) {
+    leftBtn.classList.remove('hidden');
+    leftBtn.classList.add('flex');
+  } else {
+    leftBtn.classList.remove('flex');
+    leftBtn.classList.add('hidden');
+  }
+
+  // Flèche droite visible si du contenu dépasse vers la droite (plus de 10px)
+  if (maxScrollLeft - scrollLeft > 10) {
+    rightBtn.classList.remove('hidden');
+    rightBtn.classList.add('flex');
+  } else {
+    rightBtn.classList.remove('flex');
+    rightBtn.classList.add('hidden');
+  }
+}
+
 function renderQuickTracksBar() {
   const bar = document.getElementById('quick-tracks-bar');
   if (!bar) return;
@@ -1068,6 +1104,7 @@ function renderQuickTracksBar() {
       `;
     }
     lucide.createIcons();
+    setTimeout(updateTracksScrollArrows, 50);
     return;
   }
 
@@ -1108,6 +1145,7 @@ function renderQuickTracksBar() {
 
   bar.innerHTML = tracksHtml + addPill + clearPill;
   lucide.createIcons();
+  setTimeout(updateTracksScrollArrows, 50);
 }
 
 function toggleTrackVisibility(trackId) {
@@ -2705,6 +2743,13 @@ function setupEventListeners() {
   // Fermetures tiroirs
   const closeUsers = document.getElementById('close-users-panel-btn');
   if (closeUsers) closeUsers.addEventListener('click', closeAllDrawers);
+
+  // Défilement bandeau traces GPX et flèches de défilement
+  const quickTracksBar = document.getElementById('quick-tracks-bar');
+  if (quickTracksBar) {
+    quickTracksBar.addEventListener('scroll', updateTracksScrollArrows);
+  }
+  window.addEventListener('resize', updateTracksScrollArrows);
 
   // Import GPX Multifichiers (1 à 5 fichiers sélectionnés d'un coup)
   const gpxInput = document.getElementById('gpx-file-input');

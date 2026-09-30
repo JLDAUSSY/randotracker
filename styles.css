@@ -5,14 +5,25 @@
   --sab: env(safe-area-inset-bottom, 0px);
 }
 
+/* RÈGLES CRITIQUES DE SECOURS (Anti-Flicker & Mode Hors-ligne) */
+.hidden, [hidden] {
+  display: none !important;
+}
+
 html {
   font-size: 18px !important; /* Agrandit l'ensemble de l'interface de 20% nativement */
   -webkit-tap-highlight-color: transparent;
+  height: 100%;
 }
 
 body {
   background-color: #020617;
+  color: #f8fafc;
   touch-action: manipulation;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 .safe-bottom {
@@ -104,20 +115,20 @@ body {
   gap: 6px;
 }
 
-/* POPUPS LEAFLET TRÈS GRANDS & LÉGERS */
+/* POPUPS LEAFLET TRÈS GRANDS & HAUTE LISIBILITÉ */
 .leaflet-popup-content-wrapper {
   background: #0f172a !important;
   color: #f8fafc !important;
-  border-radius: 28px !important;
-  border: 2px solid rgba(255,255,255,0.25) !important;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75) !important;
-  padding: 6px !important;
+  border-radius: 26px !important;
+  border: 2px solid rgba(255,255,255,0.3) !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.85) !important;
+  padding: 2px !important;
 }
 
 .leaflet-popup-content {
-  margin: 16px 20px !important;
-  font-size: 17px !important;
-  line-height: 1.5 !important;
+  margin: 8px 10px !important;
+  font-size: 16px !important;
+  line-height: 1.4 !important;
 }
 
 .leaflet-popup-tip {
@@ -172,3 +183,13 @@ body {
     transform: translateX(0) translateZ(0) !important;
   }
 }
+
+/* BANDEAU TRACES GPX & FLÈCHES FLOTTANTES */
+#quick-tracks-bar::-webkit-scrollbar {
+  display: none;
+}
+#quick-tracks-bar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

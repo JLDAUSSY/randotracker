@@ -49,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v24 -->
-  <link rel="stylesheet" href="styles.css?v=24" />
+  <!-- Custom Styles with Cache-Busting v25 -->
+  <link rel="stylesheet" href="styles.css?v=25" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -60,11 +60,11 @@
   <header class="h-20 sm:h-22 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-2.5 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
     <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
     <div id="brand-header-btn" class="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group active:scale-95 transition shrink-0" title="Jean-Luc DAUSSY 2026">
-      <img src="logo.png?v=24" alt="Logo RandoTracker" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl shadow-xl border-2 border-emerald-500/40 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+      <img src="logo.png?v=25" alt="Logo RandoTracker" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl shadow-xl border-2 border-emerald-500/40 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
       <div class="flex flex-col justify-center">
         <div class="flex items-center gap-1.5 sm:gap-2">
           <span class="font-black text-lg sm:text-2xl tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40 inline-flex items-center leading-none translate-y-[2px]">v24</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40 inline-flex items-center leading-none translate-y-[2px]">v25</span>
         </div>
         <span class="text-[11px] text-slate-400 group-hover:text-slate-200 font-bold tracking-wider mt-0.5 transition flex items-center gap-1 leading-none">
           <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-300 group-hover:text-emerald-400">JLD</span>
@@ -103,9 +103,22 @@
     <!-- LEAFLET MAP -->
     <div id="map" class="w-full h-full z-0"></div>
 
-    <!-- BANDEAU FLOTTANT DES TRACES GPX EN HAUT DE LA CARTE (Activer / Masquer en 1 clic) -->
-    <div id="quick-tracks-bar" class="absolute top-3 left-3 right-3 sm:left-6 sm:right-auto z-20 flex items-center gap-2 overflow-x-auto pb-1 max-w-[95vw]">
-      <!-- Injected via JavaScript : Boutons rapides pour chaque trace GPX + Bouton '+' -->
+    <!-- BANDEAU FLOTTANT DES TRACES GPX AVEC FLÈCHES INDICATRICES GAUCHE / DROITE -->
+    <div id="quick-tracks-wrapper" class="absolute top-3 left-2 right-2 sm:left-6 sm:right-auto z-20 flex items-center max-w-[96vw] sm:max-w-3xl">
+      <!-- Flèche Gauche (Apparaît si des traces sont cachées vers la gauche) -->
+      <button id="tracks-scroll-left" onclick="scrollTracksBar(-220)" class="hidden h-11 w-10 sm:h-12 sm:w-11 rounded-2xl bg-slate-900/98 hover:bg-slate-800 text-white border-2 border-emerald-400 items-center justify-center shadow-2xl shrink-0 mr-1.5 transition active:scale-90 z-30" title="Voir les parcours vers la gauche">
+        <i data-lucide="chevron-left" class="w-7 h-7 text-emerald-300 stroke-[3]"></i>
+      </button>
+
+      <!-- Bandeau Défilant des Traces GPX -->
+      <div id="quick-tracks-bar" class="flex-1 flex items-center gap-2 overflow-x-auto pb-1 scroll-smooth" style="scrollbar-width: none; -ms-overflow-style: none;">
+        <!-- Injected via JavaScript : Boutons rapides pour chaque trace GPX + Bouton '+' -->
+      </div>
+
+      <!-- Flèche Droite (Apparaît si d'autres parcours sont masqués vers la droite) -->
+      <button id="tracks-scroll-right" onclick="scrollTracksBar(220)" class="hidden h-11 w-10 sm:h-12 sm:w-11 rounded-2xl bg-slate-900/98 hover:bg-slate-800 text-white border-2 border-emerald-400 items-center justify-center shadow-2xl shrink-0 ml-1.5 transition active:scale-90 z-30 animate-pulse" title="Voir les autres parcours vers la droite">
+        <i data-lucide="chevron-right" class="w-7 h-7 text-emerald-300 stroke-[3]"></i>
+      </button>
     </div>
 
     <!-- BANDEAU ANNONCE EN DIRECT (SUR LA CARTE) -->
@@ -122,24 +135,24 @@
       </button>
     </div>
 
-    <!-- BOUTONS FLOTTANTS SUR LA CARTE (64px x 64px) -->
-    <div class="absolute bottom-6 right-4 z-20 flex flex-col gap-3.5">
-      <!-- Bouton d'Urgence SOS (Rouge Géant Haute Visibilité) -->
-      <button id="floating-sos-btn" onclick="openEmergencyModal()" class="w-16 h-16 rounded-3xl bg-gradient-to-br from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white shadow-2xl border-2 border-red-300 flex flex-col items-center justify-center transition active:scale-90" title="Secours & Numéros d'Urgence (15 SAMU, 112 Pompiers, GPS)">
-        <span class="text-2xl leading-none">🚨</span>
-        <span class="text-[10px] font-black tracking-wider leading-none mt-1 text-red-100 drop-shadow">SOS</span>
+    <!-- BOUTONS FLOTTANTS SUR LA CARTE (FORMAT GÉANT OUTDOOR 86px x 86px) -->
+    <div class="absolute bottom-5 right-3 sm:right-5 z-20 flex flex-col gap-3.5 sm:gap-4">
+      <!-- 1. Bouton d'Urgence SOS (Rouge Géant Haute Visibilité) -->
+      <button id="floating-sos-btn" onclick="openEmergencyModal()" class="w-[84px] h-[84px] sm:w-[96px] sm:h-[96px] rounded-[26px] sm:rounded-[30px] bg-gradient-to-br from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-600 text-white shadow-2xl border-[3px] border-white flex flex-col items-center justify-center transition active:scale-90 ring-4 ring-red-950/40" title="Secours & Numéros d'Urgence (15 SAMU, 112 Pompiers, GPS)">
+        <span class="text-3xl sm:text-4xl leading-none select-none">🚨</span>
+        <span class="text-[11px] sm:text-xs font-black tracking-wider leading-none mt-1 text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">SOS</span>
       </button>
 
-      <!-- Recadrer la vue sur toutes les traces (Bleu Azur Haute Visibilité) -->
-      <button id="fit-all-btn" class="w-16 h-16 rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white shadow-2xl border-2 border-blue-300 flex flex-col items-center justify-center transition active:scale-90" title="Recadrer la carte sur toutes les traces">
-        <i data-lucide="maximize-2" class="w-7 h-7 text-white"></i>
-        <span class="text-[10px] font-black tracking-tight leading-none mt-1 text-blue-100 drop-shadow">TRACES</span>
+      <!-- 2. Recadrer la vue sur toutes les traces (Bleu Royal Géant Haute Visibilité) -->
+      <button id="fit-all-btn" class="w-[84px] h-[84px] sm:w-[96px] sm:h-[96px] rounded-[26px] sm:rounded-[30px] bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-600 text-white shadow-2xl border-[3px] border-white flex flex-col items-center justify-center transition active:scale-90 ring-4 ring-blue-950/40" title="Recadrer la carte sur toutes les traces">
+        <i data-lucide="maximize-2" class="w-8 h-8 sm:w-10 sm:h-10 text-white stroke-[2.8]"></i>
+        <span class="text-[11px] sm:text-xs font-black tracking-wider leading-none mt-1 text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">TRACES</span>
       </button>
       
-      <!-- Centrer sur ma position GPS (Vert Émeraude Haute Visibilité) -->
-      <button id="center-my-gps-btn" class="w-16 h-16 rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-2xl border-2 border-emerald-300 flex flex-col items-center justify-center transition active:scale-90" title="Centrer sur ma position GPS">
-        <i data-lucide="crosshair" class="w-7 h-7 text-white"></i>
-        <span class="text-[10px] font-black tracking-tight leading-none mt-1 text-emerald-100 drop-shadow">MON GPS</span>
+      <!-- 3. Centrer sur ma position GPS (Vert Émeraude Géant Haute Visibilité) -->
+      <button id="center-my-gps-btn" class="w-[84px] h-[84px] sm:w-[96px] sm:h-[96px] rounded-[26px] sm:rounded-[30px] bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-2xl border-[3px] border-white flex flex-col items-center justify-center transition active:scale-90 ring-4 ring-emerald-950/40" title="Centrer sur ma position GPS">
+        <i data-lucide="crosshair" class="w-8 h-8 sm:w-10 sm:h-10 text-white stroke-[2.8]"></i>
+        <span class="text-[11px] sm:text-xs font-black tracking-wider leading-none mt-1 text-white uppercase drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">MON GPS</span>
       </button>
     </div>
 
@@ -813,7 +826,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v24 -->
-  <script src="app.js?v=24"></script>
+  <!-- Main Application Script with Cache-Busting v25 -->
+  <script src="app.js?v=25"></script>
 </body>
 </html>
