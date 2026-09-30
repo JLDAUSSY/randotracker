@@ -863,34 +863,34 @@
               </div>
             </div>
           </div>
-          <button onclick="closeEmergencyModal()" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-white bg-slate-800 border border-slate-700 active:scale-90 transition shrink-0">
+          <button onclick="closeEmergencyModal()" class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-white bg-slate-800 border border-slate-700 active:scale-90 transition shrink-0" title="Fermer">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
 
         <!-- CARTOUCHE GPS GÉANT (DD, DMS, ALTITUDE) -->
-        <div class="rounded-2xl bg-slate-950/95 border-2 border-emerald-500/70 p-2.5 shadow-xl flex flex-col gap-1.5 shrink-0">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+        <div class="rounded-2xl bg-slate-950/95 border-2 border-emerald-500/70 p-3 shadow-xl flex flex-col gap-2 shrink-0">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <!-- Format Décimal (DD) -->
-            <div class="bg-slate-900/90 rounded-xl p-2 border border-slate-800 flex flex-col justify-center">
+            <div class="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800 flex flex-col justify-center">
               <span class="text-[9px] font-bold text-slate-400 uppercase">Degrés Décimaux (DD) :</span>
               <div id="emergency-gps-decimal" class="text-base sm:text-lg font-mono font-black text-white select-all leading-tight">
-                45.89200° N, 6.15500° E
+                43.12244° N, 5.77957° E
               </div>
             </div>
 
             <!-- Format Degrés Minutes Secondes (DMS) -->
-            <div class="bg-slate-900/90 rounded-xl p-2 border border-slate-800 flex flex-col justify-center">
+            <div class="bg-slate-900/90 rounded-xl p-2.5 border border-slate-800 flex flex-col justify-center">
               <span class="text-[9px] font-bold text-slate-400 uppercase">Degrés Minutes Secondes (DMS) :</span>
               <div id="emergency-gps-dms" class="text-xs sm:text-sm font-mono font-black text-emerald-300 select-all leading-tight">
-                45° 53' 31" N, 6° 09' 18" E
+                43° 07' 21" N, 5° 46' 46" E
               </div>
             </div>
           </div>
 
           <!-- Métadonnées & Copier -->
-          <div class="flex items-center justify-between gap-2 pt-0.5 border-t border-slate-800/80">
-            <span id="emergency-gps-meta" class="text-[11px] font-bold text-slate-300 truncate">Alt : -- m • Précision : ±-- m</span>
+          <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+            <span id="emergency-gps-meta" class="text-xs font-bold text-slate-300 truncate">Alt : -- m • Précision : ±-- m</span>
             <button onclick="copyEmergencyGpsCoords()" class="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-emerald-300 text-xs font-black flex items-center gap-1.5 border border-slate-700 active:scale-95 transition shrink-0" title="Copier les coordonnées GPS">
               <i data-lucide="copy" class="w-3.5 h-3.5 text-emerald-400"></i>
               <span id="copy-emergency-gps-text">Copier GPS</span>
@@ -898,112 +898,67 @@
           </div>
         </div>
 
-        <!-- GUIDE DE DICTÉE VOCALE VISIBLE EN PERMANENCE -->
-        <div class="p-2 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-200 font-bold leading-snug flex items-center gap-2 shrink-0">
-          <span class="text-base shrink-0">🗣️</span>
-          <span class="truncate" id="emergency-dictation-preview">« Je suis à <b class="text-emerald-400" id="dictate-coords">45.89200° N, 6.15500° E</b>, alt. <b class="text-white" id="dictate-alt">-- m</b> »</span>
+        <!-- GUIDE DE DICTÉE VOCALE DIRECTEMENT VISIBLE -->
+        <div class="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 text-xs sm:text-sm text-slate-200 font-bold leading-snug flex items-center gap-2 shrink-0">
+          <span class="text-lg shrink-0">🗣️</span>
+          <span class="truncate" id="emergency-dictation-preview">« Je suis en détresse à <b class="text-emerald-400" id="dictate-coords">43.12244° N, 5.77957° E</b>, alt. <b class="text-white" id="dictate-alt">-- m</b> »</span>
         </div>
       </div>
 
       <!-- ============================================================= -->
-      <!-- MOITIÉ BASSE (50%) : TÉLÉPHONE, SMS & ACTIONS DIRECTES        -->
+      <!-- MOITIÉ BASSE (50%) : 3 BOUTONS DIRECTS GÉANTS (15, 112, 114) -->
       <!-- ============================================================= -->
       <div id="emergency-actions-bottom-half">
         
-        <!-- BANDEAU APPEL EN COURS / NOTIFICATION -->
-        <div id="emergency-call-in-progress" class="hidden bg-red-600/30 border-2 border-red-500 rounded-xl p-2.5 flex items-center justify-between gap-2 shadow-xl shrink-0">
-          <div class="flex items-center gap-2 min-w-0 flex-1">
-            <span class="text-xl shrink-0">📞</span>
-            <div class="min-w-0 flex-1">
-              <div class="text-[10px] font-black text-red-300 uppercase tracking-wider">Appel déclenché</div>
-              <div id="emergency-call-service-name" class="text-xs sm:text-sm font-black text-white truncate">15 - SAMU Urgences Médicales</div>
-              <div class="text-[10px] text-emerald-300 font-bold">📍 Coordonnées en haut & dans les notifications</div>
+        <!-- 3 GRANDS BOUTONS DIRECTS (REMPLIS PAR renderEmergencyActionsPad) -->
+        <div class="flex flex-col gap-2.5 w-full" id="emergency-numbers-list">
+          
+          <!-- 1. 🟢 BOUTON 15 SAMU -->
+          <button type="button" onclick="makeEmergencyCall('15')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-400/40">
+            <span class="emergency-btn-badge">15</span>
+            <div class="text-left flex-1 min-w-0">
+              <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+                <span>📞 SAMU</span>
+                <span class="text-xs opacity-80 font-normal">Urgences Médicales</span>
+              </div>
+              <div class="text-[11px] text-emerald-100 opacity-90 truncate">Malaise, traumatisme, urgence vitale</div>
             </div>
-          </div>
-          <button onclick="dismissEmergencyCallBanner()" class="text-[10px] font-black bg-slate-900 hover:bg-slate-800 px-2.5 py-1 rounded-lg text-slate-200 border border-slate-700 shrink-0">
-            Fermer
+            <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
           </button>
+
+          <!-- 2. 🔴 BOUTON 112 POMPIERS & SECOURS MONTAGNE -->
+          <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white border-red-400/40">
+            <span class="emergency-btn-badge">112</span>
+            <div class="text-left flex-1 min-w-0">
+              <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+                <span>📞 Secours & Pompiers</span>
+              </div>
+              <div class="text-[11px] text-red-100 opacity-90 truncate">Secours montagne PGHM / CRS, accident</div>
+            </div>
+            <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
+          </button>
+
+          <!-- 3. 🟣 BOUTON 114 SMS D'URGENCE AVEC GPS -->
+          <button type="button" onclick="sendEmergencySms('114')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 hover:to-purple-500 text-white border-purple-400/40">
+            <span class="emergency-btn-badge">114</span>
+            <div class="text-left flex-1 min-w-0">
+              <div class="text-base sm:text-lg font-black leading-tight flex items-center gap-2">
+                <span>💬 SMS d'Urgence</span>
+                <span class="text-[10px] bg-purple-900/60 px-2 py-0.5 rounded-full border border-purple-300/40 font-mono">avec GPS</span>
+              </div>
+              <div class="text-[11px] text-purple-100 opacity-90 truncate">Zone sans réseau vocal / Sourd / Muet</div>
+            </div>
+            <i data-lucide="message-square" class="w-6 h-6 text-white shrink-0"></i>
+          </button>
+
         </div>
 
-        <!-- SÉLECTEUR D'ONGLETS : 1-CLIC SECOURS / CLAVIER TÉLÉPHONE -->
-        <div class="grid grid-cols-2 gap-2 shrink-0" id="emergency-tabs-bar">
-          <button type="button" id="tab-btn-quick-sos" onclick="switchEmergencyTab('quick')" class="py-2 px-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition border-2 border-red-500 bg-red-600/30 text-white shadow-md">
-            <span>🚨 Secours 1-Clic</span>
+        <!-- ALERTE GROUPE RANDOTRACKER -->
+        <div class="pt-1 border-t border-slate-800/80">
+          <button id="emergency-modal-group-sos-btn" onclick="toggleGroupSosAlert()" class="w-full py-2.5 px-3 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border-2 border-red-500/50 font-black text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md">
+            <i data-lucide="radio" class="w-4 h-4 text-red-400"></i>
+            <span id="emergency-modal-group-sos-text">🚨 Activer l'alerte SOS sur les téléphones du groupe</span>
           </button>
-          <button type="button" id="tab-btn-dialer" onclick="switchEmergencyTab('dialer')" class="py-2 px-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition border-2 border-slate-700 bg-slate-800 text-slate-300 hover:text-white">
-            <span>🔢 Clavier Téléphone</span>
-          </button>
-        </div>
-
-        <!-- ONGLET 1 : SECOURS DIRECTS 1-CLIC -->
-        <div id="tab-content-quick-sos" class="flex flex-col gap-2">
-          
-          <!-- LISTE DES NUMÉROS D'URGENCE (15, 112, 114) AVEC BOUTONS D'APPEL ET SMS DIRECTS -->
-          <div class="space-y-2" id="emergency-numbers-list">
-            <!-- Rempli par renderEmergencyActionsPad() -->
-          </div>
-
-          <!-- BOUTON ALERTE SOS SUR LE GROUPE -->
-          <div class="pt-1 border-t border-slate-800">
-            <button id="emergency-modal-group-sos-btn" onclick="toggleGroupSosAlert()" class="w-full py-3 px-3 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border-2 border-red-500/50 font-black text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md">
-              <i data-lucide="radio" class="w-4 h-4 text-red-400"></i>
-              <span id="emergency-modal-group-sos-text">🚨 Activer l'alerte SOS sur les téléphones du groupe</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- ONGLET 2 : CLAVIER TÉLÉPHONIQUE & NUMÉRO LIBRE -->
-        <div id="tab-content-dialer" class="hidden flex flex-col gap-2">
-          
-          <!-- ÉCRAN DU NUMÉRO COMPOSÉ -->
-          <div class="bg-slate-950 rounded-xl p-2 border-2 border-slate-700 flex items-center justify-between gap-2 shadow-inner">
-            <input type="tel" id="dialer-input" placeholder="Composez un numéro..." class="bg-transparent text-white font-mono font-black text-base sm:text-lg w-full focus:outline-none tracking-wider px-1" readonly />
-            <button onclick="dialerBackspace()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 active:scale-90 transition shrink-0" title="Effacer">
-              <i data-lucide="delete" class="w-4 h-4"></i>
-            </button>
-          </div>
-
-          <!-- RACCOURCIS SECOURS MONTAGNE -->
-          <div class="flex items-center gap-1.5 overflow-x-auto py-0.5">
-            <button onclick="dialerSetNumber('0450531689')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 text-[10px] font-black border border-slate-700 shrink-0">
-              🏔️ PGHM Chamonix
-            </button>
-            <button onclick="dialerSetNumber('0492215858')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 text-[10px] font-black border border-slate-700 shrink-0">
-              🏔️ PGHM Briançon
-            </button>
-            <button onclick="dialerSetNumber('0476775770')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-200 text-[10px] font-black border border-slate-700 shrink-0">
-              🏔️ PGHM Grenoble
-            </button>
-          </div>
-
-          <!-- CLAVIER NUMÉRIQUE TACTILE (3 COLONNES) -->
-          <div class="grid grid-cols-3 gap-1.5">
-            <button type="button" onclick="dialerAppend('1')" class="dialer-key">1</button>
-            <button type="button" onclick="dialerAppend('2')" class="dialer-key">2 <span class="dialer-sub">ABC</span></button>
-            <button type="button" onclick="dialerAppend('3')" class="dialer-key">3 <span class="dialer-sub">DEF</span></button>
-            <button type="button" onclick="dialerAppend('4')" class="dialer-key">4 <span class="dialer-sub">GHI</span></button>
-            <button type="button" onclick="dialerAppend('5')" class="dialer-key">5 <span class="dialer-sub">JKL</span></button>
-            <button type="button" onclick="dialerAppend('6')" class="dialer-key">6 <span class="dialer-sub">MNO</span></button>
-            <button type="button" onclick="dialerAppend('7')" class="dialer-key">7 <span class="dialer-sub">PQRS</span></button>
-            <button type="button" onclick="dialerAppend('8')" class="dialer-key">8 <span class="dialer-sub">TUV</span></button>
-            <button type="button" onclick="dialerAppend('9')" class="dialer-key">9 <span class="dialer-sub">WXYZ</span></button>
-            <button type="button" onclick="dialerAppend('*')" class="dialer-key">*</button>
-            <button type="button" onclick="dialerAppend('0')" class="dialer-key">0 <span class="dialer-sub">+</span></button>
-            <button type="button" onclick="dialerAppend('#')" class="dialer-key">#</button>
-          </div>
-
-          <!-- ACTIONS DU CLAVIER : APPELER OU SMS -->
-          <div class="grid grid-cols-2 gap-2 pt-1">
-            <button type="button" onclick="dialerCall()" class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
-              <i data-lucide="phone-call" class="w-4 h-4"></i>
-              <span>📞 Appeler</span>
-            </button>
-            <button type="button" onclick="dialerSms()" class="py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition">
-              <i data-lucide="message-square" class="w-4 h-4"></i>
-              <span>💬 SMS GPS</span>
-            </button>
-          </div>
-
         </div>
 
       </div>
@@ -1011,7 +966,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v36 -->
-  <script src="app.js?v=36"></script>
+  <!-- Main Application Script with Cache-Busting v37 -->
+  <script src="app.js?v=37"></script>
 </body>
 </html>

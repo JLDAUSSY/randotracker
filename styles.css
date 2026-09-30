@@ -655,19 +655,19 @@ main {
   background-color: #020617 !important;
 }
 
-/* SECTION 1 HAUTE (STRICTEMENT 50%) : COORDONNÉES GPS FIXES ULTRA-LISIBLES */
+/* SECTION 1 HAUTE (50%) : COORDONNÉES GPS FIXES ULTRA-LISIBLES */
 #emergency-gps-top-half {
   flex: 0 0 50% !important;
   height: 50% !important;
   min-height: 50% !important;
   max-height: 50% !important;
   background: linear-gradient(180deg, #090e17 0%, #0f172a 100%) !important;
-  border-bottom: 3.5px solid #ef4444 !important;
-  padding: 8px 12px !important;
+  border-bottom: 3px solid #ef4444 !important;
+  padding: 10px 14px !important;
   display: flex !important;
   flex-direction: column !important;
-  justify-content: space-between !important;
-  gap: 4px !important;
+  justify-content: space-evenly !important;
+  gap: 6px !important;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7) !important;
   z-index: 10 !important;
   overflow-y: auto !important;
@@ -675,7 +675,7 @@ main {
   box-sizing: border-box !important;
 }
 
-/* SECTION 2 BASSE (STRICTEMENT 50%) : APPELS TÉLÉPHONE & ACTIONS INTÉGRÉES */
+/* SECTION 2 BASSE (50%) : 3 GRANDS BOUTONS 15, 112, 114 */
 #emergency-actions-bottom-half {
   flex: 0 0 50% !important;
   height: 50% !important;
@@ -683,43 +683,46 @@ main {
   max-height: 50% !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch !important;
-  padding: 8px 12px 14px 12px !important;
+  padding: 10px 14px 14px 14px !important;
   background-color: #0b1120 !important;
   display: flex !important;
   flex-direction: column !important;
+  justify-content: space-evenly !important;
   gap: 8px !important;
   box-sizing: border-box !important;
 }
 
-/* Clavier Téléphonique Virtuel Tactile */
-.dialer-key {
-  background: #1e293b !important;
-  color: #ffffff !important;
-  border: 1.5px solid #334155 !important;
-  border-radius: 12px !important;
-  height: 42px !important;
-  font-size: 16px !important;
-  font-weight: 900 !important;
+.emergency-big-btn {
+  width: 100% !important;
   display: flex !important;
-  flex-direction: column !important;
   align-items: center !important;
-  justify-content: center !important;
-  transition: background-color 0.15s, transform 0.1s !important;
+  gap: 12px !important;
+  padding: 12px 16px !important;
+  border-radius: 16px !important;
+  font-weight: 900 !important;
+  transition: transform 0.15s ease, filter 0.15s ease !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
+  text-decoration: none !important;
+  border: 2px solid transparent !important;
   user-select: none !important;
   -webkit-user-select: none !important;
+  cursor: pointer !important;
 }
 
-.dialer-key:active {
-  background: #3b82f6 !important;
-  transform: scale(0.92) !important;
+.emergency-big-btn:active {
+  transform: scale(0.97) !important;
 }
 
-.dialer-sub {
-  font-size: 8px !important;
-  color: #94a3b8 !important;
-  font-weight: 700 !important;
-  margin-top: -2px !important;
-  letter-spacing: 0.05em !important;
+.emergency-btn-badge {
+  font-size: 22px !important;
+  font-weight: 900 !important;
+  font-family: monospace !important;
+  padding: 4px 10px !important;
+  border-radius: 10px !important;
+  background: rgba(0, 0, 0, 0.35) !important;
+  border: 1.5px solid rgba(255, 255, 255, 0.4) !important;
+  color: #ffffff !important;
+  flex-shrink: 0 !important;
 }
 
 /* 7. TIROIR PROFIL ALTIMÉTRIQUE (Z-INDEX 940) */
