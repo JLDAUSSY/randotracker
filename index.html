@@ -49,46 +49,46 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v25 -->
-  <link rel="stylesheet" href="styles.css?v=25" />
+  <!-- Custom Styles with Cache-Busting v26 -->
+  <link rel="stylesheet" href="styles.css?v=26" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
   <!-- ================================================================= -->
-  <!-- TOP HEADER RESPONSIVE & GÉANT (100% VISIBLE SUR TOUS LES MOBILES) -->
+  <!-- TOP HEADER GÉANT HAUTE VISIBILITÉ (100% LISIBLE SUR SMARTPHONES) -->
   <!-- ================================================================= -->
-  <header class="h-20 sm:h-22 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-2.5 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
+  <header class="h-24 sm:h-26 bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-3 sm:px-6 flex items-center justify-between z-30 shadow-2xl shrink-0">
     <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
-    <div id="brand-header-btn" class="flex items-center gap-2 sm:gap-3 cursor-pointer select-none group active:scale-95 transition shrink-0" title="Jean-Luc DAUSSY 2026">
-      <img src="logo.png?v=25" alt="Logo RandoTracker" class="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl shadow-xl border-2 border-emerald-500/40 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+    <div id="brand-header-btn" class="flex items-center gap-2.5 sm:gap-3.5 cursor-pointer select-none group active:scale-95 transition shrink-0" title="Jean-Luc DAUSSY 2026">
+      <img src="logo.png?v=26" alt="Logo RandoTracker" class="w-13 h-13 sm:w-15 sm:h-15 rounded-2xl shadow-xl border-2 border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
       <div class="flex flex-col justify-center">
-        <div class="flex items-center gap-1.5 sm:gap-2">
-          <span class="font-black text-lg sm:text-2xl tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono font-black border border-emerald-500/40 inline-flex items-center leading-none translate-y-[2px]">v25</span>
+        <div class="flex items-center gap-2">
+          <span class="font-black text-xl sm:text-3xl tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/50 inline-flex items-center leading-none">v26</span>
         </div>
-        <span class="text-[11px] text-slate-400 group-hover:text-slate-200 font-bold tracking-wider mt-0.5 transition flex items-center gap-1 leading-none">
-          <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-300 group-hover:text-emerald-400">JLD</span>
+        <span class="text-xs text-slate-300 group-hover:text-slate-100 font-bold tracking-wider mt-1 transition flex items-center gap-1 leading-none">
+          <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
         </span>
       </div>
     </div>
 
-    <!-- Actions Haut Droite GÉANTES & ADAPTATIVES (Garantit 100% de visibilité sur TOUS les smartphones) -->
-    <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
+    <!-- Actions Haut Droite GÉANTES & HAUTE VISIBILITÉ -->
+    <div class="flex items-center gap-2 sm:gap-3 shrink-0">
       <!-- Choix Fond de Carte (IGN / Topo) -->
-      <button id="open-layer-modal-btn" class="h-12 px-3 sm:px-4 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 text-xs sm:text-sm font-black flex items-center gap-1.5 sm:gap-2 transition active:scale-95 shadow-lg" title="Choisir le fond de carte">
-        <i data-lucide="layers" class="w-5 h-5 text-emerald-400 shrink-0"></i>
-        <span id="active-layer-label" class="font-bold">IGN France</span>
+      <button id="open-layer-modal-btn" class="h-13 sm:h-14 px-3.5 sm:px-5 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-600 text-xs sm:text-sm font-black flex items-center gap-2 transition active:scale-95 shadow-xl" title="Choisir le fond de carte">
+        <i data-lucide="layers" class="w-6 h-6 text-emerald-400 shrink-0"></i>
+        <span id="active-layer-label" class="font-bold text-xs sm:text-sm">IGN France</span>
       </button>
 
       <!-- Bouton Inviter des Amis -->
-      <button id="header-invite-btn" class="h-12 px-3 sm:px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-black flex items-center gap-1.5 sm:gap-2 shadow-lg transition active:scale-95" title="Inviter des marcheurs">
-        <i data-lucide="user-plus" class="w-5 h-5 shrink-0"></i>
+      <button id="header-invite-btn" class="h-13 sm:h-14 px-4 sm:px-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-black flex items-center gap-2 shadow-xl border-2 border-blue-400 transition active:scale-95" title="Inviter des marcheurs">
+        <i data-lucide="user-plus" class="w-6 h-6 shrink-0"></i>
         <span>Inviter</span>
       </button>
 
       <!-- Mon Profil -->
-      <button id="open-profile-btn" class="h-12 w-12 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 flex items-center justify-center transition active:scale-95 shadow-lg shrink-0" title="Mon Profil">
-        <div id="header-avatar-badge" class="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-lg font-black text-white shadow">
+      <button id="open-profile-btn" class="h-13 w-13 sm:h-14 sm:w-14 rounded-2xl bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-600 flex items-center justify-center transition active:scale-95 shadow-xl shrink-0" title="Mon Profil">
+        <div id="header-avatar-badge" class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-emerald-600 flex items-center justify-center text-xl sm:text-2xl font-black text-white shadow">
           🌲
         </div>
       </button>
@@ -103,21 +103,22 @@
     <!-- LEAFLET MAP -->
     <div id="map" class="w-full h-full z-0"></div>
 
-    <!-- BANDEAU FLOTTANT DES TRACES GPX AVEC FLÈCHES INDICATRICES GAUCHE / DROITE -->
-    <div id="quick-tracks-wrapper" class="absolute top-3 left-2 right-2 sm:left-6 sm:right-auto z-20 flex items-center max-w-[96vw] sm:max-w-3xl">
+    <!-- BANDEAU FLOTTANT DES TRACES GPX AVEC FLÈCHES INDICATRICES ULTRA-VISIBLES -->
+    <div id="quick-tracks-wrapper" class="absolute top-3 left-2 right-2 sm:left-6 sm:right-auto z-20 flex items-center max-w-[97vw] sm:max-w-4xl">
       <!-- Flèche Gauche (Apparaît si des traces sont cachées vers la gauche) -->
-      <button id="tracks-scroll-left" onclick="scrollTracksBar(-220)" class="hidden h-11 w-10 sm:h-12 sm:w-11 rounded-2xl bg-slate-900/98 hover:bg-slate-800 text-white border-2 border-emerald-400 items-center justify-center shadow-2xl shrink-0 mr-1.5 transition active:scale-90 z-30" title="Voir les parcours vers la gauche">
-        <i data-lucide="chevron-left" class="w-7 h-7 text-emerald-300 stroke-[3]"></i>
+      <button id="tracks-scroll-left" onclick="scrollTracksBar(-260)" style="display: none;" class="h-13 w-12 sm:h-14 sm:w-13 rounded-2xl bg-slate-900/98 hover:bg-slate-800 text-white border-2 border-emerald-400 flex items-center justify-center shadow-2xl shrink-0 mr-2 transition active:scale-90 z-30" title="Voir les parcours vers la gauche">
+        <i data-lucide="chevron-left" class="w-8 h-8 text-emerald-300 stroke-[3.5]"></i>
       </button>
 
       <!-- Bandeau Défilant des Traces GPX -->
-      <div id="quick-tracks-bar" class="flex-1 flex items-center gap-2 overflow-x-auto pb-1 scroll-smooth" style="scrollbar-width: none; -ms-overflow-style: none;">
+      <div id="quick-tracks-bar" class="flex-1 flex items-center gap-2.5 overflow-x-auto pb-1.5 scroll-smooth" style="scrollbar-width: none; -ms-overflow-style: none;">
         <!-- Injected via JavaScript : Boutons rapides pour chaque trace GPX + Bouton '+' -->
       </div>
 
       <!-- Flèche Droite (Apparaît si d'autres parcours sont masqués vers la droite) -->
-      <button id="tracks-scroll-right" onclick="scrollTracksBar(220)" class="hidden h-11 w-10 sm:h-12 sm:w-11 rounded-2xl bg-slate-900/98 hover:bg-slate-800 text-white border-2 border-emerald-400 items-center justify-center shadow-2xl shrink-0 ml-1.5 transition active:scale-90 z-30 animate-pulse" title="Voir les autres parcours vers la droite">
-        <i data-lucide="chevron-right" class="w-7 h-7 text-emerald-300 stroke-[3]"></i>
+      <button id="tracks-scroll-right" onclick="scrollTracksBar(260)" style="display: none;" class="h-13 px-3.5 sm:h-14 sm:px-4 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-600 text-white border-2 border-white flex items-center justify-center gap-1.5 shadow-2xl shrink-0 ml-2 transition active:scale-90 z-30 animate-pulse" title="Voir les autres parcours vers la droite">
+        <span class="text-xs sm:text-sm font-black uppercase tracking-wider text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">Autres</span>
+        <i data-lucide="chevron-right" class="w-7 h-7 text-white stroke-[3.5]"></i>
       </button>
     </div>
 
@@ -826,7 +827,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v25 -->
-  <script src="app.js?v=25"></script>
+  <!-- Main Application Script with Cache-Busting v26 -->
+  <script src="app.js?v=26"></script>
 </body>
 </html>

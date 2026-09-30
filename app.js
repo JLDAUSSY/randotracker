@@ -600,9 +600,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=25')
+    navigator.serviceWorker.register('./sw.js?v=26')
       .then((reg) => {
-        console.log('[PWA] Service Worker v25 actif:', reg.scope);
+        console.log('[PWA] Service Worker v26 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -1049,7 +1049,8 @@ function scrollTracksBar(delta) {
   const bar = document.getElementById('quick-tracks-bar');
   if (bar) {
     bar.scrollBy({ left: delta, behavior: 'smooth' });
-    setTimeout(updateTracksScrollArrows, 200);
+    setTimeout(updateTracksScrollArrows, 150);
+    setTimeout(updateTracksScrollArrows, 350);
   }
 }
 
@@ -1059,25 +1060,21 @@ function updateTracksScrollArrows() {
   const rightBtn = document.getElementById('tracks-scroll-right');
   if (!bar || !leftBtn || !rightBtn) return;
 
-  const scrollLeft = bar.scrollLeft;
-  const maxScrollLeft = bar.scrollWidth - bar.clientWidth;
+  const scrollLeft = Math.round(bar.scrollLeft);
+  const maxScrollLeft = Math.round(bar.scrollWidth - bar.clientWidth);
 
-  // Flèche gauche visible si le bandeau est défilé de plus de 10px vers la droite
-  if (scrollLeft > 10) {
-    leftBtn.classList.remove('hidden');
-    leftBtn.classList.add('flex');
+  // Flèche gauche visible si le bandeau est défilé de plus de 8px vers la droite
+  if (scrollLeft > 8) {
+    leftBtn.style.display = 'flex';
   } else {
-    leftBtn.classList.remove('flex');
-    leftBtn.classList.add('hidden');
+    leftBtn.style.display = 'none';
   }
 
-  // Flèche droite visible si du contenu dépasse vers la droite (plus de 10px)
-  if (maxScrollLeft - scrollLeft > 10) {
-    rightBtn.classList.remove('hidden');
-    rightBtn.classList.add('flex');
+  // Flèche droite visible si du contenu dépasse vers la droite (plus de 8px)
+  if (maxScrollLeft > 12 && scrollLeft < maxScrollLeft - 8) {
+    rightBtn.style.display = 'flex';
   } else {
-    rightBtn.classList.remove('flex');
-    rightBtn.classList.add('hidden');
+    rightBtn.style.display = 'none';
   }
 }
 
@@ -1088,64 +1085,66 @@ function renderQuickTracksBar() {
   if (state.tracks.length === 0) {
     if (state.isOrganizer) {
       bar.innerHTML = `
-        <div class="flex items-center gap-2 bg-slate-900/95 border-2 border-emerald-500/60 rounded-2xl p-1.5 shadow-2xl">
-          <label for="gpx-file-input" class="cursor-pointer flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm px-4 py-2.5 rounded-xl shadow transition active:scale-95">
-            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+        <div class="flex items-center gap-2 bg-slate-900/98 border-2 border-emerald-500/80 rounded-2xl p-2 shadow-2xl">
+          <label for="gpx-file-input" class="cursor-pointer flex items-center gap-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm sm:text-base px-5 py-3 rounded-xl shadow transition active:scale-95">
+            <i data-lucide="upload-cloud" class="w-6 h-6"></i>
             <span>📂 Charger vos GPX (jusqu'à 5)</span>
           </label>
         </div>
       `;
     } else {
       bar.innerHTML = `
-        <div class="flex items-center gap-2.5 bg-slate-900/95 border-2 border-slate-700/80 rounded-2xl px-4 py-2.5 shadow-2xl text-slate-300 text-xs font-bold">
-          <span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+        <div class="flex items-center gap-3 bg-slate-900/98 border-2 border-slate-700/90 rounded-2xl px-5 py-3 shadow-2xl text-slate-200 text-xs sm:text-sm font-bold">
+          <span class="inline-block w-3 h-3 rounded-full bg-amber-400 animate-pulse"></span>
           <span>En attente de la transmission des traces du guide...</span>
         </div>
       `;
     }
     lucide.createIcons();
-    setTimeout(updateTracksScrollArrows, 50);
+    setTimeout(updateTracksScrollArrows, 60);
     return;
   }
 
   const tracksHtml = state.tracks.map((track) => `
-    <div class="flex items-center gap-1 bg-slate-900/95 border-2 ${track.visible ? 'border-slate-700' : 'border-slate-800 opacity-50'} rounded-2xl px-3 py-2 shadow-2xl shrink-0">
-      <button onclick="toggleTrackVisibility('${track.id}')" class="flex items-center gap-2 text-white font-black text-sm active:scale-95" title="Afficher/Masquer">
-        <span class="w-4 h-4 rounded-full shadow shrink-0" style="background-color: ${track.color.hex}"></span>
-        <span class="truncate max-w-[110px] sm:max-w-[160px]">${track.name}</span>
-        <span class="text-xs text-emerald-400 font-black">${track.totalDistance.toFixed(1)}km</span>
+    <div class="flex items-center gap-2 bg-slate-900/98 border-[2.5px] ${track.visible ? 'border-emerald-500/80 shadow-emerald-950/40' : 'border-slate-800 opacity-60'} rounded-2xl px-4 py-2.5 shadow-2xl shrink-0">
+      <button onclick="toggleTrackVisibility('${track.id}')" class="flex items-center gap-2.5 text-white font-black text-sm sm:text-base active:scale-95" title="Afficher/Masquer">
+        <span class="w-5 h-5 rounded-full shadow-md border-2 border-white shrink-0" style="background-color: ${track.color.hex}"></span>
+        <span class="truncate max-w-[160px] sm:max-w-[240px] font-black text-white text-sm sm:text-base">${track.name}</span>
+        <span class="text-xs sm:text-sm text-emerald-300 font-mono font-black px-2.5 py-0.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 shrink-0">${track.totalDistance.toFixed(1)} km</span>
       </button>
-      <button onclick="openElevationDrawer('${track.id}')" class="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800" title="Profil altimétrique">
-        <i data-lucide="bar-chart-2" class="w-4 h-4 text-emerald-400"></i>
+      <div class="h-6 w-[1.5px] bg-slate-700/80 mx-0.5"></div>
+      <button onclick="openElevationDrawer('${track.id}')" class="p-2 text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 active:scale-90" title="Profil altimétrique">
+        <i data-lucide="bar-chart-2" class="w-5 h-5 text-emerald-400"></i>
       </button>
-      <button onclick="zoomToTrack('${track.id}')" class="p-1.5 text-slate-300 hover:text-white rounded-lg hover:bg-slate-800" title="Centrer">
-        <i data-lucide="maximize" class="w-4 h-4"></i>
+      <button onclick="zoomToTrack('${track.id}')" class="p-2 text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 active:scale-90" title="Centrer">
+        <i data-lucide="maximize" class="w-5 h-5 text-blue-400"></i>
       </button>
       ${state.isOrganizer ? `
-        <button onclick="removeTrack('${track.id}')" class="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-slate-800" title="Supprimer">
-          <i data-lucide="x" class="w-4 h-4"></i>
+        <button onclick="removeTrack('${track.id}')" class="p-2 text-slate-400 hover:text-red-400 rounded-xl hover:bg-slate-800 active:scale-90" title="Supprimer">
+          <i data-lucide="x" class="w-5 h-5 text-red-400"></i>
         </button>
       ` : ''}
     </div>
   `).join('');
 
   const addPill = (state.isOrganizer && state.tracks.length < MAX_TRACKS) ? `
-    <label for="gpx-file-input" class="cursor-pointer flex items-center gap-1.5 bg-slate-900/95 border-2 border-dashed border-emerald-500/80 hover:border-emerald-400 text-emerald-400 rounded-2xl px-3 py-2 font-black text-xs shadow-2xl shrink-0 active:scale-95">
-      <i data-lucide="plus" class="w-4 h-4"></i>
+    <label for="gpx-file-input" class="cursor-pointer flex items-center gap-2 bg-slate-900/98 border-2 border-dashed border-emerald-500/90 hover:border-emerald-400 text-emerald-400 rounded-2xl px-4 py-2.5 font-black text-xs sm:text-sm shadow-2xl shrink-0 active:scale-95">
+      <i data-lucide="plus" class="w-5 h-5"></i>
       <span>GPX (${state.tracks.length}/5)</span>
     </label>
   ` : '';
 
   const clearPill = state.isOrganizer ? `
-    <button onclick="clearHikeSession()" class="flex items-center gap-1.5 bg-red-950/90 hover:bg-red-900 border-2 border-red-500/80 text-red-200 font-black text-xs px-3.5 py-2 rounded-2xl shadow-2xl shrink-0 active:scale-95 transition" title="Effacer toutes les traces pour démarrer une nouvelle rando">
-      <i data-lucide="trash-2" class="w-4 h-4 text-red-400"></i>
+    <button onclick="clearHikeSession()" class="flex items-center gap-2 bg-red-950/95 hover:bg-red-900 border-2 border-red-500/90 text-red-200 font-black text-xs sm:text-sm px-4 py-2.5 rounded-2xl shadow-2xl shrink-0 active:scale-95 transition" title="Effacer toutes les traces pour démarrer une nouvelle rando">
+      <i data-lucide="trash-2" class="w-5 h-5 text-red-400"></i>
       <span>Nouvelle Rando</span>
     </button>
   ` : '';
 
   bar.innerHTML = tracksHtml + addPill + clearPill;
   lucide.createIcons();
-  setTimeout(updateTracksScrollArrows, 50);
+  setTimeout(updateTracksScrollArrows, 80);
+  setTimeout(updateTracksScrollArrows, 300);
 }
 
 function toggleTrackVisibility(trackId) {
