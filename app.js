@@ -124,12 +124,12 @@ function computeTrackProgress(user) {
     track = state.tracks.find(t => t.id === user.assignedTrackId);
   }
 
-  // Si pas de trace définie ou 'auto', trouver la trace la plus proche
+  // Si pas de trace définie ou 'auto', trouver la trace géographiquement la plus proche
   if (!track) {
     let minDistanceToAnyTrack = Infinity;
     state.tracks.forEach(t => {
-      if (t.points && t.points.length > 0) {
-        for (let i = 0; i < t.points.length; i += 4) {
+      if (t.visible !== false && t.points && t.points.length > 0) {
+        for (let i = 0; i < t.points.length; i++) {
           const pt = t.points[i];
           const dist = calculateDistance(user.lat, user.lon, pt.lat, pt.lon);
           if (dist < minDistanceToAnyTrack) {
@@ -141,11 +141,16 @@ function computeTrackProgress(user) {
     });
   }
 
+  // Fallback si toutes les traces étaient masquées
+  if (!track && state.tracks.length > 0) {
+    track = state.tracks[0];
+  }
+
   if (!track || !track.points || track.points.length === 0) {
     return null;
   }
 
-  // 2. Trouver le point le plus proche sur la trace
+  // 2. Trouver le point le plus proche sur la trace sélectionnée
   let closestIndex = 0;
   let minDistance = Infinity;
   for (let i = 0; i < track.points.length; i++) {
@@ -158,9 +163,12 @@ function computeTrackProgress(user) {
   }
 
   const closestPt = track.points[closestIndex];
+  const startPt = track.points[0];
+  const distToStart = calculateDistance(user.lat, user.lon, startPt.lat, startPt.lon);
   const distFromStart = closestPt.distanceFromStart || 0;
   const totalDist = track.totalDistance || 1;
   const remainingDist = Math.max(0, totalDist - distFromStart);
+  const isOffTrack = minDistance > 0.25; // Hors sentier si à plus de 250m
   const progressPct = Math.min(100, Math.max(0, Math.round((distFromStart / totalDist) * 100)));
 
   // 3. Calcul du dénivelé positif restant (D+ restant)
@@ -202,6 +210,8 @@ function computeTrackProgress(user) {
   let etaFormatted = `${etaHours}h${etaMins} (${durationStr})`;
   if (progressPct >= 99 || remainingDist < 0.05) {
     etaFormatted = '🏁 Arrivé';
+  } else if (isOffTrack && minDistance > 1.0) {
+    etaFormatted = `${etaHours}h${etaMins} (${durationStr} sur circuit)`;
   }
 
   return {
@@ -210,6 +220,9 @@ function computeTrackProgress(user) {
     trackColor: track.color ? track.color.hex : '#10b981',
     progressPct: progressPct,
     distFromStart: distFromStart,
+    distToStart: distToStart,
+    distanceToTrack: minDistance, // en kilomètres réels
+    isOffTrack: isOffTrack,
     remainingDist: remainingDist,
     remainingEleGain: remainingEleGain,
     etaString: etaFormatted,
@@ -841,10 +854,16 @@ function initMap() {
     if (state.map) state.map.invalidateSize();
   }, 200);
 
-  // Rafraîchir les icônes à l'ouverture des fenêtres popups de la carte
-  state.map.on('popupopen', () => {
+  // Rafraîchir les icônes & activer le déplacement tactile/souris des popups
+  state.map.on('popupopen', (e) => {
     if (window.lucide && lucide.createIcons) {
       lucide.createIcons();
+    }
+    if (e && e.popup) {
+      const popupEl = e.popup.getElement();
+      if (popupEl) {
+        makePopupDraggable(popupEl);
+      }
     }
   });
 
@@ -1136,6 +1155,15 @@ function renderTrackOnMap(track) {
 
   mainPolyline.bindPopup(`
     <div class="space-y-3 p-1 min-w-[280px] sm:min-w-[330px]">
+      <!-- Barre de déplacement de la fenêtre popup -->
+      <div class="popup-drag-bar flex items-center justify-between text-[11px] font-bold text-slate-300">
+        <span class="flex items-center gap-1.5">
+          <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
+          <span>Glisser pour déplacer</span>
+        </span>
+        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Parcours GPX</span>
+      </div>
+
       <div class="flex items-center gap-3 pb-2.5 border-b-2 border-slate-700">
         <span class="w-5 h-5 rounded-full shadow-lg shrink-0 border-2 border-white" style="background-color: ${track.color.hex}"></span>
         <h4 class="font-black text-lg sm:text-xl text-white truncate leading-tight">${track.name}</h4>
@@ -1889,10 +1917,53 @@ function createOrUpdateUserMarker(user) {
   }
 
   const distFromMe = isMe ? 0 : calculateDistance(state.myUser.lat, state.myUser.lon, user.lat, user.lon);
+  const distFromMeStr = distFromMe < 1 ? `${Math.round(distFromMe * 1000)} m` : `${distFromMe.toFixed(1)} km`;
   const progress = computeTrackProgress(user);
+
+  // Calcul rigoureux et transparent de l'écart réel à la trace GPX
+  let ecartDisplayVal = '--';
+  let ecartDisplayColor = 'text-slate-400';
+  let ecartStatusTag = '';
+  let isFarFromTrack = false;
+
+  if (progress && typeof progress.distanceToTrack === 'number') {
+    const dMeters = Math.round(progress.distanceToTrack * 1000);
+    if (dMeters < 30) {
+      ecartDisplayVal = `${dMeters} m`;
+      ecartDisplayColor = 'text-emerald-400';
+      ecartStatusTag = 'Sur tracé';
+    } else if (dMeters < 150) {
+      ecartDisplayVal = `${dMeters} m`;
+      ecartDisplayColor = 'text-emerald-300';
+      ecartStatusTag = 'Proche';
+    } else if (dMeters < 1000) {
+      ecartDisplayVal = `${dMeters} m`;
+      ecartDisplayColor = 'text-amber-400';
+      ecartStatusTag = 'Écart';
+      isFarFromTrack = true;
+    } else {
+      ecartDisplayVal = `${(progress.distanceToTrack).toFixed(1)} km`;
+      ecartDisplayColor = 'text-rose-400';
+      ecartStatusTag = 'Hors circuit';
+      isFarFromTrack = true;
+    }
+  } else if (!isMe) {
+    ecartDisplayVal = distFromMeStr;
+    ecartDisplayColor = 'text-blue-400';
+    ecartStatusTag = 'Dist. / Vous';
+  }
 
   marker.bindPopup(`
     <div class="p-2 space-y-3 min-w-[280px] max-w-[340px]">
+      <!-- Barre de déplacement de la fenêtre popup -->
+      <div class="popup-drag-bar flex items-center justify-between text-[11px] font-bold text-slate-300">
+        <span class="flex items-center gap-1.5">
+          <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
+          <span>Glisser pour déplacer</span>
+        </span>
+        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">${isMe ? 'Ma Fiche' : 'Participant'}</span>
+      </div>
+
       <!-- En-tête Participant GÉANT -->
       <div class="flex items-center gap-3 pb-3 border-b-2 border-slate-700/80">
         <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-xl shrink-0 border-2 border-white/80" style="background-color: ${user.color}">
@@ -1902,6 +1973,7 @@ function createOrUpdateUserMarker(user) {
           <div class="font-black text-lg sm:text-xl text-white truncate leading-tight">${user.name} ${isMe ? '<span class="text-xs text-emerald-400 font-bold ml-1">(Moi)</span>' : ''}</div>
           <div class="flex items-center gap-2 mt-1 flex-wrap">
             <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold border border-slate-700">${user.role}</span>
+            ${!isMe ? `<span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40">📍 à ${distFromMeStr} de vous</span>` : ''}
             ${progress ? `<span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40">ETA ${progress.etaShort}</span>` : ''}
             ${isZoneBlanche ? `<span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40">🌲 Zone blanche (${minSinceSeen} min)</span>` : ''}
           </div>
@@ -1923,8 +1995,11 @@ function createOrUpdateUserMarker(user) {
           <span class="text-base sm:text-lg font-black mt-0.5 ${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</span>
         </div>
         <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
-          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Écart</span>
-          <span class="text-base sm:text-lg font-black text-blue-400 mt-0.5">${isMe ? '0 m' : distFromMe < 1 ? Math.round(distFromMe * 1000) + ' m' : distFromMe.toFixed(1) + ' km'}</span>
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Écart Trace</span>
+            ${ecartStatusTag ? `<span class="text-[9px] font-black uppercase px-1.5 py-0.2 rounded ${isFarFromTrack ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">${ecartStatusTag}</span>` : ''}
+          </div>
+          <span class="text-base sm:text-lg font-black ${ecartDisplayColor} mt-0.5">${ecartDisplayVal}</span>
         </div>
       </div>
 
@@ -1944,6 +2019,12 @@ function createOrUpdateUserMarker(user) {
           <div class="flex items-center justify-between text-xs text-slate-300 pt-0.5">
             <span class="font-bold">Reste ${progress.remainingDist.toFixed(1)} km <span class="text-slate-400">(+${progress.remainingEleGain}m D+)</span></span>
           </div>
+          ${isFarFromTrack ? `
+            <div class="bg-amber-500/15 border border-amber-500/35 rounded-xl px-2.5 py-1.5 text-xs text-amber-200 flex items-center justify-between">
+              <span class="font-bold">⚠️ Hors circuit (${ecartDisplayVal})</span>
+              <span class="text-[11px] text-amber-300 font-mono">Départ à ${(progress.distToStart || progress.distanceToTrack).toFixed(1)} km</span>
+            </div>
+          ` : ''}
           <div class="bg-amber-500/15 border border-amber-500/35 rounded-xl px-2.5 py-1.5 flex items-center justify-between">
             <span class="text-xs font-bold text-amber-200">Arrivée estimée :</span>
             <span class="text-sm font-black text-amber-300 font-mono">${progress.etaString}</span>
@@ -4027,6 +4108,161 @@ function initPixelSanctuaryGuardians() {
 }
 
 // ============================================================================
+// SYSTÈME DE DÉPLACEMENT LIBRE DES FENÊTRES ET POPUPS (DRAGGABLE MODALS & POPUPS)
+// ============================================================================
+function makePopupDraggable(popupEl) {
+  if (!popupEl || popupEl.dataset.draggableActive) return;
+  popupEl.dataset.draggableActive = 'true';
+
+  const handle = popupEl.querySelector('.popup-drag-bar') || popupEl.querySelector('.leaflet-popup-content-wrapper') || popupEl;
+  handle.style.cursor = 'grab';
+
+  let isDragging = false;
+  let startX = 0, startY = 0;
+  let initialX = 0, initialY = 0;
+
+  const parseTransform = (el) => {
+    const transform = el.style.transform || window.getComputedStyle(el).transform;
+    if (!transform || transform === 'none') return { x: 0, y: 0 };
+    if (window.DOMMatrixReadOnly) {
+      try {
+        const m = new DOMMatrixReadOnly(transform);
+        return { x: m.m41, y: m.m42 };
+      } catch (e) {}
+    }
+    const match = transform.match(/translate3d\(([-\d.]+)px,\s*([-\d.]+)px/);
+    if (match) {
+      return { x: parseFloat(match[1]), y: parseFloat(match[2]) };
+    }
+    const match2d = transform.match(/matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*([-\d.]+),\s*([-\d.]+)\)/);
+    if (match2d) {
+      return { x: parseFloat(match2d[1]), y: parseFloat(match2d[2]) };
+    }
+    return { x: 0, y: 0 };
+  };
+
+  const onDragStart = (e) => {
+    if (e.target.closest('button, a, input, select, textarea, label')) return;
+    isDragging = true;
+    handle.style.cursor = 'grabbing';
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    startX = clientX;
+    startY = clientY;
+
+    const currentT = parseTransform(popupEl);
+    initialX = currentT.x;
+    initialY = currentT.y;
+
+    if (state.map && state.map.dragging) {
+      state.map.dragging.disable();
+    }
+
+    window.addEventListener('mousemove', onDragMove, { passive: false });
+    window.addEventListener('mouseup', onDragEnd);
+    window.addEventListener('touchmove', onDragMove, { passive: false });
+    window.addEventListener('touchend', onDragEnd);
+  };
+
+  const onDragMove = (e) => {
+    if (!isDragging) return;
+    if (e.cancelable) e.preventDefault();
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+
+    popupEl.style.transform = `translate3d(${Math.round(initialX + dx)}px, ${Math.round(initialY + dy)}px, 0px)`;
+  };
+
+  const onDragEnd = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    handle.style.cursor = 'grab';
+
+    if (state.map && state.map.dragging) {
+      state.map.dragging.enable();
+    }
+
+    window.removeEventListener('mousemove', onDragMove);
+    window.removeEventListener('mouseup', onDragEnd);
+    window.removeEventListener('touchmove', onDragMove);
+    window.removeEventListener('touchend', onDragEnd);
+  };
+
+  handle.addEventListener('mousedown', onDragStart);
+  handle.addEventListener('touchstart', onDragStart, { passive: false });
+}
+
+function makeModalDraggable(modalId) {
+  const modal = document.getElementById(modalId);
+  if (!modal) return;
+  const card = modal.querySelector('.bg-slate-900') || modal.firstElementChild;
+  if (!card || card.dataset.draggableActive) return;
+  card.dataset.draggableActive = 'true';
+
+  const header = card.querySelector('.border-b, .border-b-2') || card;
+  header.classList.add('draggable-header-handle');
+
+  let isDragging = false;
+  let startX = 0, startY = 0;
+  let curX = 0, curY = 0;
+
+  const onStart = (e) => {
+    if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn')) return;
+    isDragging = true;
+    header.style.cursor = 'grabbing';
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    startX = clientX - curX;
+    startY = clientY - curY;
+
+    window.addEventListener('mousemove', onMove, { passive: false });
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+  };
+
+  const onMove = (e) => {
+    if (!isDragging) return;
+    if (e.cancelable) e.preventDefault();
+
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    curX = clientX - startX;
+    curY = clientY - startY;
+
+    card.style.transform = `translate3d(${curX}px, ${curY}px, 0px)`;
+  };
+
+  const onEnd = () => {
+    if (!isDragging) return;
+    isDragging = false;
+    header.style.cursor = 'grab';
+
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onEnd);
+    window.removeEventListener('touchmove', onMove);
+    window.removeEventListener('touchend', onEnd);
+  };
+
+  header.addEventListener('mousedown', onStart);
+  header.addEventListener('touchstart', onStart, { passive: false });
+}
+
+function initAllDraggableModals() {
+  const modalIds = [
+    'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal',
+    'invite-modal', 'announcement-modal', 'received-announcement-modal',
+    'about-modal'
+  ];
+  modalIds.forEach(id => makeModalDraggable(id));
+}
+
+// ============================================================================
 // DÉMARRAGE DE L'APPLICATION
 // ============================================================================
 window.addEventListener('DOMContentLoaded', () => {
@@ -4037,6 +4273,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   initRealtimeSync();
   initPixelSanctuaryGuardians();
+  initAllDraggableModals();
 
   // Ancrage initial robuste dans l'historique pour empêcher tout swipe-back destructif
   try {
@@ -4179,4 +4416,7 @@ window.dialerCall = dialerCall;
 window.dialerSms = dialerSms;
 window.isAnyModalOrDrawerOpen = isAnyModalOrDrawerOpen;
 window.closeAllModalsAndDrawers = closeAllModalsAndDrawers;
+window.makePopupDraggable = makePopupDraggable;
+window.makeModalDraggable = makeModalDraggable;
+window.initAllDraggableModals = initAllDraggableModals;
 
