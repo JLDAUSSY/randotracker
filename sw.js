@@ -1,5 +1,5 @@
-// Service Worker pour RandoTracker PWA - Version 40
-const CACHE_NAME = 'rando-tracker-v40';
+// Service Worker pour RandoTracker PWA - Version 41
+const CACHE_NAME = 'rando-tracker-v41';
 const TILES_CACHE_NAME = 'rando-tiles-v1';
 
 const STATIC_ASSETS = [
@@ -23,7 +23,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v40...');
+  console.log('[SW] Installation v41...');
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {

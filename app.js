@@ -18,8 +18,13 @@ const TRACK_COLORS = [
   { name: 'Vert Émeraude', hex: '#10b981', border: '#059669', bgClass: 'bg-emerald-500' },
   { name: 'Bleu Azur', hex: '#3b82f6', border: '#2563eb', bgClass: 'bg-blue-500' },
   { name: 'Rouge Corail', hex: '#ef4444', border: '#dc2626', bgClass: 'bg-red-500' },
-  { name: 'Orange Ambré', hex: '#f59e0b', border: '#d97706', bgClass: 'bg-amber-500' },
-  { name: 'Violet Améthyste', hex: '#8b5cf6', border: '#7c3aed', bgClass: 'bg-purple-500' }
+  { name: 'Orange Fluo', hex: '#f97316', border: '#ea580c', bgClass: 'bg-orange-500' },
+  { name: 'Violet Améthyste', hex: '#8b5cf6', border: '#7c3aed', bgClass: 'bg-purple-500' },
+  { name: 'Jaune Soleil', hex: '#eab308', border: '#ca8a04', bgClass: 'bg-yellow-500' },
+  { name: 'Cyan Lagon', hex: '#06b6d4', border: '#0891b2', bgClass: 'bg-cyan-500' },
+  { name: 'Rose Magenta', hex: '#ec4899', border: '#db2777', bgClass: 'bg-pink-500' },
+  { name: 'Blanc Alpin', hex: '#f8fafc', border: '#cbd5e1', bgClass: 'bg-slate-100' },
+  { name: 'Marron Fauve', hex: '#b45309', border: '#92400e', bgClass: 'bg-amber-700' }
 ];
 
 // ============================================================================
@@ -1287,15 +1292,20 @@ function renderTracksModalContent() {
 
   list.innerHTML = state.tracks.map((track) => `
     <div class="track-card-item ${track.visible ? 'is-visible-track' : 'is-hidden-track'} p-4 shadow-xl flex flex-col gap-3">
-      <!-- Ligne 1 : Nom, Couleur et Statut -->
+      <!-- Ligne 1 : Pastille Cliquable, Nom, Métadonnées et Statut -->
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-3 min-w-0 flex-1">
-          <span class="w-5 h-5 rounded-full border-2 border-white shrink-0 shadow-md" style="background-color: ${track.color.hex};"></span>
+          <!-- Pastille de couleur interactive : clic pour faire défiler les couleurs -->
+          <button type="button" onclick="cycleTrackColor('${track.id}')" class="relative group p-1 rounded-2xl bg-slate-800 hover:bg-slate-700 border-2 border-slate-600 hover:border-white transition active:scale-90 shrink-0 shadow-md" title="Cliquer pour changer la couleur de cette trace (${track.color.name || 'Couleur'})">
+            <span class="w-6 h-6 rounded-full border-2 border-white block shadow" style="background-color: ${track.color.hex};"></span>
+            <span class="absolute -bottom-1 -right-1 w-4 h-4 bg-slate-900 border border-slate-600 rounded-full flex items-center justify-center text-[9px] shadow">🎨</span>
+          </button>
           <div class="min-w-0 flex-1">
             <div class="font-black text-white text-base truncate leading-tight">${track.name}</div>
             <div class="flex items-center gap-2 mt-1 text-xs">
               <span class="font-mono font-black text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2 py-0.5 rounded-lg">${track.totalDistance.toFixed(1)} km</span>
               <span class="font-mono font-bold text-slate-300 bg-slate-800 px-2 py-0.5 rounded-lg">+${Math.round(track.eleGain || 0)}m D+</span>
+              <span class="text-slate-400 text-[11px] font-bold">(${track.color.name || 'Couleur'})</span>
             </div>
           </div>
         </div>
@@ -1305,7 +1315,18 @@ function renderTracksModalContent() {
         </button>
       </div>
 
-      <!-- Ligne 2 : Actions Rapides -->
+      <!-- Ligne 2 : Sélecteur direct de couleur (Palette 10 teintes Outdoor) -->
+      <div class="flex items-center gap-1.5 pt-2 pb-1 border-t border-slate-800/80 overflow-x-auto">
+        <span class="text-[10px] text-slate-400 font-black uppercase shrink-0">Couleur :</span>
+        <div class="flex items-center gap-1.5 shrink-0">
+          ${TRACK_COLORS.map(c => `
+            <button type="button" onclick="setTrackColor('${track.id}', '${c.hex}')" class="w-6 h-6 rounded-full border-2 ${track.color.hex.toLowerCase() === c.hex.toLowerCase() ? 'border-white scale-110 ring-2 ring-emerald-400 shadow-lg' : 'border-slate-700 opacity-75 hover:opacity-100 hover:scale-110'} transition active:scale-90 shrink-0" style="background-color: ${c.hex};" title="Choisir la couleur ${c.name}">
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Ligne 3 : Actions Rapides -->
       <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800">
         <button onclick="zoomToTrack('${track.id}'); closeTracksModal();" class="py-2 px-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-blue-300 hover:text-white font-black text-xs flex items-center justify-center gap-1.5 border border-slate-700 transition active:scale-95" title="Centrer la carte sur cette trace">
           <i data-lucide="maximize" class="w-4 h-4 text-blue-400"></i>
@@ -1330,6 +1351,59 @@ function renderTracksModalContent() {
   `).join('');
 
   lucide.createIcons();
+}
+
+function setTrackColor(trackId, colorHex) {
+  const track = state.tracks.find(t => t.id === trackId);
+  if (!track) return;
+
+  const foundColor = TRACK_COLORS.find(c => c.hex.toLowerCase() === colorHex.toLowerCase());
+  track.color = foundColor || {
+    name: 'Personnalisée',
+    hex: colorHex,
+    border: colorHex,
+    bgClass: 'bg-emerald-500'
+  };
+
+  // 1. Mettre à jour le calque Leaflet de la trace
+  const oldLayer = state.trackLayers.get(trackId);
+  if (oldLayer) {
+    state.map.removeLayer(oldLayer);
+    state.trackLayers.delete(trackId);
+  }
+  renderTrackOnMap(track);
+
+  // 2. Mettre à jour l'en-tête et la modale
+  renderQuickTracksBar();
+  saveHikeSessionToStorage();
+
+  // 3. Mettre à jour le profil altimétrique si ouvert sur cette trace
+  if (typeof elevationProfileState !== 'undefined' && elevationProfileState.trackId === trackId) {
+    const colorDot = document.getElementById('ele-drawer-color');
+    if (colorDot) colorDot.style.backgroundColor = track.color.hex;
+    renderElevationChart();
+  }
+
+  // 4. Mettre à jour mon profil si cette trace est assignée
+  updateProfileUI();
+
+  // 5. Synchroniser immédiatement avec le groupe MQTT
+  publishMessage({
+    type: 'sync_tracks',
+    from: state.myUser.id,
+    tracks: state.tracks
+  });
+
+  showToast(`Couleur changée : ${track.color.name} 🎨`, 'success');
+}
+
+function cycleTrackColor(trackId) {
+  const track = state.tracks.find(t => t.id === trackId);
+  if (!track) return;
+
+  const currentIdx = TRACK_COLORS.findIndex(c => c.hex.toLowerCase() === (track.color.hex || '').toLowerCase());
+  const nextIdx = (currentIdx + 1) % TRACK_COLORS.length;
+  setTrackColor(trackId, TRACK_COLORS[nextIdx].hex);
 }
 
 function toggleTrackVisibility(trackId) {
@@ -3862,6 +3936,97 @@ function cleanStaleUsers() {
 }
 
 // ============================================================================
+// GARDIEN SANCTUAIRE ANTI-DISPARITION DES BOUTONS (PIXEL & SMARTPHONES ANDROID)
+// ============================================================================
+function ensureBarsVisible() {
+  // 1. Verrouiller le scroll de la page au sommet absolu
+  if (window.scrollY !== 0 || window.scrollX !== 0) {
+    window.scrollTo(0, 0);
+  }
+  if (document.body && document.body.scrollTop !== 0) document.body.scrollTop = 0;
+  if (document.documentElement && document.documentElement.scrollTop !== 0) document.documentElement.scrollTop = 0;
+
+  // 2. Rétablir immédiatement l'en-tête supérieur si altéré
+  const header = document.querySelector('.app-header');
+  if (header) {
+    header.classList.remove('hidden', 'drawer-closed');
+    header.style.visibility = 'visible';
+    header.style.opacity = '1';
+    header.style.display = 'flex';
+    header.style.top = '0px';
+    header.style.zIndex = '1000';
+  }
+
+  // 3. Rétablir immédiatement la barre de navigation inférieure si altérée
+  const bottomNav = document.querySelector('.app-bottom-nav');
+  if (bottomNav) {
+    bottomNav.classList.remove('hidden', 'drawer-closed');
+    bottomNav.style.visibility = 'visible';
+    bottomNav.style.opacity = '1';
+    bottomNav.style.display = 'grid';
+    bottomNav.style.bottom = '0px';
+    bottomNav.style.zIndex = '1000';
+  }
+}
+
+// Installation des écouteurs de sécurité Pixel / Android
+function initPixelSanctuaryGuardians() {
+  // A. Écouteurs de redimensionnement et orientation
+  window.addEventListener('resize', () => {
+    ensureBarsVisible();
+    if (state.map) setTimeout(() => state.map.invalidateSize(), 80);
+  });
+  window.addEventListener('orientationchange', () => {
+    ensureBarsVisible();
+    if (state.map) setTimeout(() => state.map.invalidateSize(), 120);
+  });
+  window.addEventListener('scroll', ensureBarsVisible);
+
+  // B. Visual Viewport API (Prévient les décalages de barre d'adresse et clavier virtuel)
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      ensureBarsVisible();
+      if (state.map) setTimeout(() => state.map.invalidateSize(), 80);
+    });
+    window.visualViewport.addEventListener('scroll', ensureBarsVisible);
+  }
+
+  // C. Fermeture de clavier virtuel (Inputs et Textareas)
+  document.addEventListener('focusout', (e) => {
+    if (e.target.matches('input, textarea, select')) {
+      setTimeout(() => {
+        ensureBarsVisible();
+        if (state.map) state.map.invalidateSize();
+      }, 100);
+    }
+  });
+
+  // D. Anti-Double-Tap Zoom sur le document hors champs texte
+  let lastTouchEndTime = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEndTime <= 320) {
+      if (!e.target.closest('input, textarea, select, button')) {
+        e.preventDefault();
+      }
+    }
+    lastTouchEndTime = now;
+    ensureBarsVisible();
+  }, { passive: false });
+
+  // E. Anti-Body-Scroll Touchmove blocker
+  document.addEventListener('touchmove', (e) => {
+    const scrollable = e.target.closest('.overflow-y-auto, .overflow-x-auto, textarea, input');
+    if (!scrollable && !e.target.closest('#map')) {
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  // F. Watchdog persistant (vérifie l'intégrité toutes les 500ms)
+  setInterval(ensureBarsVisible, 500);
+}
+
+// ============================================================================
 // DÉMARRAGE DE L'APPLICATION
 // ============================================================================
 window.addEventListener('DOMContentLoaded', () => {
@@ -3871,6 +4036,13 @@ window.addEventListener('DOMContentLoaded', () => {
   loadUserProfile();
   setupEventListeners();
   initRealtimeSync();
+  initPixelSanctuaryGuardians();
+
+  // Ancrage initial robuste dans l'historique pour empêcher tout swipe-back destructif
+  try {
+    history.replaceState({ randoMain: true }, '', window.location.href);
+    history.pushState({ randoMain: true }, '', window.location.href);
+  } catch (e) {}
 
   createOrUpdateUserMarker(state.myUser);
   loadSavedOtherUsersFromStorage();
@@ -3886,6 +4058,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setInterval(cleanStaleUsers, 10000); // Surveillance toutes les 10s
 
   lucide.createIcons();
+  ensureBarsVisible();
 
   // DÉMARRAGE IMMÉDIAT DE LA GÉOLOCALISATION GPS
   if (navigator.geolocation) {
@@ -3935,18 +4108,18 @@ function closeAllModalsAndDrawers() {
   if (state.map) {
     setTimeout(() => state.map.invalidateSize(), 120);
   }
+  ensureBarsVisible();
 }
 
 // Interception des gestes retour (swipe gauche-droite sur Pixel/Samsung ou bouton retour système)
 window.addEventListener('popstate', (e) => {
   if (isAnyModalOrDrawerOpen()) {
     closeAllModalsAndDrawers();
-  } else {
-    // Si aucune modale n'est ouverte, maintenir l'état dans l'application sans naviguer
-    try {
-      history.pushState({ mainView: true, randoTracker: true }, '');
-    } catch (err) {}
   }
+  try {
+    history.pushState({ randoMain: true }, '', window.location.href);
+  } catch (err) {}
+  ensureBarsVisible();
 });
 
 // EXPORTS GLOBAUX WINDOW (Sécurité d'appel pour tous les boutons HTML inline)
@@ -3978,6 +4151,9 @@ window.panElevation = panElevation;
 window.fitMapToZoomedSection = fitMapToZoomedSection;
 window.handleElevationMinimapClick = handleElevationMinimapClick;
 window.renderElevationChart = renderElevationChart;
+window.setTrackColor = setTrackColor;
+window.cycleTrackColor = cycleTrackColor;
+window.ensureBarsVisible = ensureBarsVisible;
 window.deleteParticipant = deleteParticipant;
 window.clearOnlyParticipants = clearOnlyParticipants;
 window.clearHikeSession = clearHikeSession;
