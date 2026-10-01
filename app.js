@@ -52,10 +52,10 @@ const state = {
   layers: {},
   tracks: [],
   roomCode: 'RANDO-2026',
-  isOrganizer: true, // true pour l'Organisateur (Jean-Luc), false pour les Invités
+  isOrganizer: true, // true pour l'Organisateur, false pour les Invités
   myUser: {
     id: getOrCreateUserId(),
-    name: 'Jean-Luc',
+    name: 'Animateur',
     role: 'Guide de tête',
     icon: '🌲',
     color: '#059669',
@@ -64,6 +64,11 @@ const state = {
     lon: 6.1550,
     ele: 450,
     speed: 0.0,
+    movingAvgSpeed: 0.0,
+    movingDistance: 0.0,
+    movingTimeMs: 0,
+    pausedTimeMs: 0,
+    isAutoPaused: false,
     battery: 95,
     isSos: false,
     lastSeen: Date.now()
@@ -78,6 +83,11 @@ const state = {
   isTrackingGps: false,
   gpsWatchId: null,
   accuracyCircle: null,
+  lastGpsPos: null,
+  lastGpsTimestamp: null,
+  offTrackCounter: 0,
+  lastOffTrackAlertTime: 0,
+  wasOffTrackAlerted: false,
   ws: null,
   broadcastChannel: null,
   peer: null,
@@ -168,7 +178,7 @@ function computeTrackProgress(user) {
   const distFromStart = closestPt.distanceFromStart || 0;
   const totalDist = track.totalDistance || 1;
   const remainingDist = Math.max(0, totalDist - distFromStart);
-  const isOffTrack = minDistance > 0.25; // Hors sentier si à plus de 250m
+  const isOffTrack = minDistance > 0.05; // Hors sentier si à plus de 50m
   const progressPct = Math.min(100, Math.max(0, Math.round((distFromStart / totalDist) * 100)));
 
   // 3. Calcul du dénivelé positif restant (D+ restant)
@@ -180,12 +190,15 @@ function computeTrackProgress(user) {
   remainingEleGain = Math.round(remainingEleGain);
 
   // 4. Calcul de la vitesse de marche et du temps restant (Formule Suisse / FFRando)
+  // Basé prioritairement sur la Vitesse Moyenne en Déplacement (Moving Speed)
   let walkingSpeed = 4.0;
-  if (user.speed && user.speed >= 2.0 && user.speed <= 12.0) {
-    walkingSpeed = (user.speed * 0.6) + (4.0 * 0.4);
+  if (user.movingAvgSpeed && user.movingAvgSpeed >= 1.5 && user.movingAvgSpeed <= 12.0) {
+    walkingSpeed = user.movingAvgSpeed;
+  } else if (user.speed && user.speed >= 1.8 && user.speed <= 12.0) {
+    walkingSpeed = (user.speed * 0.7) + (4.0 * 0.3);
   }
 
-  // Temps restant : (Distance à plat / Vitesse) + (D+ restant / 350m par heure)
+  // Temps restant : (Distance à plat / Vitesse de déplacement) + (D+ restant / 350m par heure)
   const timeFlatHours = remainingDist / walkingSpeed;
   const timeClimbHours = remainingEleGain / 350;
   const totalRemainingHours = timeFlatHours + timeClimbHours;
@@ -464,13 +477,13 @@ function initUserRole() {
     state.isOrganizer = false;
     localStorage.setItem('rando_is_organizer', 'false');
     const savedName = localStorage.getItem('rando_user_name');
-    if (!savedName || savedName === 'Jean-Luc') {
-      state.myUser.name = 'Invité';
-      state.myUser.role = 'Randonneur';
+    if (!savedName || savedName === 'Jean-Luc' || savedName === 'Animateur') {
+      state.myUser.name = 'Randonneur';
+      state.myUser.role = 'Marcheur';
       state.myUser.icon = '🥾';
       state.myUser.color = '#2563eb';
-      localStorage.setItem('rando_user_name', 'Invité');
-      localStorage.setItem('rando_user_role', 'Randonneur');
+      localStorage.setItem('rando_user_name', 'Randonneur');
+      localStorage.setItem('rando_user_role', 'Marcheur');
       localStorage.setItem('rando_user_icon', '🥾');
       localStorage.setItem('rando_user_color', '#2563eb');
     }
@@ -577,14 +590,14 @@ function loadUserProfile() {
   if (savedName) {
     state.myUser.name = savedName;
   } else {
-    state.myUser.name = state.isOrganizer ? 'Jean-Luc' : 'Invité';
+    state.myUser.name = state.isOrganizer ? 'Animateur' : 'Randonneur';
     localStorage.setItem('rando_user_name', state.myUser.name);
   }
 
   if (savedRole) {
     state.myUser.role = savedRole;
   } else {
-    state.myUser.role = state.isOrganizer ? 'Guide de tête' : 'Randonneur';
+    state.myUser.role = state.isOrganizer ? 'Guide de tête' : 'Marcheur';
   }
 
   if (savedIcon) state.myUser.icon = savedIcon;
@@ -1983,8 +1996,8 @@ function createOrUpdateUserMarker(user) {
       <!-- Grille 4 Cartes Statistiques Haut Contraste -->
       <div class="grid grid-cols-2 gap-2 text-xs">
         <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
-          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Vitesse</span>
-          <span class="text-base sm:text-lg font-black text-white mt-0.5">${(user.speed || 0).toFixed(1)} <span class="text-xs font-bold text-slate-400">km/h</span></span>
+          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Vitesse Moy.</span>
+          <span class="text-base sm:text-lg font-black text-white mt-0.5">${(user.movingAvgSpeed && user.movingAvgSpeed > 0 ? user.movingAvgSpeed : (user.speed || 0)).toFixed(1)} <span class="text-xs font-bold text-slate-400">km/h</span></span>
         </div>
         <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
           <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Altitude</span>
@@ -2135,11 +2148,14 @@ function renderUsersList() {
   const myEleStat = document.getElementById('my-ele-stat');
   const myBatteryStat = document.getElementById('my-battery-stat');
 
-  if (mySpeedStat) mySpeedStat.textContent = `${(state.myUser.speed || 0).toFixed(1)} km/h`;
+  const displayMySpeed = (state.myUser.movingAvgSpeed && state.myUser.movingAvgSpeed > 0)
+    ? state.myUser.movingAvgSpeed.toFixed(1)
+    : (state.myUser.speed || 0).toFixed(1);
+  if (mySpeedStat) mySpeedStat.textContent = `${displayMySpeed} km/h`;
   if (myEleStat) myEleStat.textContent = `${Math.round(state.myUser.ele || 0)} m`;
   if (myBatteryStat) myBatteryStat.textContent = `${state.myUser.battery || 95}%`;
 
-  // Mettre à jour l'ETA de "Moi" (Jean-Luc)
+  // Mettre à jour l'ETA de "Moi"
   const myProgress = computeTrackProgress(state.myUser);
   const myNameEta = document.getElementById('my-name-eta');
   if (myNameEta) {
@@ -2221,7 +2237,7 @@ function renderUsersList() {
           <div class="text-right shrink-0 flex flex-col items-end">
             <div class="font-black text-lg sm:text-xl text-blue-400 font-mono">${distStr}</div>
             <div class="text-xs text-slate-300 font-black flex items-center gap-1.5 mt-1">
-              <span>${(u.speed || 0).toFixed(1)} km/h</span>
+              <span>${(u.movingAvgSpeed && u.movingAvgSpeed > 0 ? u.movingAvgSpeed : (u.speed || 0)).toFixed(1)} km/h ${u.isAutoPaused ? '⏸️' : ''}</span>
               <span class="text-slate-500">•</span>
               <span class="${u.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${u.battery}% 🔋</span>
             </div>
@@ -2354,6 +2370,56 @@ function checkGpsExpiry() {
   }
 }
 
+// ============================================================================
+// ALERTE SONORE & VIBRATION EN CAS DE SORTIE DE TRACE GPX (OFF-TRACK)
+// ============================================================================
+function playOffTrackAlertSound() {
+  if (navigator.vibrate) {
+    try {
+      navigator.vibrate([300, 150, 300, 150, 300]);
+    } catch (e) {}
+  }
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      // 3 Bips distinctifs d'alerte sécurité (440Hz -> 660Hz -> 440Hz)
+      const tones = [440, 660, 440];
+      tones.forEach((f, i) => {
+        const t = now + (i * 0.18);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(f, t);
+        gain.gain.setValueAtTime(0.35, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.14);
+      });
+    }
+  } catch (e) {
+    console.warn('[Audio] Alerte hors-trace:', e);
+  }
+}
+
+// ============================================================================
+// GÉOLOCALISATION GPS AUTOMATIQUE AVEC DURÉE LIMITE (MAX 24H)
+// ============================================================================
+function checkGpsExpiry() {
+  if (!state.isTrackingGps || !state.gpsStartTime) return;
+
+  const elapsedMs = Date.now() - state.gpsStartTime;
+  const maxMs = state.shareDurationHours * 3600 * 1000;
+
+  if (elapsedMs >= maxMs) {
+    stopGpsWatch();
+    showToast(`⏳ Durée de partage (${state.shareDurationHours}h max) atteinte. Partage arrêté.`, 'info');
+  }
+}
+
 function startGpsWatch(useHighAccuracy = true) {
   const navBubble = document.getElementById('nav-gps-bubble');
   const navIcon = document.getElementById('nav-gps-icon');
@@ -2377,20 +2443,68 @@ function startGpsWatch(useHighAccuracy = true) {
       return;
     }
 
+    const now = Date.now();
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    const rawSpeed = (typeof pos.coords.speed === 'number' && !isNaN(pos.coords.speed) && pos.coords.speed >= 0)
+      ? (pos.coords.speed * 3.6)
+      : 0.0;
+
+    let stepDist = 0;
+    let dtSec = 0;
+    if (state.lastGpsPos && state.lastGpsTimestamp) {
+      dtSec = (now - state.lastGpsTimestamp) / 1000;
+      stepDist = calculateDistance(state.lastGpsPos.lat, state.lastGpsPos.lon, lat, lon);
+    }
+
+    // Détermination de la vitesse instantanée réelle
+    let instantSpeed = rawSpeed;
+    if (instantSpeed < 0.6 && stepDist > 0.003 && dtSec > 0 && dtSec < 35) {
+      const derivedSpeed = (stepDist / (dtSec / 3600));
+      if (derivedSpeed < 20) instantSpeed = derivedSpeed;
+    }
+
+    // Seuil de détection de marche active vs arrêt / pause (1.0 km/h)
+    const isMoving = instantSpeed >= 1.0;
+
+    if (dtSec > 0 && dtSec < 180) {
+      const dtMs = dtSec * 1000;
+      if (isMoving) {
+        state.myUser.isAutoPaused = false;
+        state.myUser.movingTimeMs = (state.myUser.movingTimeMs || 0) + dtMs;
+        state.myUser.movingDistance = (state.myUser.movingDistance || 0) + stepDist;
+      } else {
+        state.myUser.isAutoPaused = true;
+        state.myUser.pausedTimeMs = (state.myUser.pausedTimeMs || 0) + dtMs;
+      }
+
+      // Calcul Vitesse Moyenne en Déplacement (Moving Average Speed)
+      if ((state.myUser.movingTimeMs || 0) >= 3000) {
+        state.myUser.movingAvgSpeed = state.myUser.movingDistance / (state.myUser.movingTimeMs / 3600000);
+      } else if (isMoving && instantSpeed > 0) {
+        state.myUser.movingAvgSpeed = instantSpeed;
+      }
+    }
+
+    state.lastGpsPos = { lat, lon };
+    state.lastGpsTimestamp = now;
+
     state.isTrackingGps = true;
-    state.myUser.lat = pos.coords.latitude;
-    state.myUser.lon = pos.coords.longitude;
+    state.myUser.lat = lat;
+    state.myUser.lon = lon;
     state.myUser.ele = pos.coords.altitude !== null && !isNaN(pos.coords.altitude) ? Math.round(pos.coords.altitude) : state.myUser.ele;
-    state.myUser.speed = pos.coords.speed ? (pos.coords.speed * 3.6) : 0.0;
+    state.myUser.speed = isMoving ? instantSpeed : 0.0;
+    state.myUser.movingAvgSpeed = state.myUser.movingAvgSpeed || (isMoving ? instantSpeed : 0.0);
     state.myUser.accuracy = pos.coords.accuracy || 10;
 
     try {
-      localStorage.setItem('rando_last_lat', String(pos.coords.latitude));
-      localStorage.setItem('rando_last_lon', String(pos.coords.longitude));
+      localStorage.setItem('rando_last_lat', String(lat));
+      localStorage.setItem('rando_last_lon', String(lon));
     } catch (e) {}
 
     const accStr = `±${Math.round(pos.coords.accuracy)}m`;
-    if (navLabel) navLabel.textContent = `GPS (${accStr})`;
+    const pauseTag = state.myUser.isAutoPaused ? ' ⏸️' : '';
+    if (navLabel) navLabel.textContent = `GPS (${accStr})${pauseTag}`;
     if (navBubble) navBubble.className = 'rounded-full bg-emerald-600 border-3 sm:border-4 border-white flex items-center justify-center shadow-2xl transition animate-pulse';
     if (navIcon) navIcon.className = 'text-white stroke-[2.8]';
 
@@ -2405,6 +2519,27 @@ function startGpsWatch(useHighAccuracy = true) {
     } else {
       state.accuracyCircle.setLatLng([state.myUser.lat, state.myUser.lon]);
       state.accuracyCircle.setRadius(pos.coords.accuracy || 20);
+    }
+
+    // Détection de sortie de trace GPX (Off-Track Alert)
+    const progress = computeTrackProgress(state.myUser);
+    if (progress && typeof progress.distanceToTrack === 'number') {
+      const distM = Math.round(progress.distanceToTrack * 1000);
+      if (distM > 50) {
+        state.offTrackCounter = (state.offTrackCounter || 0) + 1;
+        if (state.offTrackCounter >= 2 && (now - (state.lastOffTrackAlertTime || 0) > 35000)) {
+          playOffTrackAlertSound();
+          showToast(`⚠️ ALERTE : Vous quittez la trace (${distM} m d'écart) !`, 'error');
+          state.lastOffTrackAlertTime = now;
+          state.wasOffTrackAlerted = true;
+        }
+      } else if (distM <= 30) {
+        if (state.wasOffTrackAlerted && state.offTrackCounter >= 2) {
+          showToast('✅ De retour sur la trace !', 'success');
+        }
+        state.offTrackCounter = 0;
+        state.wasOffTrackAlerted = false;
+      }
     }
 
     broadcastMyPosition();
@@ -2449,7 +2584,7 @@ function startGpsWatch(useHighAccuracy = true) {
 
   navigator.geolocation.getCurrentPosition(onPositionSuccess, onPositionError, {
     enableHighAccuracy: useHighAccuracy,
-    timeout: 12000,
+    timeout: 10000,
     maximumAge: 0
   });
 
@@ -2458,18 +2593,18 @@ function startGpsWatch(useHighAccuracy = true) {
   }
   state.gpsWatchId = navigator.geolocation.watchPosition(onPositionSuccess, onPositionError, {
     enableHighAccuracy: useHighAccuracy,
-    timeout: 15000,
-    maximumAge: 2000
+    timeout: 12000,
+    maximumAge: 0
   });
 
-  // Activer le forçage périodique actif du GPS matériel (Dual-Engine Polling)
+  // Activer le forçage périodique actif du GPS matériel (Dual-Engine Polling à 3.5s)
   startGpsForcedWatchdog(onPositionSuccess);
 
   // Activer le maintien d'activité en tâche de fond (écran éteint dans la poche)
   startBackgroundKeepAlive();
 }
 
-// Watchdog de forçage GPS matériel (Évite les creux d'inactivité du système)
+// Watchdog de forçage GPS matériel (3500 ms)
 let gpsForcedInterval = null;
 function startGpsForcedWatchdog(onSuccessCallback) {
   if (gpsForcedInterval) clearInterval(gpsForcedInterval);
@@ -4419,4 +4554,5 @@ window.closeAllModalsAndDrawers = closeAllModalsAndDrawers;
 window.makePopupDraggable = makePopupDraggable;
 window.makeModalDraggable = makeModalDraggable;
 window.initAllDraggableModals = initAllDraggableModals;
+window.playOffTrackAlertSound = playOffTrackAlertSound;
 
