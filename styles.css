@@ -675,30 +675,39 @@ main {
   box-sizing: border-box !important;
 }
 
+#emergency-modal-title {
+  font-size: clamp(22px, 6vw, 30px) !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.15 !important;
+}
+
 .emergency-gps-label {
-  font-size: clamp(10.5px, 3vw, 13px) !important;
+  font-size: clamp(12px, 3.4vw, 14.5px) !important;
   font-weight: 900 !important;
   color: #94a3b8 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
+  letter-spacing: 0.06em !important;
   display: block !important;
-  margin-bottom: 2px !important;
+  margin-bottom: 3px !important;
 }
 
 #emergency-gps-decimal {
-  font-size: clamp(22px, 6.2vw, 29px) !important;
+  font-size: clamp(24px, 6.8vw, 32px) !important;
   font-weight: 900 !important;
   color: #ffffff !important;
   letter-spacing: 0.02em !important;
   line-height: 1.2 !important;
+  word-break: break-word !important;
 }
 
 #emergency-gps-dms {
-  font-size: clamp(18px, 5.2vw, 24px) !important;
+  font-size: clamp(20px, 5.6vw, 26px) !important;
   font-weight: 900 !important;
   color: #34d399 !important;
   letter-spacing: 0.02em !important;
   line-height: 1.2 !important;
+  word-break: break-word !important;
 }
 
 #emergency-gps-meta {
@@ -708,9 +717,10 @@ main {
 }
 
 #emergency-dictation-preview {
-  font-size: clamp(14.5px, 4.2vw, 18.5px) !important;
+  font-size: clamp(16px, 4.6vw, 21px) !important;
   font-weight: 800 !important;
   line-height: 1.35 !important;
+  color: #f1f5f9 !important;
 }
 
 /* SECTION 2 BASSE (50%) : 3 GRANDS BOUTONS 15, 112, 114 */
@@ -732,12 +742,12 @@ main {
 
 .emergency-big-btn {
   width: 100% !important;
-  min-height: 72px !important;
+  min-height: 76px !important;
   display: flex !important;
   align-items: center !important;
   gap: 12px !important;
   padding: 12px 16px !important;
-  border-radius: 20px !important;
+  border-radius: 22px !important;
   font-weight: 900 !important;
   transition: transform 0.15s ease, filter 0.15s ease !important;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
@@ -753,43 +763,142 @@ main {
 }
 
 .emergency-btn-badge {
-  font-size: clamp(28px, 7.5vw, 36px) !important;
+  font-size: clamp(30px, 8vw, 38px) !important;
   font-weight: 900 !important;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-  min-width: 66px !important;
+  min-width: 72px !important;
   text-align: center !important;
-  padding: 6px 12px !important;
+  padding: 6px 10px !important;
   border-radius: 14px !important;
-  background: rgba(0, 0, 0, 0.45) !important;
-  border: 2px solid rgba(255, 255, 255, 0.5) !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  border: 2px solid rgba(255, 255, 255, 0.6) !important;
   color: #ffffff !important;
   flex-shrink: 0 !important;
   line-height: 1 !important;
 }
 
+.emergency-flag-container {
+  width: 48px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+
+.emergency-flag-svg {
+  width: 44px !important;
+  height: 30px !important;
+  border-radius: 6px !important;
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.7) !important;
+  display: block !important;
+  flex-shrink: 0 !important;
+}
+
 .emergency-btn-title {
-  font-size: clamp(18px, 5vw, 23px) !important;
+  font-size: clamp(19px, 5.5vw, 24px) !important;
   font-weight: 900 !important;
   line-height: 1.2 !important;
 }
 
 .emergency-btn-sub {
-  font-size: clamp(12.5px, 3.6vw, 15.5px) !important;
+  font-size: clamp(13px, 3.8vw, 16px) !important;
   font-weight: 700 !important;
   opacity: 0.95 !important;
   line-height: 1.25 !important;
   margin-top: 2px !important;
 }
 
-.emergency-flag {
-  font-size: clamp(28px, 7.5vw, 36px) !important;
+/* BOUTONS DE FERMETURE UNIFIÉS HAUTE VISIBILITÉ (X) */
+.modal-close-btn {
+  width: 46px !important;
+  height: 46px !important;
+  min-width: 46px !important;
+  min-height: 46px !important;
+  border-radius: 16px !important;
+  background-color: #334155 !important;
+  border: 2.5px solid #94a3b8 !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
   flex-shrink: 0 !important;
-  line-height: 1 !important;
 }
 
-/* 7. TIROIR PROFIL ALTIMÉTRIQUE (Z-INDEX 940) */
+.modal-close-btn:hover {
+  background-color: #dc2626 !important;
+  border-color: #f87171 !important;
+}
+
+.modal-close-btn:active {
+  transform: scale(0.9) !important;
+}
+
+.modal-close-btn i,
+.modal-close-btn svg {
+  width: 26px !important;
+  height: 26px !important;
+  stroke: #ffffff !important;
+  stroke-width: 3 !important;
+}
+
+/* 7. TIROIR PROFIL ALTIMÉTRIQUE (Z-INDEX 2500 - STRICTEMENT CALÉ AU-DESSUS DE LA BARRE BASSE & ZOOMABLE) */
 #elevation-drawer {
-  z-index: 940 !important;
+  position: fixed !important;
+  bottom: calc(var(--bottom-nav-height, 88px) + 12px) !important;
+  left: 10px !important;
+  right: 10px !important;
+  max-width: 860px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  z-index: 2500 !important;
+  background-color: #0f172a !important; /* Solid Dark Slate */
+  border: 2px solid #334155 !important;
+  border-radius: 24px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px) - 24px) !important;
+  overflow: hidden !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+#elevation-drawer.hidden {
+  display: none !important;
+}
+
+/* Mode Agrandie / Plein Écran pour la Boîte de Profil Altimétrique */
+#elevation-drawer.is-fullscreen,
+#elevation-drawer.is-expanded {
+  top: calc(var(--header-height, 64px) + 8px) !important;
+  bottom: calc(var(--bottom-nav-height, 88px) + 8px) !important;
+  max-height: none !important;
+  height: auto !important;
+  max-width: 1000px !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.95), 0 0 35px rgba(16, 185, 129, 0.25) !important;
+}
+
+#elevation-chart-wrapper {
+  position: relative !important;
+  width: 100% !important;
+  flex: 1 1 auto !important;
+  min-height: 150px !important;
+}
+
+#elevation-drawer.is-fullscreen #elevation-chart-wrapper,
+#elevation-drawer.is-expanded #elevation-chart-wrapper {
+  min-height: 260px !important;
+}
+
+#ele-minimap-viewport {
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
 }
 
 /* 8. TOUTES LES SOUS-MODALES & POPUPS DIALOGUES (Z-INDEX 3000 - PREMIER PLAN ABSOLU) */

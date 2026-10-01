@@ -1389,42 +1389,149 @@ function fitAllTracks() {
 }
 
 // ============================================================================
-// PROFIL ALTIMÉTRIQUE (Chart.js)
+// PROFIL ALTIMÉTRIQUE INTERACTIF, ZOOMABLE (1x à 12x) & PLEIN ÉCRAN
 // ============================================================================
+const elevationProfileState = {
+  trackId: null,
+  zoomLevel: 1, // 1, 1.5, 2, 3, 5, 8, 12
+  zoomSteps: [1, 1.5, 2, 3, 5, 8, 12],
+  windowStartPct: 0, // 0 à 100%
+  windowEndPct: 100, // 0 à 100%
+  activePoints: [],
+  allPoints: [],
+  isExpanded: false
+};
+
 function openElevationDrawer(trackId) {
   const track = state.tracks.find(t => t.id === trackId);
   if (!track || track.points.length === 0) return;
 
+  elevationProfileState.trackId = trackId;
+  elevationProfileState.allPoints = track.points;
+  elevationProfileState.zoomLevel = 1;
+  elevationProfileState.windowStartPct = 0;
+  elevationProfileState.windowEndPct = 100;
+
   const drawer = document.getElementById('elevation-drawer');
   const title = document.getElementById('ele-drawer-title');
-  const stats = document.getElementById('ele-drawer-stats');
   const colorDot = document.getElementById('ele-drawer-color');
 
-  title.textContent = `${track.name}`;
-  stats.textContent = `${track.totalDistance.toFixed(1)} km | +${track.eleGain}m D+`;
-  colorDot.style.backgroundColor = track.color.hex;
+  if (title) title.textContent = `${track.name}`;
+  if (colorDot) colorDot.style.backgroundColor = track.color.hex || '#10b981';
 
-  drawer.classList.remove('hidden');
+  if (drawer) {
+    drawer.classList.remove('hidden');
+  }
   pushModalState('elevation-drawer');
 
+  renderElevationChart();
+}
+
+function renderElevationChart() {
+  const track = state.tracks.find(t => t.id === elevationProfileState.trackId);
+  if (!track || !elevationProfileState.allPoints || elevationProfileState.allPoints.length === 0) return;
+
+  const totalPts = elevationProfileState.allPoints.length;
+  const startIdx = Math.max(0, Math.floor((elevationProfileState.windowStartPct / 100) * (totalPts - 1)));
+  const endIdx = Math.min(totalPts - 1, Math.ceil((elevationProfileState.windowEndPct / 100) * (totalPts - 1)));
+  
+  const visiblePoints = elevationProfileState.allPoints.slice(startIdx, Math.max(startIdx + 2, endIdx + 1));
+  elevationProfileState.activePoints = visiblePoints;
+
+  // Calcul des métadonnées sur la portion active
+  const firstPt = visiblePoints[0];
+  const lastPt = visiblePoints[visiblePoints.length - 1];
+  const segDist = Math.max(0.05, (lastPt.distanceFromStart - firstPt.distanceFromStart));
+  
+  let segEleGain = 0;
+  let segMinEle = Infinity;
+  let segMaxEle = -Infinity;
+
+  for (let i = 0; i < visiblePoints.length; i++) {
+    const p = visiblePoints[i];
+    if (p.ele < segMinEle) segMinEle = p.ele;
+    if (p.ele > segMaxEle) segMaxEle = p.ele;
+    if (i > 0) {
+      const diff = p.ele - visiblePoints[i - 1].ele;
+      if (diff > 0.5) segEleGain += diff;
+    }
+  }
+  if (segMinEle === Infinity) segMinEle = 0;
+  if (segMaxEle === -Infinity) segMaxEle = 0;
+
+  const avgSlope = (segEleGain / (segDist * 1000)) * 100;
+
+  // Mise à jour des cartes métriques
+  const distEl = document.getElementById('ele-stat-dist');
+  const gainEl = document.getElementById('ele-stat-gain');
+  const minmaxEl = document.getElementById('ele-stat-minmax');
+  const slopeEl = document.getElementById('ele-stat-slope');
+  const rangeTextEl = document.getElementById('ele-drawer-range-text');
+  const zoomBadge = document.getElementById('ele-zoom-badge');
+
+  if (distEl) distEl.textContent = `${segDist.toFixed(1)} km`;
+  if (gainEl) gainEl.textContent = `+${Math.round(segEleGain)} m`;
+  if (minmaxEl) minmaxEl.textContent = `${Math.round(segMinEle)} / ${Math.round(segMaxEle)} m`;
+  if (slopeEl) slopeEl.textContent = `${avgSlope.toFixed(1)} %`;
+  if (rangeTextEl) rangeTextEl.textContent = `${firstPt.distanceFromStart.toFixed(1)} km → ${lastPt.distanceFromStart.toFixed(1)} km (${segDist.toFixed(1)} km)`;
+  
+  if (zoomBadge) {
+    if (elevationProfileState.zoomLevel === 1) {
+      zoomBadge.textContent = 'Zoom 1x (Tout)';
+      zoomBadge.className = 'text-[11px] font-black px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0';
+    } else {
+      zoomBadge.textContent = `Zoom ${elevationProfileState.zoomLevel}x`;
+      zoomBadge.className = 'text-[11px] font-black px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0 animate-pulse';
+    }
+  }
+
+  // Mise à jour de la minimap / scrubber
+  const minimapViewport = document.getElementById('ele-minimap-viewport');
+  if (minimapViewport) {
+    const leftPct = elevationProfileState.windowStartPct;
+    const widthPct = Math.max(4, elevationProfileState.windowEndPct - elevationProfileState.windowStartPct);
+    minimapViewport.style.left = `${leftPct}%`;
+    minimapViewport.style.width = `${widthPct}%`;
+  }
+
+  // État des boutons Pan
+  const panLeftBtn = document.getElementById('ele-pan-left-btn');
+  const panRightBtn = document.getElementById('ele-pan-right-btn');
+  if (panLeftBtn) panLeftBtn.disabled = (elevationProfileState.windowStartPct <= 0.1);
+  if (panRightBtn) panRightBtn.disabled = (elevationProfileState.windowEndPct >= 99.9);
+
+  // Échantillonnage pour le tracé graphique (max 120 points pour fluidité 60fps)
+  const maxChartPts = 120;
+  const chartStep = Math.max(1, Math.floor(visiblePoints.length / maxChartPts));
   const labels = [];
   const elevationData = [];
-  const step = Math.max(1, Math.floor(track.points.length / 100));
+  const sampledIndices = [];
 
-  for (let i = 0; i < track.points.length; i += step) {
-    const pt = track.points[i];
+  for (let i = 0; i < visiblePoints.length; i += chartStep) {
+    const pt = visiblePoints[i];
     labels.push(pt.distanceFromStart.toFixed(1) + ' km');
     elevationData.push(pt.ele);
+    sampledIndices.push(startIdx + i);
+  }
+
+  // Toujours inclure le dernier point
+  const lastSampledPt = visiblePoints[visiblePoints.length - 1];
+  if (labels[labels.length - 1] !== (lastSampledPt.distanceFromStart.toFixed(1) + ' km')) {
+    labels.push(lastSampledPt.distanceFromStart.toFixed(1) + ' km');
+    elevationData.push(lastSampledPt.ele);
+    sampledIndices.push(endIdx);
   }
 
   if (state.chartInstance) {
     state.chartInstance.destroy();
   }
 
-  const ctx = document.getElementById('elevation-chart').getContext('2d');
-  const gradient = ctx.createLinearGradient(0, 0, 0, 160);
-  gradient.addColorStop(0, track.color.hex + 'bb');
-  gradient.addColorStop(1, track.color.hex + '05');
+  const canvas = document.getElementById('elevation-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height || 180);
+  gradient.addColorStop(0, (track.color.hex || '#10b981') + 'cc');
+  gradient.addColorStop(1, (track.color.hex || '#10b981') + '08');
 
   state.chartInstance = new Chart(ctx, {
     type: 'line',
@@ -1433,22 +1540,22 @@ function openElevationDrawer(trackId) {
       datasets: [{
         label: 'Altitude (m)',
         data: elevationData,
-        borderColor: track.color.hex,
+        borderColor: track.color.hex || '#10b981',
         borderWidth: 3,
         backgroundColor: gradient,
         fill: true,
-        tension: 0.3,
+        tension: 0.25,
         pointRadius: 0,
         pointHoverRadius: 6,
         pointHoverBackgroundColor: '#ffffff',
-        pointHoverBorderColor: track.color.hex,
-        pointHoverBorderWidth: 2
+        pointHoverBorderColor: track.color.hex || '#10b981',
+        pointHoverBorderWidth: 2.5
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 300 },
+      animation: { duration: 250 },
       interaction: {
         intersect: false,
         mode: 'index'
@@ -1460,37 +1567,192 @@ function openElevationDrawer(trackId) {
           titleColor: '#94a3b8',
           bodyColor: '#f8fafc',
           bodyFont: { weight: 'bold', size: 14 },
-          borderColor: 'rgba(255, 255, 255, 0.2)',
-          borderWidth: 1,
+          borderColor: 'rgba(255, 255, 255, 0.25)',
+          borderWidth: 1.5,
           padding: 10,
           displayColors: false,
           callbacks: {
-            title: (items) => `Distance : ${items[0].label}`,
+            title: (items) => `Position : ${items[0].label}`,
             label: (item) => `Altitude : ${Math.round(item.raw)} m`
           }
         }
       },
       scales: {
         x: {
-          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          grid: { color: 'rgba(255, 255, 255, 0.06)' },
           ticks: { color: '#94a3b8', font: { size: 11, weight: 'bold' }, maxTicksLimit: 6 }
         },
         y: {
-          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          grid: { color: 'rgba(255, 255, 255, 0.06)' },
           ticks: { color: '#94a3b8', font: { size: 11, weight: 'bold' } }
         }
       },
       onHover: (event, activeElements) => {
         if (activeElements && activeElements.length > 0) {
-          const index = activeElements[0].index * step;
-          if (index < track.points.length) {
-            const pt = track.points[index];
-            updateHoverMapMarker(pt.lat, pt.lon);
+          const sampleIdx = activeElements[0].index;
+          if (sampleIdx < sampledIndices.length) {
+            const rawIdx = sampledIndices[sampleIdx];
+            if (rawIdx < elevationProfileState.allPoints.length) {
+              const pt = elevationProfileState.allPoints[rawIdx];
+              updateHoverMapMarker(pt.lat, pt.lon);
+            }
           }
         }
       }
     }
   });
+
+  lucide.createIcons();
+}
+
+function zoomInElevation() {
+  const steps = elevationProfileState.zoomSteps;
+  const currentIdx = steps.indexOf(elevationProfileState.zoomLevel);
+  const nextIdx = Math.min(steps.length - 1, (currentIdx === -1 ? 0 : currentIdx) + 1);
+  setElevationZoomLevel(steps[nextIdx]);
+}
+
+function zoomOutElevation() {
+  const steps = elevationProfileState.zoomSteps;
+  const currentIdx = steps.indexOf(elevationProfileState.zoomLevel);
+  const nextIdx = Math.max(0, (currentIdx === -1 ? 0 : currentIdx) - 1);
+  setElevationZoomLevel(steps[nextIdx]);
+}
+
+function resetElevationZoom() {
+  setElevationZoomLevel(1);
+}
+
+function setElevationZoomLevel(newLevel) {
+  elevationProfileState.zoomLevel = newLevel;
+
+  if (newLevel === 1) {
+    elevationProfileState.windowStartPct = 0;
+    elevationProfileState.windowEndPct = 100;
+  } else {
+    const currentCenter = (elevationProfileState.windowStartPct + elevationProfileState.windowEndPct) / 2;
+    const windowWidth = 100 / newLevel;
+    let start = currentCenter - (windowWidth / 2);
+    let end = currentCenter + (windowWidth / 2);
+
+    if (start < 0) {
+      end += -start;
+      start = 0;
+    }
+    if (end > 100) {
+      start -= (end - 100);
+      end = 100;
+    }
+    elevationProfileState.windowStartPct = Math.max(0, start);
+    elevationProfileState.windowEndPct = Math.min(100, end);
+  }
+
+  renderElevationChart();
+}
+
+function panElevation(direction) {
+  if (elevationProfileState.zoomLevel <= 1) return;
+
+  const windowWidth = elevationProfileState.windowEndPct - elevationProfileState.windowStartPct;
+  const step = windowWidth * 0.35 * direction;
+
+  let newStart = elevationProfileState.windowStartPct + step;
+  let newEnd = elevationProfileState.windowEndPct + step;
+
+  if (newStart < 0) {
+    newStart = 0;
+    newEnd = windowWidth;
+  }
+  if (newEnd > 100) {
+    newEnd = 100;
+    newStart = 100 - windowWidth;
+  }
+
+  elevationProfileState.windowStartPct = Math.max(0, newStart);
+  elevationProfileState.windowEndPct = Math.min(100, newEnd);
+
+  renderElevationChart();
+}
+
+function handleElevationMinimapClick(event) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const clickX = event.clientX - rect.left;
+  const clickPct = (clickX / rect.width) * 100;
+
+  if (elevationProfileState.zoomLevel <= 1) {
+    elevationProfileState.zoomLevel = 2;
+  }
+
+  const windowWidth = 100 / elevationProfileState.zoomLevel;
+  let start = clickPct - (windowWidth / 2);
+  let end = clickPct + (windowWidth / 2);
+
+  if (start < 0) {
+    end += -start;
+    start = 0;
+  }
+  if (end > 100) {
+    start -= (end - 100);
+    end = 100;
+  }
+
+  elevationProfileState.windowStartPct = Math.max(0, start);
+  elevationProfileState.windowEndPct = Math.min(100, end);
+
+  renderElevationChart();
+}
+
+function fitMapToZoomedSection() {
+  if (!elevationProfileState.activePoints || elevationProfileState.activePoints.length === 0) return;
+
+  const latlngs = elevationProfileState.activePoints.map(p => [p.lat, p.lon]);
+  const bounds = L.latLngBounds(latlngs);
+  state.map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+  showToast('🎯 Carte cadrée sur la section zoomée', 'success');
+}
+
+function toggleElevationFullscreen() {
+  const drawer = document.getElementById('elevation-drawer');
+  const icon = document.getElementById('ele-fullscreen-icon');
+  if (!drawer) return;
+
+  elevationProfileState.isExpanded = !elevationProfileState.isExpanded;
+
+  if (elevationProfileState.isExpanded) {
+    drawer.classList.add('is-fullscreen');
+    if (icon) {
+      icon.setAttribute('data-lucide', 'minimize-2');
+    }
+  } else {
+    drawer.classList.remove('is-fullscreen');
+    if (icon) {
+      icon.setAttribute('data-lucide', 'maximize-2');
+    }
+  }
+
+  setTimeout(() => {
+    if (state.chartInstance) {
+      state.chartInstance.resize();
+    }
+    lucide.createIcons();
+  }, 100);
+}
+
+function closeElevationDrawer() {
+  const drawer = document.getElementById('elevation-drawer');
+  const icon = document.getElementById('ele-fullscreen-icon');
+  if (drawer) {
+    drawer.classList.add('hidden');
+    drawer.classList.remove('is-fullscreen');
+    elevationProfileState.isExpanded = false;
+    if (icon) {
+      icon.setAttribute('data-lucide', 'maximize-2');
+    }
+  }
+  if (state.hoverMarker) {
+    state.map.removeLayer(state.hoverMarker);
+    state.hoverMarker = null;
+  }
 }
 
 function updateHoverMapMarker(lat, lon) {
@@ -2869,7 +3131,13 @@ function renderEmergencyActionsPad() {
       <!-- 1. 🟢 BOUTON 15 SAMU (France 🇫🇷) -->
       <button type="button" onclick="makeEmergencyCall('15')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-400/40">
         <span class="emergency-btn-badge">15</span>
-        <span class="emergency-flag" title="France">🇫🇷</span>
+        <div class="emergency-flag-container" title="France">
+          <svg class="emergency-flag-svg" viewBox="0 0 900 600" width="44" height="30">
+            <rect width="300" height="600" fill="#002654"/>
+            <rect x="300" width="300" height="600" fill="#ffffff"/>
+            <rect x="600" width="300" height="600" fill="#ce1126"/>
+          </svg>
+        </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
             <span>📞 SAMU</span>
@@ -2877,26 +3145,50 @@ function renderEmergencyActionsPad() {
           </div>
           <div class="emergency-btn-sub text-emerald-100 opacity-90 truncate">Malaise, traumatisme, détresse vitale</div>
         </div>
-        <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
       </button>
 
       <!-- 2. 🔴 BOUTON 112 POMPIERS & SECOURS MONTAGNE (Europe 🇪🇺) -->
       <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white border-red-400/40">
         <span class="emergency-btn-badge">112</span>
-        <span class="emergency-flag" title="Union Européenne">🇪🇺</span>
+        <div class="emergency-flag-container" title="Union Européenne">
+          <svg class="emergency-flag-svg" viewBox="0 0 810 540" width="44" height="30">
+            <rect width="810" height="540" fill="#003399"/>
+            <g fill="#ffcc00" transform="translate(405,270) scale(18)">
+              <g id="eu-star-js"><polygon points="0,-1 0.588,0.809 -0.951,-0.309 0.951,-0.309 -0.588,0.809" transform="translate(0,-9)"/></g>
+              <use href="#eu-star-js" transform="rotate(30)"/>
+              <use href="#eu-star-js" transform="rotate(60)"/>
+              <use href="#eu-star-js" transform="rotate(90)"/>
+              <use href="#eu-star-js" transform="rotate(120)"/>
+              <use href="#eu-star-js" transform="rotate(150)"/>
+              <use href="#eu-star-js" transform="rotate(180)"/>
+              <use href="#eu-star-js" transform="rotate(210)"/>
+              <use href="#eu-star-js" transform="rotate(240)"/>
+              <use href="#eu-star-js" transform="rotate(270)"/>
+              <use href="#eu-star-js" transform="rotate(300)"/>
+              <use href="#eu-star-js" transform="rotate(330)"/>
+            </g>
+          </svg>
+        </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
             <span>📞 Secours & Pompiers</span>
           </div>
           <div class="emergency-btn-sub text-red-100 opacity-90 truncate">PGHM / CRS Montagne, Pompiers, Gendarmerie</div>
         </div>
-        <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
       </button>
 
       <!-- 3. 🟣 BOUTON 114 SMS D'URGENCE (France 🇫🇷) -->
       <button type="button" onclick="sendEmergencySms('114')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 hover:to-purple-500 text-white border-purple-400/40">
         <span class="emergency-btn-badge">114</span>
-        <span class="emergency-flag" title="France (Relais SMS National)">🇫🇷</span>
+        <div class="emergency-flag-container" title="France (Relais SMS National)">
+          <svg class="emergency-flag-svg" viewBox="0 0 900 600" width="44" height="30">
+            <rect width="300" height="600" fill="#002654"/>
+            <rect x="300" width="300" height="600" fill="#ffffff"/>
+            <rect x="600" width="300" height="600" fill="#ce1126"/>
+          </svg>
+        </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
             <span>💬 SMS d'Urgence</span>
@@ -2904,7 +3196,7 @@ function renderEmergencyActionsPad() {
           </div>
           <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Zone blanche voix / Sourd / Muet / Blessé silencieux</div>
         </div>
-        <i data-lucide="message-square" class="w-6 h-6 text-white shrink-0"></i>
+        <i data-lucide="message-square" class="w-7 h-7 text-white shrink-0"></i>
       </button>
     `;
   } else if (country === 'ES') {
@@ -2912,40 +3204,70 @@ function renderEmergencyActionsPad() {
       <!-- 1. 🔴 BOUTON 112 EMERGENCIAS (Europe 🇪🇺 & España 🇪🇸) -->
       <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
         <span class="emergency-btn-badge">112</span>
-        <span class="emergency-flag" title="Unión Europea">🇪🇺</span>
+        <div class="emergency-flag-container" title="Unión Europea">
+          <svg class="emergency-flag-svg" viewBox="0 0 810 540" width="44" height="30">
+            <rect width="810" height="540" fill="#003399"/>
+            <g fill="#ffcc00" transform="translate(405,270) scale(18)">
+              <g id="eu-star-es"><polygon points="0,-1 0.588,0.809 -0.951,-0.309 0.951,-0.309 -0.588,0.809" transform="translate(0,-9)"/></g>
+              <use href="#eu-star-es" transform="rotate(30)"/>
+              <use href="#eu-star-es" transform="rotate(60)"/>
+              <use href="#eu-star-es" transform="rotate(90)"/>
+              <use href="#eu-star-es" transform="rotate(120)"/>
+              <use href="#eu-star-es" transform="rotate(150)"/>
+              <use href="#eu-star-es" transform="rotate(180)"/>
+              <use href="#eu-star-es" transform="rotate(210)"/>
+              <use href="#eu-star-es" transform="rotate(240)"/>
+              <use href="#eu-star-es" transform="rotate(270)"/>
+              <use href="#eu-star-es" transform="rotate(300)"/>
+              <use href="#eu-star-es" transform="rotate(330)"/>
+            </g>
+          </svg>
+        </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
             <span>📞 112 Emergencias España</span>
           </div>
           <div class="emergency-btn-sub text-red-100 opacity-90 truncate">Bomberos, Guardia Civil, Rescate GREIM</div>
         </div>
-        <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
       </button>
 
       <!-- 2. 🟢 BOUTON 061 URGENCIAS -->
       <button type="button" onclick="makeEmergencyCall('061')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 text-white border-emerald-400/40">
         <span class="emergency-btn-badge">061</span>
-        <span class="emergency-flag" title="España">🇪🇸</span>
+        <div class="emergency-flag-container" title="España">
+          <svg class="emergency-flag-svg" viewBox="0 0 750 500" width="44" height="30">
+            <rect width="750" height="125" fill="#AA151B"/>
+            <rect y="125" width="750" height="250" fill="#F1BF00"/>
+            <rect y="375" width="750" height="125" fill="#AA151B"/>
+          </svg>
+        </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
             <span>📞 061 Urgencias Sanitarias</span>
           </div>
           <div class="emergency-btn-sub text-emerald-100 opacity-90 truncate">Ambulancia y atención médica urgente</div>
         </div>
-        <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
       </button>
 
       <!-- 3. 🟣 BOUTON 112 SMS CON GPS -->
       <button type="button" onclick="sendEmergencySms('112')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 text-white border-purple-400/40">
         <span class="emergency-btn-badge">SMS</span>
-        <span class="emergency-flag" title="España">🇪🇸</span>
+        <div class="emergency-flag-container" title="España">
+          <svg class="emergency-flag-svg" viewBox="0 0 750 500" width="44" height="30">
+            <rect width="750" height="125" fill="#AA151B"/>
+            <rect y="125" width="750" height="250" fill="#F1BF00"/>
+            <rect y="375" width="750" height="125" fill="#AA151B"/>
+          </svg>
+        </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
             <span>💬 SMS de Emergencia</span>
           </div>
           <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Mensaje de auxilio con coordenadas GPS</div>
         </div>
-        <i data-lucide="message-square" class="w-6 h-6 text-white shrink-0"></i>
+        <i data-lucide="message-square" class="w-7 h-7 text-white shrink-0"></i>
       </button>
     `;
   } else {
@@ -2953,20 +3275,40 @@ function renderEmergencyActionsPad() {
       <!-- 1. 🔴 BOUTON 112 INTERNATIONAL -->
       <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
         <span class="emergency-btn-badge">112</span>
-        <span class="emergency-flag" title="Europe & International">🇪🇺</span>
+        <div class="emergency-flag-container" title="Europe & International">
+          <svg class="emergency-flag-svg" viewBox="0 0 810 540" width="44" height="30">
+            <rect width="810" height="540" fill="#003399"/>
+            <g fill="#ffcc00" transform="translate(405,270) scale(18)">
+              <g id="eu-star-int"><polygon points="0,-1 0.588,0.809 -0.951,-0.309 0.951,-0.309 -0.588,0.809" transform="translate(0,-9)"/></g>
+              <use href="#eu-star-int" transform="rotate(30)"/>
+              <use href="#eu-star-int" transform="rotate(60)"/>
+              <use href="#eu-star-int" transform="rotate(90)"/>
+              <use href="#eu-star-int" transform="rotate(120)"/>
+              <use href="#eu-star-int" transform="rotate(150)"/>
+              <use href="#eu-star-int" transform="rotate(180)"/>
+              <use href="#eu-star-int" transform="rotate(210)"/>
+              <use href="#eu-star-int" transform="rotate(240)"/>
+              <use href="#eu-star-int" transform="rotate(270)"/>
+              <use href="#eu-star-int" transform="rotate(300)"/>
+              <use href="#eu-star-int" transform="rotate(330)"/>
+            </g>
+          </svg>
+        </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
             <span>📞 112 International Emergency</span>
           </div>
           <div class="emergency-btn-sub text-red-100 opacity-90 truncate">European & International Rescue Number</div>
         </div>
-        <i data-lucide="phone-forwarded" class="w-6 h-6 text-white shrink-0"></i>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
       </button>
 
       <!-- 2. 🟣 BOUTON SMS EMERGENCY WITH GPS -->
       <button type="button" onclick="sendEmergencySms('')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 text-white border-purple-400/40">
         <span class="emergency-btn-badge">SMS</span>
-        <span class="emergency-flag" title="International">🌐</span>
+        <div class="emergency-flag-container" title="International">
+          <span class="text-2xl">🌐</span>
+        </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
             <span>💬 Emergency SMS</span>
@@ -2974,7 +3316,7 @@ function renderEmergencyActionsPad() {
           </div>
           <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Send emergency SMS with full GPS coordinates</div>
         </div>
-        <i data-lucide="message-square" class="w-6 h-6 text-white shrink-0"></i>
+        <i data-lucide="message-square" class="w-7 h-7 text-white shrink-0"></i>
       </button>
     `;
   }
@@ -3356,11 +3698,7 @@ function setupEventListeners() {
   const closeEle = document.getElementById('close-ele-drawer-btn');
   if (closeEle) {
     closeEle.addEventListener('click', () => {
-      document.getElementById('elevation-drawer').classList.add('hidden');
-      if (state.hoverMarker) {
-        state.map.removeLayer(state.hoverMarker);
-        state.hoverMarker = null;
-      }
+      closeElevationDrawer();
     });
   }
 
@@ -3631,6 +3969,15 @@ window.closeInviteModal = () => { const m = document.getElementById('invite-moda
 window.openAnnouncementModal = openAnnouncementModal;
 window.closeAnnouncementModal = closeAnnouncementModal;
 window.openElevationDrawer = openElevationDrawer;
+window.closeElevationDrawer = closeElevationDrawer;
+window.toggleElevationFullscreen = toggleElevationFullscreen;
+window.zoomInElevation = zoomInElevation;
+window.zoomOutElevation = zoomOutElevation;
+window.resetElevationZoom = resetElevationZoom;
+window.panElevation = panElevation;
+window.fitMapToZoomedSection = fitMapToZoomedSection;
+window.handleElevationMinimapClick = handleElevationMinimapClick;
+window.renderElevationChart = renderElevationChart;
 window.deleteParticipant = deleteParticipant;
 window.clearOnlyParticipants = clearOnlyParticipants;
 window.clearHikeSession = clearHikeSession;
