@@ -4208,13 +4208,15 @@ function adjustPopupZoom(btn, delta) {
   if (badge) badge.textContent = `${Math.round(currentZoom * 100)}%`;
 }
 
-// ============================================================================
+/// ============================================================================
 // GUIDE DE DÉMARRAGE RAPIDE / ONBOARDING (GPS ET BATTERIE SANS RESTRICTION)
 // ============================================================================
 function checkOnboardingStatus() {
   const hasAccepted = localStorage.getItem('rando_onboarding_accepted');
   if (!hasAccepted) {
-    setTimeout(openOnboardingModal, 400);
+    setTimeout(() => {
+      openOnboardingModal();
+    }, 500);
   }
 }
 
@@ -4223,6 +4225,9 @@ function openOnboardingModal() {
   if (modal) {
     modal.classList.remove('hidden');
     pushModalState('onboarding-modal');
+    if (window.lucide && lucide.createIcons) {
+      lucide.createIcons();
+    }
   }
 }
 
@@ -4254,14 +4259,7 @@ function ensureBarsVisible() {
   const currentHeight = window.innerHeight || document.documentElement.clientHeight;
   document.documentElement.style.setProperty('--app-height', `${currentHeight}px`);
 
-  // B. Verrouiller le scroll de la page au sommet absolu
-  if (window.scrollY !== 0 || window.scrollX !== 0) {
-    window.scrollTo(0, 0);
-  }
-  if (document.body && document.body.scrollTop !== 0) document.body.scrollTop = 0;
-  if (document.documentElement && document.documentElement.scrollTop !== 0) document.documentElement.scrollTop = 0;
-
-  // C. Rétablir immédiatement l'en-tête supérieur si altéré (Z-Index 2000)
+  // B. Rétablir immédiatement l'en-tête supérieur si altéré (Z-Index 2000)
   const header = document.querySelector('.app-header');
   if (header) {
     header.classList.remove('hidden', 'drawer-closed');
@@ -4275,7 +4273,7 @@ function ensureBarsVisible() {
     header.style.transform = 'translate3d(0, 0, 0)';
   }
 
-  // D. Rétablir immédiatement la barre de navigation inférieure si altérée (Z-Index 2000)
+  // C. Rétablir immédiatement la barre de navigation inférieure si altérée (Z-Index 2000)
   const bottomNav = document.querySelector('.app-bottom-nav');
   if (bottomNav) {
     bottomNav.classList.remove('hidden', 'drawer-closed');
@@ -4301,7 +4299,6 @@ function initPixelSanctuaryGuardians() {
     ensureBarsVisible();
     if (state.map) setTimeout(() => state.map.invalidateSize(), 120);
   });
-  window.addEventListener('scroll', ensureBarsVisible);
 
   // B. Visual Viewport API (Prévient les décalages de barre d'adresse et gestes plein écran Pixel)
   if (window.visualViewport) {
@@ -4309,7 +4306,6 @@ function initPixelSanctuaryGuardians() {
       ensureBarsVisible();
       if (state.map) setTimeout(() => state.map.invalidateSize(), 80);
     });
-    window.visualViewport.addEventListener('scroll', ensureBarsVisible);
   }
 
   // C. Fermeture de clavier virtuel (Inputs et Textareas)
@@ -4324,14 +4320,14 @@ function initPixelSanctuaryGuardians() {
 
   // D. Reconnexion WakeLock si retour au premier plan
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && state.isTrackingGps) {
-      requestWakeLock();
+    if (document.visibilityState === 'visible') {
       ensureBarsVisible();
+      if (state.map) setTimeout(() => state.map.invalidateSize(), 100);
+      if (state.isTrackingGps) {
+        requestWakeLock();
+      }
     }
   });
-
-  // E. Watchdog persistant (vérifie l'intégrité toutes les 400ms)
-  setInterval(ensureBarsVisible, 400);
 }
 
 // ============================================================================
@@ -4369,7 +4365,7 @@ function makePopupDraggable(popupEl) {
   };
 
   const onDragStart = (e) => {
-    if (e.target.closest('button, a, input, select, textarea, label, .popup-zoom-btn')) return;
+    if (e.target.closest('button, a, input, select, textarea, label, .popup-zoom-btn, details, summary, i, svg, [onclick]')) return;
     isDragging = true;
     handle.style.cursor = 'grabbing';
 
@@ -4420,12 +4416,12 @@ function makePopupDraggable(popupEl) {
   };
 
   handle.addEventListener('mousedown', onDragStart);
-  handle.addEventListener('touchstart', onDragStart, { passive: false });
+  handle.addEventListener('touchstart', onDragStart, { passive: true });
 }
 
 function makeModalDraggable(modalId) {
   const modal = document.getElementById(modalId);
-  if (!modal) return;
+  if (!modal || modalId === 'elevation-drawer') return;
   const card = modal.querySelector('.bg-slate-900') || modal.querySelector('.emergency-modal-inner') || modal.firstElementChild || modal;
   if (!card || card.dataset.draggableActive) return;
   card.dataset.draggableActive = 'true';
@@ -4438,7 +4434,7 @@ function makeModalDraggable(modalId) {
   let curX = 0, curY = 0;
 
   const onStart = (e) => {
-    if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, details')) return;
+    if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, details, summary, i, svg, [onclick]')) return;
     isDragging = true;
     header.style.cursor = 'grabbing';
 
@@ -4477,14 +4473,14 @@ function makeModalDraggable(modalId) {
   };
 
   header.addEventListener('mousedown', onStart);
-  header.addEventListener('touchstart', onStart, { passive: false });
+  header.addEventListener('touchstart', onStart, { passive: true });
 }
 
 function initAllDraggableModals() {
   const modalIds = [
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal',
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
-    'about-modal', 'onboarding-modal', 'elevation-drawer'
+    'about-modal', 'onboarding-modal'
   ];
   modalIds.forEach(id => makeModalDraggable(id));
 }

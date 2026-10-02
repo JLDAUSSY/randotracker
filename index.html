@@ -49,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v45 -->
-  <link rel="stylesheet" href="styles.css?v=45" />
+  <!-- Custom Styles with Cache-Busting v46 -->
+  <link rel="stylesheet" href="styles.css?v=46" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -64,7 +64,7 @@
       <div class="flex flex-col justify-center">
         <div class="flex items-center gap-1.5">
           <span class="app-header-title font-black tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
-          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/40">v45</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/40">v46</span>
         </div>
         <span class="text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider mt-0.5 transition flex items-center gap-1 leading-none">
           <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
@@ -372,7 +372,7 @@
   <nav class="app-bottom-nav bg-slate-900/98 border-t-2 border-slate-800 grid grid-cols-4 items-center z-30 shrink-0 safe-bottom shadow-2xl px-1 sm:px-4">
     
     <!-- 1. 🚨 SOS Secours & Urgence (Rouge Vif) -->
-    <button id="nav-btn-sos" class="nav-btn-item text-red-400 hover:text-red-300" title="Secours 15 SAMU / 112 Pompiers & GPS">
+    <button id="nav-btn-sos" onclick="toggleEmergencyModal()" class="nav-btn-item text-red-400 hover:text-red-300" title="Secours 15 SAMU / 112 Pompiers & GPS">
       <div class="nav-icon-pill bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white border-white shadow-red-900/40">
         <span class="text-2xl sm:text-3xl select-none leading-none">🚨</span>
       </div>
@@ -380,7 +380,7 @@
     </button>
 
     <!-- 2. 🎯 Mon GPS (Vert Émeraude Pulsant en Relief) -->
-    <button id="nav-btn-gps" class="nav-btn-item text-white" title="Centrer sur ma position GPS">
+    <button id="nav-btn-gps" onclick="onNavGpsClick()" class="nav-btn-item text-white" title="Centrer sur ma position GPS">
       <div id="nav-gps-bubble" class="shadow-2xl animate-pulse">
         <i data-lucide="navigation" class="text-white stroke-[2.8]" id="nav-gps-icon"></i>
       </div>
@@ -388,7 +388,7 @@
     </button>
 
     <!-- 3. 🗺️ TOUTES LES TRACES / RECADRER (Bleu Royal) -->
-    <button id="nav-btn-traces" class="nav-btn-item text-blue-400 hover:text-blue-300" title="Recadrer la vue sur l'ensemble des parcours">
+    <button id="nav-btn-traces" onclick="onNavTracesClick()" class="nav-btn-item text-blue-400 hover:text-blue-300" title="Recadrer la vue sur l'ensemble des parcours">
       <div class="nav-icon-pill bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 text-white border-white/90 shadow-blue-900/40">
         <i data-lucide="maximize-2" class="text-white stroke-[2.8]"></i>
       </div>
@@ -396,7 +396,7 @@
     </button>
 
     <!-- 4. 👥 PARTICIPANTS (Indigo / Violet avec Badge) -->
-    <button id="nav-btn-users" class="nav-btn-item text-slate-200 hover:text-indigo-400" title="Voir les marcheurs du groupe">
+    <button id="nav-btn-users" onclick="toggleUsersDrawer()" class="nav-btn-item text-slate-200 hover:text-indigo-400" title="Voir les marcheurs du groupe">
       <div class="nav-icon-pill bg-slate-800 border-slate-600 shadow-indigo-950/40">
         <i data-lucide="users" class="text-indigo-400 stroke-[2.5]"></i>
         <span id="nav-users-badge" class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-indigo-500 text-white text-[10px] font-black flex items-center justify-center shadow-md border-2 border-slate-900">1</span>
@@ -1214,7 +1214,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v45 -->
-  <script src="app.js?v=45"></script>
+  <!-- Main Application Script with Cache-Busting v46 -->
+  <script src="app.js?v=46"></script>
 </body>
 </html>
