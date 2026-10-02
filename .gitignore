@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Android build outputs & caches
+android-project/.gradle/
+android-project/build/
+android-project/app/build/
+android-project/local.properties
+android-project/.idea/
+android-project/*.iml
+
+# Debug & Temporary scratch files
+Captures/
+scratch_debug/
+dump.html
+check_p1_figures.png
+check_page_1.png
+debug_pixel9.py
+debug_runtime.py
+runtime_*.png
+page_*.png
+pixel9_verified_screenshot.png
+
+# Keep binary releases (APK & AAB) or ignore them depending on preference (we can keep or ignore, but usually release bundles can be tracked or kept in releases)
+# android-project/keystore/ is kept so the user retains the signing key.

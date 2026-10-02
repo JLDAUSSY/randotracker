@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">RandoTracker</string>
+    <string name="host_name">jldaussy.github.io</string>
+    <string name="default_url">https://jldaussy.github.io/randotracker/</string>
+</resources>

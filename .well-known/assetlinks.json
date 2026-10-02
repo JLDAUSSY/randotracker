@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.jldaussy.randotracker",
+      "sha256_cert_fingerprints": [
+        "7D:40:04:E7:AC:75:31:DF:A1:27:97:29:C2:4B:B4:4D:11:CF:45:A2:5F:67:3B:E4:25:25:D4:24:B0:AB:A0:27"
+      ]
+    }
+  }
+]
