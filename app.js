@@ -725,9 +725,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=34')
+    navigator.serviceWorker.register('./sw.js?v=47')
       .then((reg) => {
-        console.log('[PWA] Service Worker v34 actif:', reg.scope);
+        console.log('[PWA] Service Worker v47 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -3865,18 +3865,8 @@ function startHeartbeat() {
 }
 
 // Gestion du Wake Lock (Évite que l'écran s'éteigne pendant la marche active)
-let screenWakeLock = null;
 async function requestScreenWakeLock() {
-  if ('wakeLock' in navigator) {
-    try {
-      screenWakeLock = await navigator.wakeLock.request('screen');
-      screenWakeLock.addEventListener('release', () => {
-        screenWakeLock = null;
-      });
-    } catch (err) {
-      console.warn('[WakeLock] Maintien écran indisponible:', err);
-    }
-  }
+  return requestWakeLock();
 }
 
 // 1. Réveil automatique lors du déverrouillage de l'écran ou retour sur l'onglet
@@ -4486,17 +4476,18 @@ function initAllDraggableModals() {
 }
 
 // ============================================================================
-// DÉMARRAGE DE L'APPLICATION
+// DÉMARRAGE DE L'APPLICATION (BOOTSTRAP DEFENSIVE & ROBUSTE)
 // ============================================================================
-window.addEventListener('DOMContentLoaded', () => {
-  initPWA();
-  initMap();
-  initUserRole();
-  loadUserProfile();
-  setupEventListeners();
-  initRealtimeSync();
-  initPixelSanctuaryGuardians();
-  initAllDraggableModals();
+function bootApp() {
+  console.log('[RandoTracker] Démarrage du système...');
+  try { initPWA(); } catch(e) { console.error('[Init PWA]', e); }
+  try { initMap(); } catch(e) { console.error('[Init Map]', e); }
+  try { initUserRole(); } catch(e) { console.error('[Init UserRole]', e); }
+  try { loadUserProfile(); } catch(e) { console.error('[Init UserProfile]', e); }
+  try { setupEventListeners(); } catch(e) { console.error('[Init EventListeners]', e); }
+  try { initRealtimeSync(); } catch(e) { console.error('[Init RealtimeSync]', e); }
+  try { initPixelSanctuaryGuardians(); } catch(e) { console.error('[Init PixelGuardians]', e); }
+  try { initAllDraggableModals(); } catch(e) { console.error('[Init DraggableModals]', e); }
 
   // Ancrage initial robuste dans l'historique pour empêcher tout swipe-back destructif
   try {
@@ -4504,31 +4495,63 @@ window.addEventListener('DOMContentLoaded', () => {
     history.pushState({ randoMain: true }, '', window.location.href);
   } catch (e) {}
 
-  createOrUpdateUserMarker(state.myUser);
-  loadSavedOtherUsersFromStorage();
-  renderUsersList();
+  try { createOrUpdateUserMarker(state.myUser); } catch(e) { console.error('[Init UserMarker]', e); }
+  try { loadSavedOtherUsersFromStorage(); } catch(e) { console.error('[Init SavedUsers]', e); }
+  try { renderUsersList(); } catch(e) { console.error('[Init UsersList]', e); }
 
   // CHARGEMENT DE LA SESSION PERSISTANTE (SI RANDONNÉE EN COURS < 8H/24H)
-  const hasRestored = loadHikeSessionFromStorage();
-  if (!hasRestored) {
-    renderQuickTracksBar();
-  }
+  try {
+    const hasRestored = loadHikeSessionFromStorage();
+    if (!hasRestored) {
+      renderQuickTracksBar();
+    }
+  } catch(e) { console.error('[Init HikeSession]', e); }
 
-  startHeartbeat();
-  setInterval(cleanStaleUsers, 10000); // Surveillance toutes les 10s
+  try {
+    startHeartbeat();
+    setInterval(cleanStaleUsers, 10000); // Surveillance toutes les 10s
+  } catch(e) { console.error('[Init Heartbeat]', e); }
 
-  lucide.createIcons();
-  ensureBarsVisible();
+  try {
+    if (window.lucide && lucide.createIcons) {
+      lucide.createIcons();
+    }
+  } catch(e) { console.error('[Init Lucide]', e); }
+
+  try { ensureBarsVisible(); } catch(e) { console.error('[Init EnsureBars]', e); }
+
+  // Retries garantis pour le rendu des icônes Lucide et le recalcul géométrique de Leaflet
+  setTimeout(() => {
+    try {
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
+      if (state.map) state.map.invalidateSize();
+    } catch(e) {}
+  }, 150);
+
+  setTimeout(() => {
+    try {
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
+      if (state.map) state.map.invalidateSize();
+    } catch(e) {}
+  }, 600);
 
   // VÉRIFICATION DU GUIDE ONBOARDING (1er démarrage) OU DÉMARRAGE DIRECT GPS
-  const hasAcceptedOnboarding = localStorage.getItem('rando_onboarding_accepted');
-  if (!hasAcceptedOnboarding) {
-    checkOnboardingStatus();
-  } else if (navigator.geolocation) {
-    console.log('[GPS] Démarrage automatique de la géolocalisation...');
-    startGpsWatch(true);
-  }
-});
+  try {
+    const hasAcceptedOnboarding = localStorage.getItem('rando_onboarding_accepted');
+    if (!hasAcceptedOnboarding) {
+      checkOnboardingStatus();
+    } else if (navigator.geolocation) {
+      console.log('[GPS] Démarrage automatique de la géolocalisation...');
+      startGpsWatch(true);
+    }
+  } catch(e) { console.error('[Init Onboarding/GPS]', e); }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootApp);
+} else {
+  bootApp();
+}
 
 // ============================================================================
 // GESTION DE L'HISTORIQUE & PROTECTION ANTI-DISPARITION / SWIPE-BACK (ANDROID / PIXEL)
