@@ -467,34 +467,12 @@ function deleteParticipant(userId) {
 }
 
 // ============================================================================
-// GESTION DES RÔLES : ORGANISATEUR vs INVITÉ / MARCHEUR
+// GESTION DES RÔLES : MODE ÉGALITAIRE POUR TOUS LES MARCHEURS
 // ============================================================================
 function initUserRole() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const roleParam = urlParams.get('role');
-  
-  if (roleParam === 'guest' || roleParam === 'viewer') {
-    state.isOrganizer = false;
-    localStorage.setItem('rando_is_organizer', 'false');
-    const savedName = localStorage.getItem('rando_user_name');
-    if (!savedName || savedName === 'Jean-Luc' || savedName === 'Animateur') {
-      state.myUser.name = 'Randonneur';
-      state.myUser.role = 'Marcheur';
-      state.myUser.icon = '🥾';
-      state.myUser.color = '#2563eb';
-      localStorage.setItem('rando_user_name', 'Randonneur');
-      localStorage.setItem('rando_user_role', 'Marcheur');
-      localStorage.setItem('rando_user_icon', '🥾');
-      localStorage.setItem('rando_user_color', '#2563eb');
-    }
-  } else if (roleParam === 'organizer' || roleParam === 'admin') {
-    state.isOrganizer = true;
-    localStorage.setItem('rando_is_organizer', 'true');
-  } else {
-    const saved = localStorage.getItem('rando_is_organizer');
-    state.isOrganizer = (saved !== 'false');
-  }
-
+  // Tous les participants sont égaux avec l'application complète installée
+  state.isOrganizer = true;
+  localStorage.setItem('rando_is_organizer', 'true');
   applyRoleUI();
 }
 
@@ -504,25 +482,10 @@ function applyRoleUI() {
   const navBtnGpx = document.getElementById('nav-btn-gpx');
   const navBtnEle = document.getElementById('nav-btn-ele');
 
-  if (headerInvite) {
-    if (state.isOrganizer) headerInvite.classList.remove('hidden');
-    else headerInvite.classList.add('hidden');
-  }
-
-  if (drawerAdminActions) {
-    if (state.isOrganizer) drawerAdminActions.classList.remove('hidden');
-    else drawerAdminActions.classList.add('hidden');
-  }
-
-  if (navBtnGpx && navBtnEle) {
-    if (state.isOrganizer) {
-      navBtnGpx.classList.remove('hidden');
-      navBtnEle.classList.add('hidden');
-    } else {
-      navBtnGpx.classList.add('hidden');
-      navBtnEle.classList.remove('hidden');
-    }
-  }
+  if (headerInvite) headerInvite.classList.remove('hidden');
+  if (drawerAdminActions) drawerAdminActions.classList.remove('hidden');
+  if (navBtnGpx) navBtnGpx.classList.remove('hidden');
+  if (navBtnEle) navBtnEle.classList.add('hidden');
 
   // Mettre à jour les marqueurs sur la carte et la liste
   state.otherUsers.forEach(u => createOrUpdateUserMarker(u));
@@ -577,6 +540,15 @@ function loadSavedUiScale() {
   applyUiScale(savedScale);
 }
 
+function isOffTrackSoundEnabled() {
+  const saved = localStorage.getItem('rando_offtrack_sound_enabled');
+  return saved === null ? true : saved === 'true';
+}
+
+function setOffTrackSoundEnabled(enabled) {
+  localStorage.setItem('rando_offtrack_sound_enabled', enabled ? 'true' : 'false');
+}
+
 function loadUserProfile() {
   loadSavedUiScale();
 
@@ -590,14 +562,14 @@ function loadUserProfile() {
   if (savedName) {
     state.myUser.name = savedName;
   } else {
-    state.myUser.name = state.isOrganizer ? 'Animateur' : 'Randonneur';
+    state.myUser.name = 'Animateur';
     localStorage.setItem('rando_user_name', state.myUser.name);
   }
 
   if (savedRole) {
     state.myUser.role = savedRole;
   } else {
-    state.myUser.role = state.isOrganizer ? 'Guide de tête' : 'Marcheur';
+    state.myUser.role = 'Guide de tête';
   }
 
   if (savedIcon) state.myUser.icon = savedIcon;
@@ -640,12 +612,12 @@ function updateProfileUI() {
   const inputRole = document.getElementById('input-user-role');
   const inputDuration = document.getElementById('input-share-duration');
   const inputTrack = document.getElementById('input-user-track');
-  const orgToggle = document.getElementById('toggle-organizer-mode');
+  const soundToggle = document.getElementById('toggle-offtrack-sound');
 
   if (inputName) inputName.value = state.myUser.name;
   if (inputRole) inputRole.value = state.myUser.role;
   if (inputDuration) inputDuration.value = String(state.shareDurationHours);
-  if (orgToggle) orgToggle.checked = state.isOrganizer;
+  if (soundToggle) soundToggle.checked = isOffTrackSoundEnabled();
 
   // Mettre à jour la liste des traces disponibles dans le sélecteur
   if (inputTrack) {
@@ -690,20 +662,15 @@ function saveUserProfile() {
   const role = document.getElementById('input-user-role').value;
   const duration = parseFloat(document.getElementById('input-share-duration').value);
   const trackId = document.getElementById('input-user-track').value;
-  const orgToggle = document.getElementById('toggle-organizer-mode');
+  const soundToggle = document.getElementById('toggle-offtrack-sound');
 
   if (name) state.myUser.name = name;
   if (role) state.myUser.role = role;
   state.myUser.assignedTrackId = trackId || 'auto';
   state.shareDurationHours = Math.min(ABSOLUTE_MAX_HOURS, Math.max(1, isNaN(duration) ? 8 : duration));
 
-  if (orgToggle) {
-    const wasOrganizer = state.isOrganizer;
-    state.isOrganizer = orgToggle.checked;
-    localStorage.setItem('rando_is_organizer', state.isOrganizer ? 'true' : 'false');
-    if (wasOrganizer !== state.isOrganizer) {
-      applyRoleUI();
-    }
+  if (soundToggle) {
+    setOffTrackSoundEnabled(soundToggle.checked);
   }
 
   localStorage.setItem('rando_user_name', state.myUser.name);
@@ -725,9 +692,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=47')
+    navigator.serviceWorker.register('./sw.js?v=48')
       .then((reg) => {
-        console.log('[PWA] Service Worker v47 actif:', reg.scope);
+        console.log('[PWA] Service Worker v48 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -867,7 +834,7 @@ function initMap() {
     if (state.map) state.map.invalidateSize();
   }, 200);
 
-  // Rafraîchir les icônes & activer le déplacement tactile/souris des popups
+  // Rafraîchir les icônes & activer le déplacement tactile/souris et zoom des popups
   state.map.on('popupopen', (e) => {
     if (window.lucide && lucide.createIcons) {
       lucide.createIcons();
@@ -876,6 +843,7 @@ function initMap() {
       const popupEl = e.popup.getElement();
       if (popupEl) {
         makePopupDraggable(popupEl);
+        applySavedPopupZoom(popupEl);
       }
     }
   });
@@ -2389,6 +2357,13 @@ function playOffTrackAlertSound() {
       navigator.vibrate([300, 150, 300, 150, 300]);
     } catch (e) {}
   }
+
+  // Vérifier si l'utilisateur a désactivé le son pour les sorties de trace
+  if (!isOffTrackSoundEnabled()) {
+    console.log('[Audio] Alerte sonore sortie de trace désactivée par l\'utilisateur');
+    return;
+  }
+
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
@@ -2740,7 +2715,7 @@ function toggleGps() {
 function getInviteUrl() {
   const origin = window.location.origin;
   const pathname = window.location.pathname;
-  return `${origin}${pathname}?room=${encodeURIComponent(state.roomCode)}&role=guest`;
+  return `${origin}${pathname}?room=${encodeURIComponent(state.roomCode)}`;
 }
 
 function openInviteModal() {
@@ -4179,23 +4154,63 @@ function cleanStaleUsers() {
 }
 
 // ============================================================================
-// GESTION DU ZOOM DYNAMIQUE DES POPUPS (LÉSIBILITÉ PLEIN SOLEIL / GANTS)
+// GESTION DU ZOOM DYNAMIQUE DES POPUPS ET FENÊTRES
 // ============================================================================
-function adjustPopupZoom(btn, delta) {
-  const wrapper = btn.closest('.leaflet-popup-content-wrapper') || btn.closest('.leaflet-popup');
-  if (!wrapper) return;
-  let currentZoom = parseFloat(wrapper.dataset.zoomLevel || localStorage.getItem('rando_popup_zoom') || '1.0');
-  currentZoom = Math.max(0.75, Math.min(1.6, Math.round((currentZoom + delta) * 10) / 10));
-  wrapper.dataset.zoomLevel = currentZoom;
-  localStorage.setItem('rando_popup_zoom', currentZoom.toString());
-
-  const content = wrapper.querySelector('.leaflet-popup-content') || wrapper;
-  content.style.fontSize = `${16 * currentZoom}px`;
-  content.style.minWidth = `${Math.round(290 * currentZoom)}px`;
+function applySavedPopupZoom(popupEl) {
+  if (!popupEl) return;
+  const currentZoom = parseFloat(localStorage.getItem('rando_popup_zoom') || '1.0');
+  const wrapper = popupEl.querySelector('.leaflet-popup-content-wrapper') || popupEl;
+  const content = popupEl.querySelector('.leaflet-popup-content') || wrapper;
+  
+  wrapper.dataset.zoomLevel = currentZoom.toString();
+  content.style.fontSize = `${15 * currentZoom}px`;
+  content.style.minWidth = `${Math.round(280 * currentZoom)}px`;
   content.style.maxWidth = `${Math.round(360 * currentZoom)}px`;
 
-  const badge = wrapper.querySelector('.popup-zoom-level-badge');
+  const badges = popupEl.querySelectorAll('.popup-zoom-level-badge');
+  badges.forEach(b => b.textContent = `${Math.round(currentZoom * 100)}%`);
+}
+
+function adjustPopupZoom(btn, delta) {
+  const popupEl = btn.closest('.leaflet-popup') || btn.closest('.leaflet-popup-content-wrapper');
+  if (!popupEl) return;
+  const wrapper = popupEl.querySelector('.leaflet-popup-content-wrapper') || popupEl;
+  const content = popupEl.querySelector('.leaflet-popup-content') || wrapper;
+
+  let currentZoom = parseFloat(wrapper.dataset.zoomLevel || localStorage.getItem('rando_popup_zoom') || '1.0');
+  currentZoom = Math.max(0.75, Math.min(1.6, Math.round((currentZoom + delta) * 10) / 10));
+  
+  wrapper.dataset.zoomLevel = currentZoom.toString();
+  localStorage.setItem('rando_popup_zoom', currentZoom.toString());
+
+  content.style.fontSize = `${15 * currentZoom}px`;
+  content.style.minWidth = `${Math.round(280 * currentZoom)}px`;
+  content.style.maxWidth = `${Math.round(360 * currentZoom)}px`;
+
+  const badges = popupEl.querySelectorAll('.popup-zoom-level-badge');
+  badges.forEach(b => b.textContent = `${Math.round(currentZoom * 100)}%`);
+}
+
+function adjustElevationDrawerZoom(delta) {
+  const drawer = document.getElementById('elevation-drawer');
+  if (!drawer) return;
+  let currentZoom = parseFloat(drawer.dataset.uiZoom || localStorage.getItem('rando_ele_ui_zoom') || '1.0');
+  currentZoom = Math.max(0.75, Math.min(1.5, Math.round((currentZoom + delta) * 10) / 10));
+  drawer.dataset.uiZoom = currentZoom.toString();
+  localStorage.setItem('rando_ele_ui_zoom', currentZoom.toString());
+
+  const badge = document.getElementById('ele-ui-zoom-badge');
   if (badge) badge.textContent = `${Math.round(currentZoom * 100)}%`;
+
+  drawer.style.fontSize = `${14 * currentZoom}px`;
+  const statValues = drawer.querySelectorAll('#ele-stat-dist, #ele-stat-gain, #ele-stat-minmax, #ele-stat-slope');
+  statValues.forEach(el => {
+    el.style.fontSize = `${14 * currentZoom}px`;
+  });
+
+  if (state.chartInstance) {
+    state.chartInstance.resize();
+  }
 }
 
 /// ============================================================================
@@ -4328,45 +4343,25 @@ function makePopupDraggable(popupEl) {
   popupEl.dataset.draggableActive = 'true';
 
   const handle = popupEl.querySelector('.popup-drag-bar') || popupEl.querySelector('.leaflet-popup-content-wrapper') || popupEl;
+  const wrapper = popupEl.querySelector('.leaflet-popup-content-wrapper') || popupEl;
   handle.style.cursor = 'grab';
 
   let isDragging = false;
   let startX = 0, startY = 0;
-  let initialX = 0, initialY = 0;
-
-  const parseTransform = (el) => {
-    const transform = el.style.transform || window.getComputedStyle(el).transform;
-    if (!transform || transform === 'none') return { x: 0, y: 0 };
-    if (window.DOMMatrixReadOnly) {
-      try {
-        const m = new DOMMatrixReadOnly(transform);
-        return { x: m.m41, y: m.m42 };
-      } catch (e) {}
-    }
-    const match = transform.match(/translate3d\(([-\d.]+)px,\s*([-\d.]+)px/);
-    if (match) {
-      return { x: parseFloat(match[1]), y: parseFloat(match[2]) };
-    }
-    const match2d = transform.match(/matrix\([^,]+,[^,]+,[^,]+,[^,]+,\s*([-\d.]+),\s*([-\d.]+)\)/);
-    if (match2d) {
-      return { x: parseFloat(match2d[1]), y: parseFloat(match2d[2]) };
-    }
-    return { x: 0, y: 0 };
-  };
+  let currentOffsetX = parseFloat(wrapper.dataset.dragX || '0');
+  let currentOffsetY = parseFloat(wrapper.dataset.dragY || '0');
 
   const onDragStart = (e) => {
-    if (e.target.closest('button, a, input, select, textarea, label, .popup-zoom-btn, details, summary, i, svg, [onclick]')) return;
+    if (e.target.closest('button, a, input, select, textarea, label, .popup-zoom-btn, details, summary, i, svg, [onclick]')) {
+      return;
+    }
     isDragging = true;
     handle.style.cursor = 'grabbing';
 
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    startX = clientX;
-    startY = clientY;
-
-    const currentT = parseTransform(popupEl);
-    initialX = currentT.x;
-    initialY = currentT.y;
+    startX = clientX - currentOffsetX;
+    startY = clientY - currentOffsetY;
 
     if (state.map && state.map.dragging) {
       state.map.dragging.disable();
@@ -4384,10 +4379,12 @@ function makePopupDraggable(popupEl) {
 
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const dx = clientX - startX;
-    const dy = clientY - startY;
+    currentOffsetX = clientX - startX;
+    currentOffsetY = clientY - startY;
 
-    popupEl.style.transform = `translate3d(${Math.round(initialX + dx)}px, ${Math.round(initialY + dy)}px, 0px)`;
+    wrapper.dataset.dragX = currentOffsetX.toString();
+    wrapper.dataset.dragY = currentOffsetY.toString();
+    wrapper.style.transform = `translate3d(${currentOffsetX}px, ${currentOffsetY}px, 0px)`;
   };
 
   const onDragEnd = () => {
@@ -4406,32 +4403,38 @@ function makePopupDraggable(popupEl) {
   };
 
   handle.addEventListener('mousedown', onDragStart);
-  handle.addEventListener('touchstart', onDragStart, { passive: true });
+  handle.addEventListener('touchstart', onDragStart, { passive: false });
 }
 
 function makeModalDraggable(modalId) {
   const modal = document.getElementById(modalId);
-  if (!modal || modalId === 'elevation-drawer') return;
-  const card = modal.querySelector('.bg-slate-900') || modal.querySelector('.emergency-modal-inner') || modal.firstElementChild || modal;
+  if (!modal) return;
+  const card = modal.querySelector('.bg-slate-900') || modal.querySelector('.emergency-modal-inner') || modal;
   if (!card || card.dataset.draggableActive) return;
   card.dataset.draggableActive = 'true';
 
-  const header = card.querySelector('.border-b, .border-b-2') || card;
-  header.classList.add('draggable-header-handle');
+  const handle = modal.querySelector('.modal-drag-bar') || card.querySelector('.border-b, .border-b-2') || card;
+  handle.classList.add('draggable-header-handle');
+  handle.style.cursor = 'grab';
 
   let isDragging = false;
   let startX = 0, startY = 0;
-  let curX = 0, curY = 0;
+  let curX = parseFloat(card.dataset.dragX || '0');
+  let curY = parseFloat(card.dataset.dragY || '0');
 
   const onStart = (e) => {
-    if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, details, summary, i, svg, [onclick]')) return;
+    if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, .popup-zoom-btn, details, summary, i, svg, [onclick]')) return;
     isDragging = true;
-    header.style.cursor = 'grabbing';
+    handle.style.cursor = 'grabbing';
 
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     startX = clientX - curX;
     startY = clientY - curY;
+
+    if (state.map && state.map.dragging) {
+      state.map.dragging.disable();
+    }
 
     window.addEventListener('mousemove', onMove, { passive: false });
     window.addEventListener('mouseup', onEnd);
@@ -4448,13 +4451,19 @@ function makeModalDraggable(modalId) {
     curX = clientX - startX;
     curY = clientY - startY;
 
+    card.dataset.dragX = curX.toString();
+    card.dataset.dragY = curY.toString();
     card.style.transform = `translate3d(${curX}px, ${curY}px, 0px)`;
   };
 
   const onEnd = () => {
     if (!isDragging) return;
     isDragging = false;
-    header.style.cursor = 'grab';
+    handle.style.cursor = 'grab';
+
+    if (state.map && state.map.dragging) {
+      state.map.dragging.enable();
+    }
 
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onEnd);
@@ -4462,15 +4471,15 @@ function makeModalDraggable(modalId) {
     window.removeEventListener('touchend', onEnd);
   };
 
-  header.addEventListener('mousedown', onStart);
-  header.addEventListener('touchstart', onStart, { passive: true });
+  handle.addEventListener('mousedown', onStart);
+  handle.addEventListener('touchstart', onStart, { passive: false });
 }
 
 function initAllDraggableModals() {
   const modalIds = [
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal',
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
-    'about-modal', 'onboarding-modal'
+    'about-modal', 'onboarding-modal', 'elevation-drawer'
   ];
   modalIds.forEach(id => makeModalDraggable(id));
 }
@@ -4671,6 +4680,9 @@ window.initAllDraggableModals = initAllDraggableModals;
 window.playOffTrackAlertSound = playOffTrackAlertSound;
 window.playAnnouncementAlert = playAnnouncementAlert;
 window.adjustPopupZoom = adjustPopupZoom;
+window.adjustElevationDrawerZoom = adjustElevationDrawerZoom;
+window.isOffTrackSoundEnabled = isOffTrackSoundEnabled;
+window.setOffTrackSoundEnabled = setOffTrackSoundEnabled;
 window.checkOnboardingStatus = checkOnboardingStatus;
 window.openOnboardingModal = openOnboardingModal;
 window.closeOnboardingModal = closeOnboardingModal;
