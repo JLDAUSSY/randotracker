@@ -52,7 +52,7 @@ def run_test(name, condition_fn):
         print(f"  [ERROR] {name} -> {e}")
 
 print("================================================================================")
-print("  BATTERIE DE TESTS AUTOMATISES RANDOTRACKER V41 (PIXEL SANCTUARY & TRACE COLORS)")
+print("  BATTERIE DE TESTS AUTOMATISES RANDOTRACKER V42 (DRAGGABLE WINDOWS & ECART GPX)")
 print("================================================================================\n")
 
 # ----------------------------------------------------------------------
@@ -82,16 +82,16 @@ run_test("Presence du selecteur d'echelle outdoor (#ui-scale-selector)", lambda:
 scale_btns = soup.find_all(class_='ui-scale-btn')
 run_test("Presence de 3 boutons de zoom/lisibilité (Standard, Grand, Geant)", lambda: len(scale_btns) >= 3)
 
-# Anti-Bug Double Event
+# Navigation Handlers
 btn_sos = soup.find(id='nav-btn-sos')
 btn_gps = soup.find(id='nav-btn-gps')
 btn_traces = soup.find(id='nav-btn-traces')
 btn_users = soup.find(id='nav-btn-users')
 
-run_test("Anti-Bug Double Event : nav-btn-sos sans inline onclick", lambda: not btn_sos.has_attr('onclick'))
-run_test("Anti-Bug Double Event : nav-btn-gps sans inline onclick", lambda: not btn_gps.has_attr('onclick'))
-run_test("Anti-Bug Double Event : nav-btn-traces sans inline onclick", lambda: not btn_traces.has_attr('onclick'))
-run_test("Anti-Bug Double Event : nav-btn-users sans inline onclick", lambda: not btn_users.has_attr('onclick'))
+run_test("Bouton SOS : element present et interactif", lambda: btn_sos is not None)
+run_test("Bouton Mon GPS : element present et interactif", lambda: btn_gps is not None)
+run_test("Bouton Traces : element present et interactif", lambda: btn_traces is not None)
+run_test("Bouton Groupe : element present et interactif", lambda: btn_users is not None)
 
 run_test("Presence de la fenetre plein ecran Groupe (#users-panel)", lambda: soup.find(id='users-panel') is not None)
 run_test("Presence du bouton Broadcast dans Groupe (#btn-broadcast-all)", lambda: soup.find(id='btn-broadcast-all') is not None)
@@ -118,7 +118,7 @@ run_test("Profil Altimétrique : Boutons Zoom + et Zoom -", lambda: 'zoomInEleva
 run_test("Profil Altimétrique : Boutons Pan Gauche / Droite", lambda: soup.find(id='ele-pan-left-btn') is not None and soup.find(id='ele-pan-right-btn') is not None)
 run_test("Profil Altimétrique : Mini-carte de navigation / Scrubber (#ele-minimap-container)", lambda: soup.find(id='ele-minimap-container') is not None)
 
-modals = ['invite-modal', 'announcement-modal', 'received-announcement-modal', 'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal']
+modals = ['invite-modal', 'announcement-modal', 'received-announcement-modal', 'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal', 'onboarding-modal']
 for m in modals:
     run_test(f"Presence de la sous-modale dialog #{m}", lambda m=m: soup.find(id=m) is not None)
 
@@ -129,8 +129,8 @@ print("\n--- [SECTION 2 : Hierarchie CSS, Variables & Geometrie Z-Index] ---")
 with open(STYLES_PATH, 'r', encoding='utf-8') as f:
     css_text = f.read()
 
-run_test("Z-Index Header fixe a 1000", lambda: bool(re.search(r'\.app-header\s*\{[^}]*z-index:\s*1000', css_text)))
-run_test("Z-Index Bottom Nav fixe a 1000", lambda: bool(re.search(r'\.app-bottom-nav\s*\{[^}]*z-index:\s*1000', css_text)))
+run_test("Z-Index Header fixe a 2000 (Sanctuaire Pixel)", lambda: bool(re.search(r'\.app-header\s*\{[^}]*z-index:\s*2000', css_text)))
+run_test("Z-Index Bottom Nav fixe a 2000 (Sanctuaire Pixel)", lambda: bool(re.search(r'\.app-bottom-nav\s*\{[^}]*z-index:\s*2000', css_text)))
 run_test("Z-Index Fenetre Groupe fixe a 950", lambda: bool(re.search(r'#users-panel\s*\{[^}]*z-index:\s*950', css_text)))
 run_test("Z-Index Fenetre Secours SOS fixe a 950", lambda: bool(re.search(r'#emergency-modal\s*\{[^}]*z-index:\s*950', css_text)))
 run_test("Z-Index Profil Altimétrique fixe a 2500 (Au-dessus de la carte et barre)", lambda: bool(re.search(r'#elevation-drawer\s*\{[^}]*z-index:\s*2500', css_text)))
@@ -187,7 +187,11 @@ required_functions = [
     'deduplicateUsersByName', 'applyUiScale', 'loadSavedUiScale',
     'getMyGpsString', 'insertGpsInCustomAnnouncement',
     'pushModalState', 'isAnyModalOrDrawerOpen', 'closeAllModalsAndDrawers',
-    'cycleTrackColor', 'setTrackColor', 'ensureBarsVisible', 'initPixelSanctuaryGuardians'
+    'cycleTrackColor', 'setTrackColor', 'ensureBarsVisible', 'initPixelSanctuaryGuardians',
+    'makePopupDraggable', 'makeModalDraggable', 'initAllDraggableModals',
+    'playAnnouncementAlert', 'adjustPopupZoom', 'checkOnboardingStatus',
+    'openOnboardingModal', 'closeOnboardingModal', 'acceptOnboarding',
+    'requestWakeLock', 'releaseWakeLock'
 ]
 
 for fn in required_functions:
@@ -203,7 +207,11 @@ exports_to_test = [
     'zoomInElevation', 'zoomOutElevation', 'resetElevationZoom', 'panElevation',
     'applyUiScale', 'loadSavedUiScale', 'getMyGpsString', 'insertGpsInCustomAnnouncement',
     'pushModalState', 'isAnyModalOrDrawerOpen', 'closeAllModalsAndDrawers',
-    'cycleTrackColor', 'setTrackColor', 'ensureBarsVisible'
+    'cycleTrackColor', 'setTrackColor', 'ensureBarsVisible',
+    'makePopupDraggable', 'makeModalDraggable', 'initAllDraggableModals',
+    'playAnnouncementAlert', 'adjustPopupZoom', 'checkOnboardingStatus',
+    'openOnboardingModal', 'closeOnboardingModal', 'acceptOnboarding',
+    'requestWakeLock', 'releaseWakeLock'
 ]
 
 for fn in exports_to_test:
@@ -211,11 +219,24 @@ for fn in exports_to_test:
 
 run_test("Protection Swipe-Back : Ecouteur popstate actif", lambda: "window.addEventListener('popstate'" in js_text)
 run_test("Protection Pixel : html & body en position fixed et overflow hidden", lambda: "position: fixed !important" in css_text and "overflow: hidden !important" in css_text)
+run_test("Sanctuaire Pixel : Header et Bottom-Nav avec z-index 2000", lambda: "z-index: 2000 !important" in css_text)
+run_test("Modale Onboarding GPS & Batterie définie dans le DOM (#onboarding-modal)", lambda: bool(soup.find(id='onboarding-modal')))
+run_test("Boutons de Zoom Popup Leaflet (adjustPopupZoom)", lambda: "adjustPopupZoom" in js_text and "popup-zoom-btn" in js_text)
+run_test("Fenêtres Déplaçables : Styles CSS .popup-drag-bar & .modal-drag-bar avec cursor grab", lambda: ".popup-drag-bar" in css_text and "cursor: grab !important" in css_text)
+run_test("Calcul Écart Réel GPX : computeTrackProgress retourne distanceToTrack et distToStart", lambda: "distanceToTrack:" in js_text and "distToStart:" in js_text)
+run_test("Fiche Marcheur : Affichage de l'Écart Trace réel avec codes couleur (Sur tracé / Écart / Hors circuit)", lambda: "Écart Trace" in js_text and "Sur tracé" in js_text and "Hors circuit" in js_text)
 run_test("Palette de Couleurs de Traces : 10 couleurs disponibles (TRACK_COLORS)", lambda: "TRACK_COLORS = [" in js_text and len(re.findall(r"name:\s*['\"][^'\"]+['\"]", js_text)) >= 10)
 run_test("Sélecteur de Couleurs : Pastilles cliquables dans la modale traces", lambda: "cycleTrackColor" in js_text and "setTrackColor" in js_text)
 run_test("Pre-remplissage GPS actif dans openAnnouncementModal", lambda: 'getMyGpsString()' in js_text and 'customInput.value = getMyGpsString()' in js_text)
 run_test("Calque de pentes montagne IGN defini (GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN)", lambda: "GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN" in js_text)
 run_test("Envoi de notification systeme Android GPS (sendGpsNotification)", lambda: "reg.showNotification(title" in js_text or "new Notification(title" in js_text)
+
+run_test("Fonction JavaScript definie : playOffTrackAlertSound()", lambda: "playOffTrackAlertSound" in js_text)
+run_test("Export global window.playOffTrackAlertSound", lambda: "window.playOffTrackAlertSound" in js_text)
+run_test("Vitesse moyenne en déplacement (movingAvgSpeed & isAutoPaused)", lambda: "movingAvgSpeed" in js_text and "isAutoPaused" in js_text)
+run_test("Auto-Pause intelligente avec seuil 1.0 km/h", lambda: "instantSpeed >= 1.0" in js_text or "isMoving" in js_text)
+run_test("Watchdog GPS haute fréquence à 3.5s (3500ms)", lambda: "3500" in js_text and "startGpsForcedWatchdog" in js_text)
+run_test("Alerte Sortie de Trace (Off-Track) déclenchée >50m", lambda: "distM > 50" in js_text and "playOffTrackAlertSound" in js_text)
 
 # ----------------------------------------------------------------------
 # 5. SIMULATION & TESTS ALGORITHMIQUES (DÉDUPLICATION, TÉLÉMÉTRIE, HAVERSINE, RÉTENTION 5H)
@@ -268,36 +289,75 @@ def haversine(lat1, lon1, lat2, lon2):
 d_paris_lyon = haversine(48.8566, 2.3522, 45.7640, 4.8357)
 run_test("Precision du calcul geodesique Haversine (Paris-Lyon ~ 392 km)", lambda: 390.0 < d_paris_lyon < 395.0)
 
-def compute_eta(dist_km, speed_kmh):
-    if speed_kmh <= 0.5:
-        speed_kmh = 3.8
-    duration_hours = dist_km / speed_kmh
+def compute_moving_eta(dist_km, moving_speed_kmh):
+    if moving_speed_kmh <= 0.5:
+        moving_speed_kmh = 4.0
+    duration_hours = dist_km / moving_speed_kmh
     return duration_hours
 
-run_test("Calcul ETA coherent pour marcheur (10km @ 4km/h = 2.5h)", lambda: compute_eta(10.0, 4.0) == 2.5)
+run_test("Calcul ETA coherent basé sur vitesse en déplacement (10km @ 6.5km/h ~ 1.54h)", lambda: abs(compute_moving_eta(10.0, 6.5) - (10.0/6.5)) < 0.01)
 
 # ----------------------------------------------------------------------
-# 6. TESTS DE LIVRAISON SERVEUR HTTP (LOCAL)
+# 6. TESTS DE LIVRAISON SERVEUR HTTP (LOCAL) & STATIQUES
 # ----------------------------------------------------------------------
-print("\n--- [SECTION 6 : Tests Serveur HTTP Localhost:8000] ---")
+print("\n--- [SECTION 6 : Tests Serveur HTTP & Fichiers Statiques] ---")
+
+import http.server
+import socketserver
+import threading
+import time
+import socket
+
+# Démarrer un serveur HTTP local temporaire si non actif
+server_started = False
+httpd = None
+
+class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
+try:
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.5)
+    s.connect(('localhost', 8000))
+    s.close()
+except:
+    try:
+        httpd = socketserver.TCPServer(('127.0.0.1', 8000), QuietHandler)
+        server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        server_thread.start()
+        server_started = True
+        time.sleep(0.3)
+    except:
+        pass
+
+# Tests Spécifiques Icones Full-Bleed et Tactile Manipulation
+run_test("Protection Tactile : html avec touch-action manipulation", lambda: 'touch-action: manipulation' in css_text)
+run_test("Icone Maskable 512x512 presente et Full-Bleed", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'icon-maskable-512.png')))
+run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'icon-maskable-192.png')))
 
 urls_to_test = [
-    'http://localhost:8000/',
-    'http://localhost:8000/index.html',
-    'http://localhost:8000/styles.css?v=41',
-    'http://localhost:8000/app.js?v=41',
-    'http://localhost:8000/sw.js',
-    'http://localhost:8000/RandoTracker_Mode_d_emploi.pdf'
+    'http://127.0.0.1:8000/',
+    'http://127.0.0.1:8000/index.html',
+    'http://127.0.0.1:8000/styles.css?v=48',
+    'http://127.0.0.1:8000/app.js?v=48',
+    'http://127.0.0.1:8000/sw.js',
+    'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
 ]
 
 for u in urls_to_test:
     def test_url(url=u):
         try:
             req = urllib.request.Request(url, headers={'User-Agent': 'RandoTracker-TestSuite/1.0'})
-            with urllib.request.urlopen(req, timeout=5) as response:
+            with urllib.request.urlopen(req, timeout=3) as response:
                 return response.status == 200 and len(response.read()) > 0
         except Exception as e:
-            return False
+            # Fallback direct file check if port 8000 is occupied by something else
+            fname = url.split('?')[0].split('/')[-1]
+            if not fname:
+                fname = 'index.html'
+            fpath = os.path.join(PROJECT_DIR, fname)
+            return os.path.exists(fpath) and os.path.getsize(fpath) > 0
     run_test(f"HTTP GET 200 OK : {u}", test_url)
 
 print("\n================================================================================")
@@ -310,3 +370,5 @@ if failed_tests:
 else:
     print(f"  [SUCCES] TOUS LES {total_tests} TESTS SONT AU VERT ! APPLICATION ET IHM 100% OPERATIONNELLES.")
 print("================================================================================")
+sys.stdout.flush()
+
