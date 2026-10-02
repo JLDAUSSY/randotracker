@@ -1168,12 +1168,17 @@ function renderTrackOnMap(track) {
 
   mainPolyline.bindPopup(`
     <div class="space-y-3 p-1 min-w-[280px] sm:min-w-[330px]">
-      <!-- Barre de déplacement de la fenêtre popup -->
+      <!-- Barre de déplacement & Zoom de la fenêtre popup -->
       <div class="popup-drag-bar flex items-center justify-between text-[11px] font-bold text-slate-300">
-        <span class="flex items-center gap-1.5">
+        <span class="flex items-center gap-1.5 cursor-grab">
           <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
-          <span>Glisser pour déplacer</span>
+          <span>Déplacer</span>
         </span>
+        <div class="flex items-center gap-1">
+          <button type="button" onclick="adjustPopupZoom(this, -0.15)" class="popup-zoom-btn" title="Réduire la taille">A-</button>
+          <span class="popup-zoom-level-badge text-[10px] font-mono text-emerald-400 px-1">100%</span>
+          <button type="button" onclick="adjustPopupZoom(this, 0.15)" class="popup-zoom-btn" title="Agrandir la taille">A+</button>
+        </div>
         <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Parcours GPX</span>
       </div>
 
@@ -1968,12 +1973,17 @@ function createOrUpdateUserMarker(user) {
 
   marker.bindPopup(`
     <div class="p-2 space-y-3 min-w-[280px] max-w-[340px]">
-      <!-- Barre de déplacement de la fenêtre popup -->
+      <!-- Barre de déplacement & Zoom de la fenêtre popup -->
       <div class="popup-drag-bar flex items-center justify-between text-[11px] font-bold text-slate-300">
-        <span class="flex items-center gap-1.5">
+        <span class="flex items-center gap-1.5 cursor-grab">
           <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
-          <span>Glisser pour déplacer</span>
+          <span>Déplacer</span>
         </span>
+        <div class="flex items-center gap-1">
+          <button type="button" onclick="adjustPopupZoom(this, -0.15)" class="popup-zoom-btn" title="Réduire la taille">A-</button>
+          <span class="popup-zoom-level-badge text-[10px] font-mono text-emerald-400 px-1">100%</span>
+          <button type="button" onclick="adjustPopupZoom(this, 0.15)" class="popup-zoom-btn" title="Agrandir la taille">A+</button>
+        </div>
         <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">${isMe ? 'Ma Fiche' : 'Participant'}</span>
       </div>
 
@@ -2602,6 +2612,34 @@ function startGpsWatch(useHighAccuracy = true) {
 
   // Activer le maintien d'activité en tâche de fond (écran éteint dans la poche)
   startBackgroundKeepAlive();
+
+  // Activer le maintien d'écran allumé (Screen WakeLock API)
+  requestWakeLock();
+}
+
+// Gestion du WakeLock (maintien écran allumé basse consommation)
+let screenWakeLock = null;
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      screenWakeLock = await navigator.wakeLock.request('screen');
+      screenWakeLock.addEventListener('release', () => {
+        screenWakeLock = null;
+      });
+      console.log('[WakeLock] Maintien écran actif');
+    } catch (err) {
+      console.warn('[WakeLock] Non activé:', err);
+    }
+  }
+}
+
+function releaseWakeLock() {
+  if (screenWakeLock) {
+    try {
+      screenWakeLock.release();
+    } catch (e) {}
+    screenWakeLock = null;
+  }
 }
 
 // Watchdog de forçage GPS matériel (3500 ms)
@@ -2668,6 +2706,7 @@ function stopGpsWatch() {
 
   stopGpsForcedWatchdog();
   stopBackgroundKeepAlive();
+  releaseWakeLock();
 
   state.isTrackingGps = false;
   state.gpsStartTime = null;
@@ -3177,6 +3216,7 @@ function closeAnnouncementBanner() {
 function handleReceivedAnnouncement(data) {
   if (!data || !data.text) return;
 
+  // Déclencher le carillon sonore harmonieux et la vibration haptique
   playAnnouncementAlert();
 
   const author = data.author || 'Marcheur';
@@ -3185,7 +3225,10 @@ function handleReceivedAnnouncement(data) {
   const text = data.text;
   const timeStr = new Date(data.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  // 1. Afficher la popup modale de réception
+  // 1. Notification système Android & Montres connectées (Garmin / Suunto)
+  sendGpsNotification(`📢 Message de ${author} (${role})`, text);
+
+  // 2. Afficher la popup modale de réception
   const rxModal = document.getElementById('received-announcement-modal');
   const rxSender = document.getElementById('rx-announcement-sender');
   const rxTime = document.getElementById('rx-announcement-time');
@@ -3202,7 +3245,7 @@ function handleReceivedAnnouncement(data) {
 
   if (rxModal) rxModal.classList.remove('hidden');
 
-  // 2. Afficher le bandeau persistant en haut de la carte
+  // 3. Afficher le bandeau persistant en haut de la carte
   displayAnnouncementBanner(author, icon, role, text, data.timestamp);
 }
 
@@ -3212,46 +3255,40 @@ function closeReceivedAnnouncementModal() {
 }
 
 function playAnnouncementAlert() {
-  // 1. Vibreur mobile
+  // 1. Vibreur mobile puissant
   if (navigator.vibrate) {
     try {
-      navigator.vibrate([200, 100, 200, 100, 300]);
+      navigator.vibrate([250, 100, 250, 100, 350]);
     } catch (e) {}
   }
 
-  // 2. Synthétiseur sonore Web Audio API
+  // 2. Synthétiseur sonore Web Audio API - Carillon Outdoor 4 tons harmoniques
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
       const ctx = new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
       const now = ctx.currentTime;
-
-      // Bip 1 (587 Hz - Ré)
-      const osc1 = ctx.createOscillator();
-      const gain1 = ctx.createGain();
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(587.33, now);
-      gain1.gain.setValueAtTime(0.3, now);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-      osc1.connect(gain1);
-      gain1.connect(ctx.destination);
-      osc1.start(now);
-      osc1.stop(now + 0.2);
-
-      // Bip 2 (880 Hz - La aigu)
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(880, now + 0.22);
-      gain2.gain.setValueAtTime(0.4, now + 0.22);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
-      osc2.connect(gain2);
-      gain2.connect(ctx.destination);
-      osc2.start(now + 0.22);
-      osc2.stop(now + 0.55);
+      // 4 Tons mélodieux distinctifs et audibles en extérieur (Do-Mi-Sol-Do aigu)
+      const freqs = [523.25, 659.25, 783.99, 1046.50];
+      freqs.forEach((freq, idx) => {
+        const t = now + (idx * 0.08);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.45, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.18);
+      });
     }
   } catch (e) {
-    console.warn('[Audio] Alerte son non supportée:', e);
+    console.warn('[Audio] Alerte son annonce:', e);
   }
 }
 
@@ -4152,17 +4189,79 @@ function cleanStaleUsers() {
 }
 
 // ============================================================================
+// GESTION DU ZOOM DYNAMIQUE DES POPUPS (LÉSIBILITÉ PLEIN SOLEIL / GANTS)
+// ============================================================================
+function adjustPopupZoom(btn, delta) {
+  const wrapper = btn.closest('.leaflet-popup-content-wrapper') || btn.closest('.leaflet-popup');
+  if (!wrapper) return;
+  let currentZoom = parseFloat(wrapper.dataset.zoomLevel || localStorage.getItem('rando_popup_zoom') || '1.0');
+  currentZoom = Math.max(0.75, Math.min(1.6, Math.round((currentZoom + delta) * 10) / 10));
+  wrapper.dataset.zoomLevel = currentZoom;
+  localStorage.setItem('rando_popup_zoom', currentZoom.toString());
+
+  const content = wrapper.querySelector('.leaflet-popup-content') || wrapper;
+  content.style.fontSize = `${16 * currentZoom}px`;
+  content.style.minWidth = `${Math.round(290 * currentZoom)}px`;
+  content.style.maxWidth = `${Math.round(360 * currentZoom)}px`;
+
+  const badge = wrapper.querySelector('.popup-zoom-level-badge');
+  if (badge) badge.textContent = `${Math.round(currentZoom * 100)}%`;
+}
+
+// ============================================================================
+// GUIDE DE DÉMARRAGE RAPIDE / ONBOARDING (GPS ET BATTERIE SANS RESTRICTION)
+// ============================================================================
+function checkOnboardingStatus() {
+  const hasAccepted = localStorage.getItem('rando_onboarding_accepted');
+  if (!hasAccepted) {
+    setTimeout(openOnboardingModal, 400);
+  }
+}
+
+function openOnboardingModal() {
+  const modal = document.getElementById('onboarding-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    pushModalState('onboarding-modal');
+  }
+}
+
+function closeOnboardingModal() {
+  const modal = document.getElementById('onboarding-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function acceptOnboarding() {
+  localStorage.setItem('rando_onboarding_accepted', 'true');
+  closeOnboardingModal();
+  showToast('✅ Réglages validés ! Démarrage du suivi GPS...', 'success');
+
+  // Demande des permissions système
+  if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+    Notification.requestPermission().catch(() => {});
+  }
+
+  // Activer le maintien d'écran et le GPS
+  requestWakeLock();
+  startGpsWatch(true);
+}
+
+// ============================================================================
 // GARDIEN SANCTUAIRE ANTI-DISPARITION DES BOUTONS (PIXEL & SMARTPHONES ANDROID)
 // ============================================================================
 function ensureBarsVisible() {
-  // 1. Verrouiller le scroll de la page au sommet absolu
+  // A. Mise à jour de la variable CSS dynamique de hauteur pour Pixel / Android
+  const currentHeight = window.innerHeight || document.documentElement.clientHeight;
+  document.documentElement.style.setProperty('--app-height', `${currentHeight}px`);
+
+  // B. Verrouiller le scroll de la page au sommet absolu
   if (window.scrollY !== 0 || window.scrollX !== 0) {
     window.scrollTo(0, 0);
   }
   if (document.body && document.body.scrollTop !== 0) document.body.scrollTop = 0;
   if (document.documentElement && document.documentElement.scrollTop !== 0) document.documentElement.scrollTop = 0;
 
-  // 2. Rétablir immédiatement l'en-tête supérieur si altéré
+  // C. Rétablir immédiatement l'en-tête supérieur si altéré (Z-Index 2000)
   const header = document.querySelector('.app-header');
   if (header) {
     header.classList.remove('hidden', 'drawer-closed');
@@ -4170,10 +4269,13 @@ function ensureBarsVisible() {
     header.style.opacity = '1';
     header.style.display = 'flex';
     header.style.top = '0px';
-    header.style.zIndex = '1000';
+    header.style.left = '0px';
+    header.style.width = '100vw';
+    header.style.zIndex = '2000';
+    header.style.transform = 'translate3d(0, 0, 0)';
   }
 
-  // 3. Rétablir immédiatement la barre de navigation inférieure si altérée
+  // D. Rétablir immédiatement la barre de navigation inférieure si altérée (Z-Index 2000)
   const bottomNav = document.querySelector('.app-bottom-nav');
   if (bottomNav) {
     bottomNav.classList.remove('hidden', 'drawer-closed');
@@ -4181,7 +4283,10 @@ function ensureBarsVisible() {
     bottomNav.style.opacity = '1';
     bottomNav.style.display = 'grid';
     bottomNav.style.bottom = '0px';
-    bottomNav.style.zIndex = '1000';
+    bottomNav.style.left = '0px';
+    bottomNav.style.width = '100vw';
+    bottomNav.style.zIndex = '2000';
+    bottomNav.style.transform = 'translate3d(0, 0, 0)';
   }
 }
 
@@ -4198,7 +4303,7 @@ function initPixelSanctuaryGuardians() {
   });
   window.addEventListener('scroll', ensureBarsVisible);
 
-  // B. Visual Viewport API (Prévient les décalages de barre d'adresse et clavier virtuel)
+  // B. Visual Viewport API (Prévient les décalages de barre d'adresse et gestes plein écran Pixel)
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', () => {
       ensureBarsVisible();
@@ -4217,29 +4322,16 @@ function initPixelSanctuaryGuardians() {
     }
   });
 
-  // D. Anti-Double-Tap Zoom sur le document hors champs texte
-  let lastTouchEndTime = 0;
-  document.addEventListener('touchend', (e) => {
-    const now = Date.now();
-    if (now - lastTouchEndTime <= 320) {
-      if (!e.target.closest('input, textarea, select, button')) {
-        e.preventDefault();
-      }
+  // D. Reconnexion WakeLock si retour au premier plan
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.isTrackingGps) {
+      requestWakeLock();
+      ensureBarsVisible();
     }
-    lastTouchEndTime = now;
-    ensureBarsVisible();
-  }, { passive: false });
+  });
 
-  // E. Anti-Body-Scroll Touchmove blocker
-  document.addEventListener('touchmove', (e) => {
-    const scrollable = e.target.closest('.overflow-y-auto, .overflow-x-auto, textarea, input');
-    if (!scrollable && !e.target.closest('#map')) {
-      e.preventDefault();
-    }
-  }, { passive: false });
-
-  // F. Watchdog persistant (vérifie l'intégrité toutes les 500ms)
-  setInterval(ensureBarsVisible, 500);
+  // E. Watchdog persistant (vérifie l'intégrité toutes les 400ms)
+  setInterval(ensureBarsVisible, 400);
 }
 
 // ============================================================================
@@ -4277,7 +4369,7 @@ function makePopupDraggable(popupEl) {
   };
 
   const onDragStart = (e) => {
-    if (e.target.closest('button, a, input, select, textarea, label')) return;
+    if (e.target.closest('button, a, input, select, textarea, label, .popup-zoom-btn')) return;
     isDragging = true;
     handle.style.cursor = 'grabbing';
 
@@ -4334,7 +4426,7 @@ function makePopupDraggable(popupEl) {
 function makeModalDraggable(modalId) {
   const modal = document.getElementById(modalId);
   if (!modal) return;
-  const card = modal.querySelector('.bg-slate-900') || modal.firstElementChild;
+  const card = modal.querySelector('.bg-slate-900') || modal.querySelector('.emergency-modal-inner') || modal.firstElementChild || modal;
   if (!card || card.dataset.draggableActive) return;
   card.dataset.draggableActive = 'true';
 
@@ -4346,7 +4438,7 @@ function makeModalDraggable(modalId) {
   let curX = 0, curY = 0;
 
   const onStart = (e) => {
-    if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn')) return;
+    if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, details')) return;
     isDragging = true;
     header.style.cursor = 'grabbing';
 
@@ -4392,7 +4484,7 @@ function initAllDraggableModals() {
   const modalIds = [
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal',
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
-    'about-modal'
+    'about-modal', 'onboarding-modal', 'elevation-drawer'
   ];
   modalIds.forEach(id => makeModalDraggable(id));
 }
@@ -4432,8 +4524,11 @@ window.addEventListener('DOMContentLoaded', () => {
   lucide.createIcons();
   ensureBarsVisible();
 
-  // DÉMARRAGE IMMÉDIAT DE LA GÉOLOCALISATION GPS
-  if (navigator.geolocation) {
+  // VÉRIFICATION DU GUIDE ONBOARDING (1er démarrage) OU DÉMARRAGE DIRECT GPS
+  const hasAcceptedOnboarding = localStorage.getItem('rando_onboarding_accepted');
+  if (!hasAcceptedOnboarding) {
+    checkOnboardingStatus();
+  } else if (navigator.geolocation) {
     console.log('[GPS] Démarrage automatique de la géolocalisation...');
     startGpsWatch(true);
   }
@@ -4452,7 +4547,7 @@ function isAnyModalOrDrawerOpen() {
   const modals = [
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
-    'emergency-modal'
+    'emergency-modal', 'onboarding-modal'
   ];
   for (const id of modals) {
     const el = document.getElementById(id);
@@ -4471,7 +4566,7 @@ function closeAllModalsAndDrawers() {
   const modals = [
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
-    'elevation-drawer'
+    'elevation-drawer', 'onboarding-modal'
   ];
   modals.forEach(id => {
     const el = document.getElementById(id);
@@ -4555,4 +4650,13 @@ window.makePopupDraggable = makePopupDraggable;
 window.makeModalDraggable = makeModalDraggable;
 window.initAllDraggableModals = initAllDraggableModals;
 window.playOffTrackAlertSound = playOffTrackAlertSound;
+window.playAnnouncementAlert = playAnnouncementAlert;
+window.adjustPopupZoom = adjustPopupZoom;
+window.checkOnboardingStatus = checkOnboardingStatus;
+window.openOnboardingModal = openOnboardingModal;
+window.closeOnboardingModal = closeOnboardingModal;
+window.acceptOnboarding = acceptOnboarding;
+window.requestWakeLock = requestWakeLock;
+window.releaseWakeLock = releaseWakeLock;
+
 

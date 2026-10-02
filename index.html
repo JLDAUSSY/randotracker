@@ -49,8 +49,8 @@
   <!-- QRCode.js -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
-  <!-- Custom Styles with Cache-Busting v42 -->
-  <link rel="stylesheet" href="styles.css?v=42" />
+  <!-- Custom Styles with Cache-Busting v45 -->
+  <link rel="stylesheet" href="styles.css?v=45" />
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
@@ -64,7 +64,7 @@
       <div class="flex flex-col justify-center">
         <div class="flex items-center gap-1.5">
           <span class="app-header-title font-black tracking-tight text-white group-hover:text-emerald-300 transition leading-none">RandoTracker</span>
-          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/40">v35</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/40">v45</span>
         </div>
         <span class="text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider mt-0.5 transition flex items-center gap-1 leading-none">
           <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
@@ -734,6 +734,25 @@
           </div>
         </div>
 
+        <!-- Guide Réglages GPS & Batterie Poche -->
+        <div class="p-4 bg-slate-950/90 rounded-2xl border-2 border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">🔋</span>
+              <div>
+                <span class="text-xs font-black text-white uppercase block">Suivi GPS dans la Poche</span>
+                <span class="text-[11px] text-emerald-400 font-bold">Réglages Batterie & Écran éteint</span>
+              </div>
+            </div>
+            <button type="button" onclick="openOnboardingModal()" class="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 text-xs font-black transition active:scale-95">
+              Consulter
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 font-semibold leading-relaxed">
+            Consultez le guide pour désactiver l'optimisation de batterie et autoriser le GPS en continu sur votre marque de téléphone.
+          </p>
+        </div>
+
         <!-- Mode Organisateur / Invité -->
         <div class="p-4 bg-slate-950/90 rounded-2xl border-2 border-slate-800 space-y-2">
           <div class="flex items-center justify-between">
@@ -1076,7 +1095,126 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v44 -->
-  <script src="app.js?v=44"></script>
+  <!-- ================================================================= -->
+  <!-- MODAL : GUIDE DE DÉMARRAGE RAPIDE (GPS & BATTERIE DANS LA POCHE) -->
+  <!-- ================================================================= -->
+  <div id="onboarding-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-emerald-500 rounded-3xl w-full max-w-lg p-5 sm:p-7 shadow-2xl flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
+      
+      <!-- En-tête du Guide -->
+      <div class="flex items-center justify-between border-b-2 border-slate-800 pb-3">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400/40 flex items-center justify-center text-2xl text-emerald-400 shadow-inner">
+            🌲
+          </div>
+          <div>
+            <h3 class="font-black text-lg sm:text-xl text-white tracking-tight leading-tight">Suivi GPS & Batterie</h3>
+            <p class="text-xs font-bold text-emerald-400">Pour un fonctionnement continu dans la poche</p>
+          </div>
+        </div>
+        <button onclick="closeOnboardingModal()" class="modal-close-btn" title="Fermer">
+          <i data-lucide="x" class="w-7 h-7 text-white stroke-[3]"></i>
+        </button>
+      </div>
+
+      <!-- 2 Règles Essentielles -->
+      <div class="space-y-3">
+        
+        <!-- Règle 1 : GPS -->
+        <div class="p-4 rounded-2xl bg-slate-950 border-2 border-emerald-500/60 flex items-start gap-3.5 shadow-md">
+          <span class="text-2xl sm:text-3xl shrink-0 mt-0.5">📍</span>
+          <div>
+            <div class="text-white font-black text-sm sm:text-base flex items-center gap-2">
+              <span>1. Localisation GPS en Continu</span>
+              <span class="text-[10px] bg-emerald-500/30 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-400/40">Requis</span>
+            </div>
+            <p class="text-xs text-slate-300 font-semibold mt-1 leading-relaxed">
+              Dans la demande de votre téléphone, sélectionnez <b class="text-emerald-300">« Toujours autoriser »</b> (ou « Lorsque l'appli est en cours d'utilisation »).
+            </p>
+          </div>
+        </div>
+
+        <!-- Règle 2 : Batterie sans mise en veille -->
+        <div class="p-4 rounded-2xl bg-slate-950 border-2 border-amber-500/60 flex items-start gap-3.5 shadow-md">
+          <span class="text-2xl sm:text-3xl shrink-0 mt-0.5">🔋</span>
+          <div>
+            <div class="text-white font-black text-sm sm:text-base flex items-center gap-2">
+              <span>2. Batterie : Désactiver la restriction</span>
+              <span class="text-[10px] bg-amber-500/30 text-amber-300 font-bold px-2 py-0.5 rounded-full border border-amber-400/40">Indispensable poche</span>
+            </div>
+            <p class="text-xs text-slate-300 font-semibold mt-1 leading-relaxed">
+              Pour éviter qu'Android n'interrompe votre position dès que l'écran s'éteint au fond du sac ou de la poche, réglez la batterie sur <b class="text-amber-300">« Non restreinte »</b>.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Accordéon par Marque de Smartphone -->
+      <div class="border-t border-slate-800 pt-3 space-y-2">
+        <div class="text-xs font-black uppercase text-slate-400 tracking-wider">
+          📱 Réglage en 15 secondes selon votre marque :
+        </div>
+
+        <details class="group bg-slate-950 rounded-2xl border border-slate-800 p-3 text-xs">
+          <summary class="font-black text-slate-200 cursor-pointer flex items-center justify-between group-open:text-emerald-400">
+            <span>🔹 Samsung Galaxy (One UI)</span>
+            <span class="text-slate-500 text-sm group-open:rotate-180 transition">▼</span>
+          </summary>
+          <div class="mt-2 pt-2 border-t border-slate-800/80 text-slate-300 space-y-1 pl-2">
+            <div>1. Ouvrez les <b>Paramètres</b> du téléphone > <b>Applications</b>.</div>
+            <div>2. Choisissez <b>RandoTracker</b> (ou Chrome) > <b>Batterie</b>.</div>
+            <div>3. Cochez <b class="text-emerald-400">« Non restreinte »</b>.</div>
+          </div>
+        </details>
+
+        <details class="group bg-slate-950 rounded-2xl border border-slate-800 p-3 text-xs">
+          <summary class="font-black text-slate-200 cursor-pointer flex items-center justify-between group-open:text-emerald-400">
+            <span>🔹 Xiaomi / Redmi / POCO (HyperOS / MIUI)</span>
+            <span class="text-slate-500 text-sm group-open:rotate-180 transition">▼</span>
+          </summary>
+          <div class="mt-2 pt-2 border-t border-slate-800/80 text-slate-300 space-y-1 pl-2">
+            <div>1. <b>Paramètres</b> > <b>Applications</b> > <b>Gérer les applications</b>.</div>
+            <div>2. <b>RandoTracker</b> > <b>Économiseur de batterie</b>.</div>
+            <div>3. Sélectionnez <b class="text-emerald-400">« Pas de restrictions »</b>.</div>
+          </div>
+        </details>
+
+        <details class="group bg-slate-950 rounded-2xl border border-slate-800 p-3 text-xs">
+          <summary class="font-black text-slate-200 cursor-pointer flex items-center justify-between group-open:text-emerald-400">
+            <span>🔹 Google Pixel & Android standard</span>
+            <span class="text-slate-500 text-sm group-open:rotate-180 transition">▼</span>
+          </summary>
+          <div class="mt-2 pt-2 border-t border-slate-800/80 text-slate-300 space-y-1 pl-2">
+            <div>1. <b>Paramètres</b> > <b>Applications</b> > <b>RandoTracker</b>.</div>
+            <div>2. <b>Utilisation de la batterie par l'appli</b>.</div>
+            <div>3. Sélectionnez <b class="text-emerald-400">« Non restreinte »</b>.</div>
+          </div>
+        </details>
+
+        <details class="group bg-slate-950 rounded-2xl border border-slate-800 p-3 text-xs">
+          <summary class="font-black text-slate-200 cursor-pointer flex items-center justify-between group-open:text-emerald-400">
+            <span>🍏 Apple iPhone (Safari iOS)</span>
+            <span class="text-slate-500 text-sm group-open:rotate-180 transition">▼</span>
+          </summary>
+          <div class="mt-2 pt-2 border-t border-slate-800/80 text-slate-300 space-y-1 pl-2">
+            <div>1. <b>Réglages</b> > <b>Confidentialité et sécurité</b> > <b>Service de localisation</b>.</div>
+            <div>2. <b>Safari</b> > Cochez <b class="text-emerald-400">« Lorsque l'app est active »</b> et <b>« Position exacte »</b>.</div>
+          </div>
+        </details>
+      </div>
+
+      <!-- Bouton d'action principal -->
+      <div class="pt-3 border-t-2 border-slate-800">
+        <button id="accept-onboarding-btn" onclick="acceptOnboarding()" class="w-full py-4 px-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-400 text-white font-black text-base sm:text-lg shadow-2xl flex items-center justify-center gap-3 transition active:scale-95 border-2 border-white/20">
+          <span>🚀 COMPRIS ! DÉMARRER LE SUIVI GPS</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Main Application Script with Cache-Busting v45 -->
+  <script src="app.js?v=45"></script>
 </body>
 </html>

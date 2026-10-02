@@ -462,17 +462,18 @@ body {
 /* ARCHITECTURE LAYOUT & Z-INDEX HIÉRARCHISÉ                                  */
 /* ========================================================================== */
 
-/* 1. EN-TÊTE SUPÉRIEUR (Z-INDEX 1000 - TOUJOURS VISIBLE & SANCTUARISÉ) */
+/* 1. EN-TÊTE SUPÉRIEUR (Z-INDEX 2000 - TOUJOURS VISIBLE & SANCTUARISÉ PIXEL) */
 .app-header {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
+  width: 100vw !important;
   height: var(--header-height, 64px) !important;
   min-height: var(--header-height, 64px) !important;
   max-height: var(--header-height, 64px) !important;
-  z-index: 1000 !important;
+  z-index: 2000 !important;
   border-bottom: 2.5px solid #334155 !important;
   background-color: rgba(15, 23, 42, 0.98) !important;
   backdrop-filter: blur(16px) !important;
@@ -482,7 +483,8 @@ body {
   justify-content: space-between !important;
   visibility: visible !important;
   opacity: 1 !important;
-  transform: translateZ(0) !important;
+  transform: translate3d(0, 0, 0) !important;
+  -webkit-transform: translate3d(0, 0, 0) !important;
   pointer-events: auto !important;
   box-sizing: border-box !important;
 }
@@ -509,13 +511,14 @@ body {
   font-weight: 900 !important;
 }
 
-/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE (Z-INDEX 1000 - TOUJOURS VISIBLE & SANCTUARISÉE) */
+/* 2. BARRE DE NAVIGATION INFÉRIEURE UNIFIÉE (Z-INDEX 2000 - TOUJOURS VISIBLE & SANCTUARISÉE PIXEL) */
 .app-bottom-nav {
   position: fixed !important;
   bottom: 0 !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
+  width: 100vw !important;
   height: var(--bottom-nav-height, 88px) !important;
   min-height: var(--bottom-nav-height, 88px) !important;
   max-height: var(--bottom-nav-height, 88px) !important;
@@ -525,13 +528,14 @@ body {
   backdrop-filter: blur(16px) !important;
   -webkit-backdrop-filter: blur(16px) !important;
   border-top: 2.5px solid #334155 !important;
-  z-index: 1000 !important;
+  z-index: 2000 !important;
   display: grid !important;
   grid-template-columns: repeat(4, 1fr) !important;
   align-items: center !important;
   visibility: visible !important;
   opacity: 1 !important;
-  transform: translateZ(0) !important;
+  transform: translate3d(0, 0, 0) !important;
+  -webkit-transform: translate3d(0, 0, 0) !important;
   pointer-events: auto !important;
   box-sizing: border-box !important;
 }
@@ -612,7 +616,8 @@ main {
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
-  height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
+  width: 100vw !important;
+  height: calc(var(--app-height, 100dvh) - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
   z-index: 1 !important;
 }
 
@@ -963,7 +968,8 @@ main {
 #layer-modal,
 #room-modal,
 #profile-modal,
-#about-modal {
+#about-modal,
+#onboarding-modal {
   position: fixed !important;
   inset: 0 !important;
   z-index: 3000 !important;
@@ -983,7 +989,8 @@ main {
 #layer-modal.hidden,
 #room-modal.hidden,
 #profile-modal.hidden,
-#about-modal.hidden {
+#about-modal.hidden,
+#onboarding-modal.hidden {
   display: none !important;
 }
 
@@ -994,10 +1001,39 @@ main {
 #layer-modal > div,
 #room-modal > div,
 #profile-modal > div,
-#about-modal > div {
+#about-modal > div,
+#onboarding-modal > div {
   z-index: 3001 !important;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95) !important;
 }
+
+/* ZOOMABLE POPUP & CARD STYLES */
+.popup-zoom-btn {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #f8fafc;
+  border-radius: 8px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.popup-zoom-btn:hover {
+  background: #10b981;
+  color: white;
+  border-color: #34d399;
+}
+
+.popup-zoom-btn:active {
+  transform: scale(0.92);
+}
+
+.popup-scaled-80 { font-size: 13px !important; transform-origin: top left; }
+.popup-scaled-100 { font-size: 15px !important; }
+.popup-scaled-125 { font-size: 18px !important; }
+.popup-scaled-150 { font-size: 21px !important; }
 
 /* 9. CARTES DE TRACES DANS LE GESTIONNAIRE */
 .track-card-item {
@@ -1020,3 +1056,4 @@ main {
   opacity: 0.6 !important;
   border-color: #1e293b !important;
 }
+
