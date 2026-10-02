@@ -2854,16 +2854,17 @@ function initMqttSync() {
       clientId: clientId,
       clean: true,
       connectTimeout: 10000,
-      reconnectPeriod: 3000,
-      keepalive: 30
+      reconnectPeriod: 2500,
+      keepalive: 15
     });
 
     mqttClient.on('connect', () => {
       console.log('[MQTT] Connecté avec succès au salon:', state.roomCode);
       updateConnectionStatus(true);
-      mqttClient.subscribe(topic, { qos: 0 }, (err) => {
+      const announceTopic = `randotracker/v1/rooms/${sanitizedRoom}/announcement`;
+      mqttClient.subscribe([topic, announceTopic], { qos: 1 }, (err) => {
         if (!err) {
-          console.log(`[MQTT] Abonné au topic : ${topic}`);
+          console.log(`[MQTT] Abonné aux topics : ${topic} & ${announceTopic}`);
           
           // 1. Annoncer notre arrivée dans le salon
           publishMessage({
@@ -2921,14 +2922,20 @@ function initMqttSync() {
 function publishMessage(payload) {
   payload.senderId = state.myUser.id;
   payload.room = state.roomCode;
-  payload.timestamp = Date.now();
+  payload.timestamp = payload.timestamp || Date.now();
 
   const msgStr = JSON.stringify(payload);
 
   if (mqttClient && mqttClient.connected) {
     const sanitizedRoom = state.roomCode.replace(/[^a-zA-Z0-9_-]/g, '_');
     const topic = `randotracker/v1/rooms/${sanitizedRoom}/events`;
-    mqttClient.publish(topic, msgStr, { qos: 0 });
+    const qos = (payload.type === 'broadcast_announcement' || payload.type === 'group_sos_alert' || payload.type === 'sync_tracks') ? 1 : 0;
+    mqttClient.publish(topic, msgStr, { qos: qos });
+
+    if (payload.type === 'broadcast_announcement') {
+      const announceTopic = `randotracker/v1/rooms/${sanitizedRoom}/announcement`;
+      mqttClient.publish(announceTopic, msgStr, { qos: 1, retain: true });
+    }
   }
 
   if (state.broadcastChannel) {
@@ -3071,8 +3078,15 @@ function handleIncomingMessage(data) {
       removeUserMarker(data.targetUserId);
       saveOtherUsersToStorage();
       renderUsersList();
-    }
   } else if (data.type === 'broadcast_announcement') {
+    if (!window._seenAnnouncements) window._seenAnnouncements = new Set();
+    const msgKey = `${data.senderId || data.author || 'anon'}_${data.timestamp || 0}_${data.text || ''}`;
+    if (window._seenAnnouncements.has(msgKey)) return;
+    window._seenAnnouncements.add(msgKey);
+    // Ignorer si le message date de plus de 45 minutes
+    if (data.timestamp && (Date.now() - data.timestamp > 45 * 60 * 1000)) {
+      return;
+    }
     handleReceivedAnnouncement(data);
   } else if (data.type === 'user_left') {
     state.otherUsers.delete(data.userId);
@@ -3670,14 +3684,18 @@ function sendEmergencySms(number) {
   }, 100);
 }
 
-function sendGpsNotification() {
+function sendGpsNotification(customTitle, customBody) {
   const lat = state.myUser.lat || 45.8920;
   const lon = state.myUser.lon || 6.1550;
   const ele = state.myUser.ele || 0;
   const latDir = lat >= 0 ? 'N' : 'S';
   const lonDir = lon >= 0 ? 'E' : 'O';
-  const title = `🚨 GPS Secours : ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
-  const body = `Alt : ${Math.round(ele)}m • ${toDMS(lat, true)} ${toDMS(lon, false)} (Copié au presse-papier)`;
+  const defaultTitle = `🚨 GPS Secours : ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+  const defaultBody = `Alt : ${Math.round(ele)}m • ${toDMS(lat, true)} ${toDMS(lon, false)} (Copié au presse-papier)`;
+
+  const title = customTitle || defaultTitle;
+  const body = customBody || defaultBody;
+  const tag = customTitle ? `rando-msg-${Date.now()}` : 'rando-emergency-gps';
 
   try {
     if ('Notification' in window) {
@@ -3688,10 +3706,11 @@ function sendGpsNotification() {
               body: body,
               icon: './icon-192.png',
               badge: './icon-192.png',
-              tag: 'rando-emergency-gps',
+              tag: tag,
               renotify: true,
               silent: false,
-              vibrate: [300, 100, 300]
+              requireInteraction: true,
+              vibrate: [300, 150, 300, 150, 300]
             });
           }).catch(() => {
             try { new Notification(title, { body: body, icon: './icon-192.png' }); } catch (e) {}
@@ -3702,13 +3721,37 @@ function sendGpsNotification() {
       } else if (Notification.permission !== 'denied') {
         Notification.requestPermission().then(perm => {
           if (perm === 'granted') {
-            sendGpsNotification();
+            sendGpsNotification(customTitle, customBody);
           }
         });
       }
     }
   } catch (e) {
-    console.warn('[Notification GPS]', e);
+    console.warn('[Notification Système / Montre]', e);
+  }
+}
+
+function testWatchNotification() {
+  playAnnouncementAlert();
+  if ('Notification' in window) {
+    if (Notification.permission === 'granted') {
+      sendGpsNotification('📢 Test RandoTracker', 'Vibration et notification reçues avec succès sur votre montre Garmin !');
+      showToast('🔔 Notification de test envoyée au téléphone et à la montre !', 'success');
+    } else if (Notification.permission === 'denied') {
+      showToast('⚠️ Notifications bloquées. Activez-les dans les paramètres de votre téléphone.', 'error');
+      alert('Les notifications sont bloquées sur votre téléphone pour RandoTracker.\n\nRendez-vous dans Paramètres Android > Applications > RandoTracker > Notifications > Autoriser.');
+    } else {
+      Notification.requestPermission().then(perm => {
+        if (perm === 'granted') {
+          sendGpsNotification('📢 Test RandoTracker', 'Vibration et notification reçues avec succès sur votre montre Garmin !');
+          showToast('🔔 Notification de test envoyée au téléphone et à la montre !', 'success');
+        } else {
+          showToast('❌ Permission de notification refusée.', 'error');
+        }
+      });
+    }
+  } else {
+    showToast('⚠️ Notifications système non supportées sur ce navigateur.', 'warning');
   }
 }
 
@@ -4689,5 +4732,6 @@ window.closeOnboardingModal = closeOnboardingModal;
 window.acceptOnboarding = acceptOnboarding;
 window.requestWakeLock = requestWakeLock;
 window.releaseWakeLock = releaseWakeLock;
+window.testWatchNotification = testWatchNotification;
 
 
