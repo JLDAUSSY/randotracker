@@ -670,7 +670,7 @@
   </div>
 
   <!-- ================================================================= -->
-  <!-- PAGE 5 : TABLEAU COMPARATIF, GUIDE PAS-À-PAS & FOOTER -->
+  <!-- PAGE 5 : TABLEAU COMPARATIF & GUIDE PRATIQUE PAS-À-PAS -->
   <!-- ================================================================= -->
   <div class="page-break"></div>
 
@@ -818,7 +818,7 @@
       <div class="card-title">3️⃣ Pendant la randonnée (Suivi & Sécurité)</div>
       <ol class="steps-list" style="font-size: 9.3px; padding-left: 14px; margin: 0;">
         <li>Surveillez les écarts entre groupes et serre-files sur la carte.</li>
-        <li>Utilisez <b>« Message au groupe »</b> pour avertir des pauses ou consignes.</li>
+        <li>Utilisez <b>« Message au groupe »</b> pour avertir des pauses ou consignes avec GPS automatique.</li>
         <li>En cas d'urgence, appuyez sur <b>🚨 SOS</b> pour dicter le GPS et appeler le <b>15</b> ou <b>112</b>.</li>
       </ol>
     </div>
@@ -828,9 +828,98 @@
       <ul class="steps-list" style="font-size: 9.3px; padding-left: 14px; margin: 0;">
         <li><b>Écran verrouillé dans la poche</b> : RandoTracker émet en arrière-plan pour seulement <b>3% à 5% par heure</b> (8 à 10h d'autonomie).</li>
         <li><b>Surveillance mutuelle</b> : Le serre-file alerte tout marcheur sous les 20%.</li>
-        <li><b>Batterie Android</b> : Sélectionner « Non restreinte » pour le GPS.</li>
+        <li><b>Batterie Android</b> : Sélectionner « Non restreinte » pour le GPS continu.</li>
       </ul>
     </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- PAGE 6 : TROUBLESHOOTING & GUIDE DE DÉPANNAGE EXHAUSTIF -->
+  <!-- ================================================================= -->
+  <div class="page-break"></div>
+
+  <h2>🛠️ 8. Guide de Dépannage & Troubleshooting (Que faire si...)</h2>
+  <p>
+    RandoTracker a été conçu pour être ultra-résilient sur le terrain. Si vous rencontrez un comportement inattendu, voici la marche à suivre pas-à-pas pour chaque situation :
+  </p>
+
+  <div class="grid-2">
+    <div class="card" style="border-left: 3.5px solid #10b981;">
+      <div class="card-title">📍 1. Mon GPS ne s'actualise plus ou s'arrête en veille</div>
+      <p style="font-size: 9.2px; margin-bottom: 3px;">
+        <b>Symptôme :</b> Votre position ne bouge plus quand le téléphone est verrouillé dans la poche ou le sac à dos.
+      </p>
+      <ul class="steps-list" style="font-size: 9.1px;">
+        <li><b>Batterie Android (Crucial) :</b> Allez dans <i>Paramètres Android $ightarrow$ Applications $ightarrow$ RandoTracker (ou Chrome) $ightarrow$ Batterie</i> et cochez <b>« Non restreinte »</b> (ou <i>« Illimitée »</i>). Évitez le mode <i>« Optimisée »</i> qui coupe le GPS en veille.</li>
+        <li><b>Précision de Localisation :</b> Dans <i>Paramètres $ightarrow$ Localisation $ightarrow$ Autorisations $ightarrow$ RandoTracker</i>, vérifiez que <b>« Utiliser la position exacte »</b> est bien activé.</li>
+        <li><b>Économiseur d'énergie :</b> Désactivez l'économiseur de batterie général d'Android lors des sorties.</li>
+      </ul>
+    </div>
+
+    <div class="card" style="border-left: 3.5px solid #3b82f6;">
+      <div class="card-title">👥 2. Je ne vois pas les autres marcheurs du groupe</div>
+      <p style="font-size: 9.2px; margin-bottom: 3px;">
+        <b>Symptôme :</b> Vous êtes seul sur la carte et la liste des participants est vide.
+      </p>
+      <ul class="steps-list" style="font-size: 9.1px;">
+        <li><b>Vérification du Salon :</b> Ouvrez le panneau <i>Participants</i> et vérifiez que vous avez saisi le <b>même Code de Salon</b> que vos coéquipiers (ex: <code>RANDO-2026</code>).</li>
+        <li><b>Reconnexion instantanée :</b> Cliquez sur le nom du salon en haut pour ressaisir le code ou rescanniez le QR Code de l'animateur.</li>
+        <li><b>Témoin Réseau :</b> Le voyant en bas à gauche doit être vert <i>« Connecté »</i>. En zone blanche, les positions réapparaissent dès que l'un des téléphones capte à nouveau.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top: 5px;">
+    <div class="card" style="border-left: 3.5px solid #f59e0b;">
+      <div class="card-title">📢 3. Pas de son / vibration lors des annonces de groupe</div>
+      <p style="font-size: 9.2px; margin-bottom: 3px;">
+        <b>Symptôme :</b> Vous ne recevez pas le carillon sonore lors des messages diffusés par l'animateur.
+      </p>
+      <ul class="steps-list" style="font-size: 9.1px;">
+        <li><b>Déverrouillage Audio Web :</b> Touchez au moins une fois l'écran au lancement pour autoriser le synthétiseur Web Audio du navigateur.</li>
+        <li><b>Autorisations Notifications :</b> Dans <i>Paramètres Android $ightarrow$ Applications $ightarrow$ RandoTracker $ightarrow$ Notifications</i>, assurez-vous qu'elles sont autorisées.</li>
+        <li><b>Mode « Ne pas déranger » :</b> Vérifiez que votre smartphone n'est pas en mode silencieux strict ou <i>« Ne pas déranger »</i>.</li>
+      </ul>
+    </div>
+
+    <div class="card" style="border-left: 3.5px solid #8b5cf6;">
+      <div class="card-title">🗺️ 4. La carte est grise / dalles manquantes en montagne</div>
+      <p style="font-size: 9.2px; margin-bottom: 3px;">
+        <b>Symptôme :</b> La carte IGN n'affiche pas le fond topographique hors de portée du réseau 4G.
+      </p>
+      <ul class="steps-list" style="font-size: 9.1px;">
+        <li><b>Réflexe Préchargement :</b> À la maison sur Wi-Fi, survolez le parcours en zoomant (zoom 14-16) pendant 30 s avant de partir.</li>
+        <li><b>Basculement Calque :</b> Cliquez sur le sélecteur de couches (icône 🥞) et choisissez <b>OpenTopoMap</b> ou <b>OpenStreetMap</b> qui disposent souvent de dalles en mémoire tampon.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top: 5px;">
+    <div class="card" style="border-left: 3.5px solid #06b6d4;">
+      <div class="card-title">📱 5. L'application a été fermée accidentellement</div>
+      <p style="font-size: 9.2px; margin-bottom: 3px;">
+        <b>Symptôme :</b> Un balayage malencontreux a fermé l'onglet ou l'application.
+      </p>
+      <ul class="steps-list" style="font-size: 9.1px;">
+        <li><b>Restauration 100% Automatique :</b> Rouvrez simplement RandoTracker. Votre session active, vos traces GPX, vos couleurs, votre prénom et votre salon sont immédiatement restaurés sans aucune manipulation.</li>
+      </ul>
+    </div>
+
+    <div class="card" style="border-left: 3.5px solid #ec4899;">
+      <div class="card-title">🔋 6. Optimisation Maximale de l'Autonomie (8h-10h)</div>
+      <p style="font-size: 9.2px; margin-bottom: 3px;">
+        <b>Symptôme :</b> Vous partez pour une longue randonnée de toute la journée.
+      </p>
+      <ul class="steps-list" style="font-size: 9.1px;">
+        <li><b>Écran verrouillé :</b> Ne laissez pas l'écran allumé en continu. Rangez le téléphone dans la poche : RandoTracker continue d'émettre en arrière-plan (3 à 5% / h).</li>
+        <li><b>Surveillance de la meute :</b> Le serre-file vérifie les % de batterie de chacun dans le tiroir Participants pour anticiper les recharges sur batterie externe.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout callout-info" style="margin-top: 6px;">
+    <div class="callout-title">💡 Synthèse Sécurité & Bonnes Pratiques en Randonnée :</div>
+    <b>1. Téléphone chargé à 100% au départ</b> • <b>2. Batterie Android sur « Non restreinte »</b> • <b>3. Préchargement carto Wi-Fi effectué</b> • <b>4. Animateur 👑 et Serre-file 🛡️ identifiés au parking</b>. Vous êtes parés pour une sortie club en toute sérénité !
   </div>
 
   <!-- Footer officiel -->
@@ -847,3 +936,4 @@
 
 </body>
 </html>
+
