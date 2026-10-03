@@ -3152,10 +3152,22 @@ function closeAnnouncementModal() {
 }
 
 function sendAnnouncement(text) {
-  const msgText = (text || '').trim();
+  let msgText = (text || '').trim();
   if (!msgText) {
     showToast('Veuillez saisir un message à diffuser.', 'error');
     return;
+  }
+
+  const lat = state.myUser.lat;
+  const lon = state.myUser.lon;
+  const ele = state.myUser.ele;
+
+  // Enrichir systématiquement avec la position GPS exacte si elle n'est pas déjà dans le texte
+  if (lat !== undefined && lat !== null && lon !== undefined && lon !== null && !msgText.includes('📍 GPS:')) {
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const lonDir = lon >= 0 ? 'E' : 'O';
+    const altStr = (ele !== undefined && ele !== null && !isNaN(ele)) ? ` (Alt: ${Math.round(ele)}m)` : '';
+    msgText = `${msgText}\n📍 GPS: ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}${altStr}`;
   }
 
   const payload = {
@@ -3165,8 +3177,15 @@ function sendAnnouncement(text) {
     icon: state.myUser.icon || '🥾',
     color: state.myUser.color || '#059669',
     text: msgText,
+    lat: lat || null,
+    lon: lon || null,
+    ele: ele || null,
     timestamp: Date.now()
   };
+
+  if (lat && lon) {
+    state.lastAnnouncementCoords = { lat, lon, author: payload.author };
+  }
 
   publishMessage(payload);
   closeAnnouncementModal();
@@ -3215,10 +3234,30 @@ function handleReceivedAnnouncement(data) {
   const text = data.text;
   const timeStr = new Date(data.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  // 1. Notification système Android & Montres connectées (Garmin / Suunto)
+  // 1. Détection / Extraction des coordonnées GPS
+  let annLat = (data.lat !== undefined && data.lat !== null) ? Number(data.lat) : null;
+  let annLon = (data.lon !== undefined && data.lon !== null) ? Number(data.lon) : null;
+  if ((annLat === null || isNaN(annLat)) && data.text) {
+    const match = data.text.match(/📍 GPS:\s*([\d.]+)[°\s]*([NS]),\s*([\d.]+)[°\s]*([EO])/i);
+    if (match) {
+      annLat = parseFloat(match[1]) * (match[2].toUpperCase() === 'S' ? -1 : 1);
+      annLon = parseFloat(match[3]) * (match[4].toUpperCase() === 'O' || match[4].toUpperCase() === 'W' ? -1 : 1);
+    }
+  }
+
+  const locateBtn = document.getElementById('rx-announcement-locate-btn');
+  if (annLat !== null && !isNaN(annLat) && annLon !== null && !isNaN(annLon)) {
+    state.lastAnnouncementCoords = { lat: annLat, lon: annLon, author };
+    if (locateBtn) locateBtn.classList.remove('hidden');
+  } else {
+    state.lastAnnouncementCoords = null;
+    if (locateBtn) locateBtn.classList.add('hidden');
+  }
+
+  // 2. Notification système Android & Montres connectées (Garmin / Suunto)
   sendGpsNotification(`📢 Message de ${author} (${role})`, text);
 
-  // 2. Afficher la popup modale de réception
+  // 3. Afficher la popup modale de réception
   const rxModal = document.getElementById('received-announcement-modal');
   const rxSender = document.getElementById('rx-announcement-sender');
   const rxTime = document.getElementById('rx-announcement-time');
@@ -3235,13 +3274,23 @@ function handleReceivedAnnouncement(data) {
 
   if (rxModal) rxModal.classList.remove('hidden');
 
-  // 3. Afficher le bandeau persistant en haut de la carte
+  // 4. Afficher le bandeau persistant en haut de la carte
   displayAnnouncementBanner(author, icon, role, text, data.timestamp);
 }
 
 function closeReceivedAnnouncementModal() {
   const rxModal = document.getElementById('received-announcement-modal');
   if (rxModal) rxModal.classList.add('hidden');
+}
+
+function locateAnnouncementSender() {
+  if (state.lastAnnouncementCoords && state.lastAnnouncementCoords.lat && state.lastAnnouncementCoords.lon && state.map) {
+    state.map.setView([state.lastAnnouncementCoords.lat, state.lastAnnouncementCoords.lon], 16, { animate: true });
+    closeReceivedAnnouncementModal();
+    showToast(`📍 Carte centrée sur ${state.lastAnnouncementCoords.author || 'le marcheur'}`, 'info');
+  } else {
+    showToast('Position GPS non disponible pour ce message', 'warning');
+  }
 }
 
 function playAnnouncementAlert() {
@@ -4757,5 +4806,8 @@ window.acceptOnboarding = acceptOnboarding;
 window.requestWakeLock = requestWakeLock;
 window.releaseWakeLock = releaseWakeLock;
 window.testWatchNotification = testWatchNotification;
+window.locateAnnouncementSender = locateAnnouncementSender;
+window.closeReceivedAnnouncementModal = closeReceivedAnnouncementModal;
+
 
 

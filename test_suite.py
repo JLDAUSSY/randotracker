@@ -185,7 +185,7 @@ required_functions = [
     'deleteParticipant', 'clearOnlyParticipants', 'clearHikeSession', 'fitAllTracks',
     'copyEmergencyGpsCoords', 'toggleGroupSosAlert', 'cleanStaleUsers',
     'deduplicateUsersByName', 'applyUiScale', 'loadSavedUiScale',
-    'getMyGpsString', 'insertGpsInCustomAnnouncement',
+    'getMyGpsString', 'insertGpsInCustomAnnouncement', 'locateAnnouncementSender', 'closeReceivedAnnouncementModal',
     'pushModalState', 'isAnyModalOrDrawerOpen', 'closeAllModalsAndDrawers',
     'cycleTrackColor', 'setTrackColor', 'ensureBarsVisible', 'initPixelSanctuaryGuardians',
     'makePopupDraggable', 'makeModalDraggable', 'initAllDraggableModals',
@@ -206,6 +206,7 @@ exports_to_test = [
     'openElevationDrawer', 'closeElevationDrawer', 'toggleElevationFullscreen',
     'zoomInElevation', 'zoomOutElevation', 'resetElevationZoom', 'panElevation',
     'applyUiScale', 'loadSavedUiScale', 'getMyGpsString', 'insertGpsInCustomAnnouncement',
+    'locateAnnouncementSender', 'closeReceivedAnnouncementModal',
     'pushModalState', 'isAnyModalOrDrawerOpen', 'closeAllModalsAndDrawers',
     'cycleTrackColor', 'setTrackColor', 'ensureBarsVisible',
     'makePopupDraggable', 'makeModalDraggable', 'initAllDraggableModals',
@@ -228,6 +229,8 @@ run_test("Fiche Marcheur : Affichage de l'Écart Trace réel avec codes couleur 
 run_test("Palette de Couleurs de Traces : 10 couleurs disponibles (TRACK_COLORS)", lambda: "TRACK_COLORS = [" in js_text and len(re.findall(r"name:\s*['\"][^'\"]+['\"]", js_text)) >= 10)
 run_test("Sélecteur de Couleurs : Pastilles cliquables dans la modale traces", lambda: "cycleTrackColor" in js_text and "setTrackColor" in js_text)
 run_test("Pre-remplissage GPS actif dans openAnnouncementModal", lambda: 'getMyGpsString()' in js_text and 'customInput.value = getMyGpsString()' in js_text)
+run_test("Enrichissement automatique GPS dans sendAnnouncement", lambda: "msgText.includes('📍 GPS:')" in js_text and "state.lastAnnouncementCoords =" in js_text)
+run_test("Bouton Voir sur carte dans la modale d'annonce reçue (#rx-announcement-locate-btn)", lambda: bool(soup.find(id='rx-announcement-locate-btn')))
 run_test("Calque de pentes montagne IGN defini (GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN)", lambda: "GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN" in js_text)
 run_test("Envoi de notification systeme Android GPS (sendGpsNotification)", lambda: "reg.showNotification(title" in js_text or "new Notification(title" in js_text)
 

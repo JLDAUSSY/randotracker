@@ -125,7 +125,7 @@
     <div id="map" class="w-full h-full z-0"></div>
 
     <!-- BANDEAU ANNONCE EN DIRECT (SUR LA CARTE) -->
-    <div id="active-announcement-banner" class="hidden absolute top-3 left-3 right-3 sm:left-6 sm:right-auto sm:max-w-md z-25 bg-amber-500 text-slate-950 px-4 py-3 rounded-2xl shadow-2xl border-2 border-white flex items-center justify-between gap-3">
+    <div id="active-announcement-banner" class="hidden absolute top-3 left-3 right-3 sm:left-6 sm:right-auto sm:max-w-md z-25 bg-amber-500 hover:bg-amber-400 text-slate-950 px-4 py-3 rounded-2xl shadow-2xl border-2 border-white flex items-center justify-between gap-3 cursor-pointer transition active:scale-95" onclick="locateAnnouncementSender()">
       <div class="flex items-center gap-2.5 min-w-0 flex-1">
         <span class="text-2xl animate-bounce">📢</span>
         <div class="min-w-0 flex-1">
@@ -133,7 +133,7 @@
           <div class="text-sm sm:text-base font-black truncate text-slate-950" id="announcement-banner-text">Pause 10 minutes !</div>
         </div>
       </div>
-      <button onclick="closeAnnouncementBanner()" class="p-1.5 rounded-xl bg-slate-950/20 hover:bg-slate-950/30 text-slate-950 font-black text-xs shrink-0" title="Fermer le bandeau">
+      <button onclick="event.stopPropagation(); closeAnnouncementBanner()" class="p-1.5 rounded-xl bg-slate-950/20 hover:bg-slate-950/30 text-slate-950 font-black text-xs shrink-0" title="Fermer le bandeau">
         ✕
       </button>
     </div>
@@ -966,13 +966,18 @@
         </div>
       </div>
       <div class="bg-slate-950 text-white p-5 rounded-2xl border-2 border-white/20 shadow-inner">
-        <p class="text-lg sm:text-xl font-black leading-snug" id="rx-announcement-text">
+        <p class="text-base sm:text-lg font-black leading-snug whitespace-pre-line text-left" id="rx-announcement-text">
           Pause de 10 minutes !
         </p>
       </div>
-      <button onclick="closeReceivedAnnouncementModal()" class="w-full py-4 rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-black text-base sm:text-lg shadow-2xl border-2 border-white/30 active:scale-95 transition">
-        👍 COMPRIS !
-      </button>
+      <div class="flex gap-2">
+        <button id="rx-announcement-locate-btn" type="button" onclick="locateAnnouncementSender()" class="hidden flex-1 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm shadow-xl flex items-center justify-center gap-1.5 active:scale-95 transition">
+          <span>📍 Voir sur carte</span>
+        </button>
+        <button type="button" onclick="closeReceivedAnnouncementModal()" class="flex-1 py-3.5 rounded-2xl bg-slate-950 hover:bg-slate-900 text-white font-black text-sm sm:text-base shadow-2xl border-2 border-white/30 active:scale-95 transition">
+          👍 COMPRIS !
+        </button>
+      </div>
     </div>
   </div>
 
