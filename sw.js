@@ -1,12 +1,12 @@
-// Service Worker pour RandoTracker PWA - Version 50
-const CACHE_NAME = 'rando-tracker-v50';
+// Service Worker pour RandoTracker PWA - Version 51
+const CACHE_NAME = 'rando-tracker-v51';
 const TILES_CACHE_NAME = 'rando-tiles-v1';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=50',
-  './app.js?v=50',
+  './styles.css?v=51',
+  './app.js?v=51',
   './manifest.json',
   './logo.png',
   './icon-192.png',
@@ -110,12 +110,39 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const notifData = event.notification.data || {};
+  const notifTitle = event.notification.title || '';
+  const notifBody = event.notification.body || '';
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // 1. Si une fenêtre de RandoTracker est déjà ouverte, lui donner le focus et lui envoyer le contenu du message
       for (const client of clientList) {
-        if ('focus' in client) return client.focus();
+        if ('focus' in client) {
+          return client.focus().then((focusedClient) => {
+            if (focusedClient && 'postMessage' in focusedClient) {
+              focusedClient.postMessage({
+                type: 'NOTIFICATION_CLICKED',
+                data: notifData,
+                title: notifTitle,
+                body: notifBody
+              });
+            } else if ('postMessage' in client) {
+              client.postMessage({
+                type: 'NOTIFICATION_CLICKED',
+                data: notifData,
+                title: notifTitle,
+                body: notifBody
+              });
+            }
+          });
+        }
       }
-      if (clients.openWindow) return clients.openWindow('./');
+      // 2. Sinon, ouvrir l'application avec le paramètre d'affichage direct du message
+      if (clients.openWindow) {
+        return clients.openWindow('./?open_announcement=1');
+      }
     })
   );
 });
+

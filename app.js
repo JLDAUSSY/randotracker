@@ -3254,10 +3254,35 @@ function handleReceivedAnnouncement(data) {
     if (locateBtn) locateBtn.classList.add('hidden');
   }
 
-  // 2. Notification système Android & Montres connectées (Garmin / Suunto)
-  sendGpsNotification(`📢 Message de ${author} (${role})`, text);
+  // 2. Sauvegarde persistante pour réouverture immédiate en cas de clic sur notification
+  try {
+    localStorage.setItem('rando_last_announcement', JSON.stringify({
+      ...data,
+      author,
+      icon,
+      role,
+      text,
+      lat: annLat,
+      lon: annLon,
+      ele: data.ele,
+      timestamp: data.timestamp || Date.now()
+    }));
+  } catch (e) {}
 
-  // 3. Afficher la popup modale de réception
+  // 3. Notification système Android & Montres connectées (Garmin / Suunto) avec transmission des données complètes
+  sendGpsNotification(`📢 Message de ${author} (${role})`, text, {
+    ...data,
+    author,
+    icon,
+    role,
+    text,
+    lat: annLat,
+    lon: annLon,
+    ele: data.ele,
+    timestamp: data.timestamp || Date.now()
+  });
+
+  // 4. Afficher la popup modale de réception
   const rxModal = document.getElementById('received-announcement-modal');
   const rxSender = document.getElementById('rx-announcement-sender');
   const rxTime = document.getElementById('rx-announcement-time');
@@ -3274,7 +3299,7 @@ function handleReceivedAnnouncement(data) {
 
   if (rxModal) rxModal.classList.remove('hidden');
 
-  // 4. Afficher le bandeau persistant en haut de la carte
+  // 5. Afficher le bandeau persistant en haut de la carte
   displayAnnouncementBanner(author, icon, role, text, data.timestamp);
 }
 
@@ -3734,7 +3759,7 @@ function sendEmergencySms(number) {
   }, 100);
 }
 
-function sendGpsNotification(customTitle, customBody) {
+function sendGpsNotification(customTitle, customBody, extraData) {
   const lat = state.myUser.lat || 45.8920;
   const lon = state.myUser.lon || 6.1550;
   const ele = state.myUser.ele || 0;
@@ -3748,11 +3773,26 @@ function sendGpsNotification(customTitle, customBody) {
   const tag = customTitle ? `rando-msg-${Date.now()}` : 'rando-emergency-gps';
   const iconUrl = new URL('icon-192.png', window.location.href).href;
 
+  const dataPayload = extraData || {
+    type: customTitle ? 'announcement' : 'emergency',
+    title: title,
+    body: body,
+    text: body,
+    author: customTitle || 'Annonce RandoTracker',
+    timestamp: Date.now()
+  };
+
+  // Sauvegarder la dernière notification pour ouverture automatique
+  try {
+    localStorage.setItem('rando_last_announcement', JSON.stringify(dataPayload));
+  } catch(e) {}
+
   const notifOptions = {
     body: body,
     icon: iconUrl,
     badge: iconUrl,
     tag: tag,
+    data: dataPayload,
     renotify: true,
     silent: false,
     requireInteraction: true,
@@ -3787,7 +3827,7 @@ function sendGpsNotification(customTitle, customBody) {
       } else if (Notification.permission !== 'denied') {
         Notification.requestPermission().then(perm => {
           if (perm === 'granted') {
-            sendGpsNotification(customTitle, customBody);
+            sendGpsNotification(customTitle, customBody, extraData);
           }
         });
       }
@@ -4660,8 +4700,65 @@ function bootApp() {
     } catch(e) {}
   }, 600);
 
+function checkPendingNotification() {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('open_announcement') || urlParams.has('notif')) {
+      const lastAnn = localStorage.getItem('rando_last_announcement');
+      if (lastAnn) {
+        const parsed = JSON.parse(lastAnn);
+        if (Date.now() - (parsed.timestamp || 0) < 2 * 60 * 60 * 1000) { // < 2h
+          setTimeout(() => {
+            handleReceivedAnnouncement(parsed);
+          }, 350);
+        }
+      }
+      // Nettoyer l'URL proprement sans recharger
+      const cleanUrl = window.location.pathname + window.location.hash;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  } catch (e) {
+    console.warn('[Check Pending Notif]', e);
+  }
+}
+
+function initServiceWorkerNotificationListener() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'NOTIFICATION_CLICKED') {
+        const d = event.data.data;
+        if (d && (d.text || d.body)) {
+          handleReceivedAnnouncement({
+            author: d.author || event.data.title || 'Message du Groupe',
+            role: d.role || 'Randonneur',
+            icon: d.icon || '📢',
+            color: d.color || '#059669',
+            text: d.text || d.body,
+            lat: d.lat,
+            lon: d.lon,
+            ele: d.ele,
+            timestamp: d.timestamp || Date.now()
+          });
+        } else if (event.data.body) {
+          handleReceivedAnnouncement({
+            author: event.data.title || 'Message du Groupe',
+            role: 'Randonneur',
+            icon: '📢',
+            color: '#059669',
+            text: event.data.body,
+            timestamp: Date.now()
+          });
+        }
+      }
+    });
+  }
+}
+
   // VÉRIFICATION DU GUIDE ONBOARDING (1er démarrage) OU DÉMARRAGE DIRECT GPS
   try {
+    initServiceWorkerNotificationListener();
+    checkPendingNotification();
+
     const hasAcceptedOnboarding = localStorage.getItem('rando_onboarding_accepted');
     if (!hasAcceptedOnboarding) {
       checkOnboardingStatus();
