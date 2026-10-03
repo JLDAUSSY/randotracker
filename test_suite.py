@@ -164,7 +164,7 @@ run_test("Echelle Header Grand : avatar badge 44px", lambda: 'html.ui-scale-larg
 run_test("Echelle Header Geant : avatar badge 54px", lambda: 'html.ui-scale-xlarge #header-avatar-badge' in css_text and '54px' in css_text)
 run_test("Piliers d'actions adaptatifs avec var(--pill-w)", lambda: 'var(--pill-w' in css_text)
 run_test("Bulle Mon GPS surelevee avec var(--gps-size)", lambda: 'var(--gps-size' in css_text)
-run_test("Popups Leaflet largeur minimale >= 280px", lambda: bool(re.search(r'\.leaflet-popup-content\s*\{[^}]*min-width:\s*2[89]0px', css_text)))
+run_test("Popups Leaflet largeur minimale adaptative", lambda: bool(re.search(r'\.leaflet-popup-content\s*\{[^}]*min-width:\s*2[6-9]0px', css_text)))
 
 # ----------------------------------------------------------------------
 # 4. TESTS DE LA LOGIQUE JAVASCRIPT & EXPORTS WINDOW

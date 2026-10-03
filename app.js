@@ -1140,45 +1140,45 @@ function renderTrackOnMap(track) {
   });
 
   mainPolyline.bindPopup(`
-    <div class="space-y-3 p-1 min-w-[280px] sm:min-w-[330px]">
+    <div class="space-y-2.5 p-1 min-w-[260px] max-w-[320px] overflow-hidden box-border">
       <!-- Barre de déplacement & Zoom de la fenêtre popup -->
       <div class="popup-drag-bar flex items-center justify-between text-[11px] font-bold text-slate-300">
-        <span class="flex items-center gap-1.5 cursor-grab">
+        <span class="flex items-center gap-1.5 cursor-grab shrink-0">
           <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
-          <span>Déplacer</span>
+          <span class="font-black text-slate-100">Déplacer</span>
         </span>
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-1 shrink-0">
           <button type="button" onclick="adjustPopupZoom(this, -0.15)" class="popup-zoom-btn" title="Réduire la taille">A-</button>
-          <span class="popup-zoom-level-badge text-[10px] font-mono text-emerald-400 px-1">100%</span>
+          <span class="popup-zoom-level-badge text-[10px] font-mono text-emerald-400 px-1 font-black">100%</span>
           <button type="button" onclick="adjustPopupZoom(this, 0.15)" class="popup-zoom-btn" title="Agrandir la taille">A+</button>
         </div>
-        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Parcours GPX</span>
+        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold truncate hidden sm:inline">Trace</span>
       </div>
 
-      <div class="flex items-center gap-3 pb-2.5 border-b-2 border-slate-700">
+      <div class="flex items-center gap-2.5 pb-2 border-b-2 border-slate-700">
         <span class="w-5 h-5 rounded-full shadow-lg shrink-0 border-2 border-white" style="background-color: ${track.color.hex}"></span>
-        <h4 class="font-black text-lg sm:text-xl text-white truncate leading-tight">${track.name}</h4>
+        <h4 class="font-black text-base sm:text-lg text-white truncate leading-tight flex-1 min-w-0" title="${track.name}">${track.name}</h4>
       </div>
       <div class="grid grid-cols-2 gap-2 text-sm text-slate-200">
-        <div class="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 flex flex-col">
-          <span class="text-[11px] font-bold text-slate-400 block uppercase tracking-wide">Distance</span>
-          <b class="text-white text-base sm:text-lg mt-0.5">${track.totalDistance.toFixed(1)} km</b>
+        <div class="bg-slate-900/90 p-2 sm:p-2.5 rounded-2xl border border-slate-800 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <span class="text-[10px] font-bold text-slate-400 block uppercase tracking-wide truncate">Distance</span>
+          <b class="text-white text-sm sm:text-base mt-0.5 font-mono truncate">${track.totalDistance.toFixed(1)} km</b>
         </div>
-        <div class="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 flex flex-col">
-          <span class="text-[11px] font-bold text-slate-400 block uppercase tracking-wide">Dénivelé +</span>
-          <b class="text-emerald-400 text-base sm:text-lg mt-0.5">+${track.eleGain} m</b>
+        <div class="bg-slate-900/90 p-2 sm:p-2.5 rounded-2xl border border-slate-800 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <span class="text-[10px] font-bold text-slate-400 block uppercase tracking-wide truncate">Dénivelé +</span>
+          <b class="text-emerald-400 text-sm sm:text-base mt-0.5 font-mono truncate">+${track.eleGain} m</b>
         </div>
-        <div class="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 flex flex-col">
-          <span class="text-[11px] font-bold text-slate-400 block uppercase tracking-wide">Alt. Min</span>
-          <b class="text-white text-base sm:text-lg mt-0.5">${track.minEle} m</b>
+        <div class="bg-slate-900/90 p-2 sm:p-2.5 rounded-2xl border border-slate-800 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <span class="text-[10px] font-bold text-slate-400 block uppercase tracking-wide truncate">Alt. Min</span>
+          <b class="text-white text-sm sm:text-base mt-0.5 font-mono truncate">${track.minEle} m</b>
         </div>
-        <div class="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 flex flex-col">
-          <span class="text-[11px] font-bold text-slate-400 block uppercase tracking-wide">Alt. Max</span>
-          <b class="text-white text-base sm:text-lg mt-0.5">${track.maxEle} m</b>
+        <div class="bg-slate-900/90 p-2 sm:p-2.5 rounded-2xl border border-slate-800 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <span class="text-[10px] font-bold text-slate-400 block uppercase tracking-wide truncate">Alt. Max</span>
+          <b class="text-white text-sm sm:text-base mt-0.5 font-mono truncate">${track.maxEle} m</b>
         </div>
       </div>
-      <button onclick="openElevationDrawer('${track.id}')" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-xl active:scale-95 transition">
-        📈 Voir Profil Altimétrique
+      <button onclick="openElevationDrawer('${track.id}')" class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-xl active:scale-95 transition">
+        <span>📈 Profil Altimétrique</span>
       </button>
     </div>
   `);
@@ -1514,6 +1514,7 @@ function openElevationDrawer(trackId) {
 
   if (drawer) {
     drawer.classList.remove('hidden');
+    makeElementInteractive(drawer);
   }
   pushModalState('elevation-drawer');
 
@@ -1945,57 +1946,57 @@ function createOrUpdateUserMarker(user) {
   }
 
   marker.bindPopup(`
-    <div class="p-2 space-y-3 min-w-[280px] max-w-[340px]">
+    <div class="p-1.5 space-y-2.5 min-w-[260px] max-w-[320px] overflow-hidden box-border">
       <!-- Barre de déplacement & Zoom de la fenêtre popup -->
       <div class="popup-drag-bar flex items-center justify-between text-[11px] font-bold text-slate-300">
-        <span class="flex items-center gap-1.5 cursor-grab">
+        <span class="flex items-center gap-1.5 cursor-grab shrink-0">
           <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
-          <span>Déplacer</span>
+          <span class="font-black text-slate-100">Déplacer</span>
         </span>
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-1 shrink-0">
           <button type="button" onclick="adjustPopupZoom(this, -0.15)" class="popup-zoom-btn" title="Réduire la taille">A-</button>
-          <span class="popup-zoom-level-badge text-[10px] font-mono text-emerald-400 px-1">100%</span>
+          <span class="popup-zoom-level-badge text-[10px] font-mono text-emerald-400 px-1 font-black">100%</span>
           <button type="button" onclick="adjustPopupZoom(this, 0.15)" class="popup-zoom-btn" title="Agrandir la taille">A+</button>
         </div>
-        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">${isMe ? 'Ma Fiche' : 'Participant'}</span>
+        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold truncate hidden sm:inline">${isMe ? 'Moi' : 'Profil'}</span>
       </div>
 
       <!-- En-tête Participant GÉANT -->
-      <div class="flex items-center gap-3 pb-3 border-b-2 border-slate-700/80">
-        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-xl shrink-0 border-2 border-white/80" style="background-color: ${user.color}">
+      <div class="flex items-center gap-2.5 pb-2.5 border-b-2 border-slate-700/80">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-xl shrink-0 border-2 border-white/80" style="background-color: ${user.color}">
           ${user.icon || '🌲'}
         </div>
         <div class="min-w-0 flex-1">
-          <div class="font-black text-lg sm:text-xl text-white truncate leading-tight">${user.name} ${isMe ? '<span class="text-xs text-emerald-400 font-bold ml-1">(Moi)</span>' : ''}</div>
-          <div class="flex items-center gap-2 mt-1 flex-wrap">
-            <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold border border-slate-700">${user.role}</span>
-            ${!isMe ? `<span class="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40">📍 à ${distFromMeStr} de vous</span>` : ''}
-            ${progress ? `<span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40">ETA ${progress.etaShort}</span>` : ''}
-            ${isZoneBlanche ? `<span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40">🌲 Zone blanche (${minSinceSeen} min)</span>` : ''}
+          <div class="font-black text-base sm:text-lg text-white truncate leading-tight">${user.name} ${isMe ? '<span class="text-xs text-emerald-400 font-bold ml-1">(Moi)</span>' : ''}</div>
+          <div class="flex items-center gap-1.5 mt-1 flex-wrap text-xs">
+            <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold border border-slate-700 text-[11px] truncate">${user.role}</span>
+            ${!isMe ? `<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40 text-[11px] truncate">📍 ${distFromMeStr}</span>` : ''}
+            ${progress ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 text-[11px] shrink-0">ETA ${progress.etaShort}</span>` : ''}
+            ${isZoneBlanche ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 text-[11px] truncate">🌲 ${minSinceSeen}m</span>` : ''}
           </div>
         </div>
       </div>
 
       <!-- Grille 4 Cartes Statistiques Haut Contraste -->
       <div class="grid grid-cols-2 gap-2 text-xs">
-        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
-          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Vitesse Moy.</span>
-          <span class="text-base sm:text-lg font-black text-white mt-0.5">${(user.movingAvgSpeed && user.movingAvgSpeed > 0 ? user.movingAvgSpeed : (user.speed || 0)).toFixed(1)} <span class="text-xs font-bold text-slate-400">km/h</span></span>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Vitesse Moy.</span>
+          <span class="text-sm sm:text-base font-black text-white mt-0.5 font-mono truncate">${(user.movingAvgSpeed && user.movingAvgSpeed > 0 ? user.movingAvgSpeed : (user.speed || 0)).toFixed(1)} <span class="text-[10px] font-bold text-slate-400">km/h</span></span>
         </div>
-        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
-          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Altitude</span>
-          <span class="text-base sm:text-lg font-black text-white mt-0.5">${Math.round(user.ele || 0)} <span class="text-xs font-bold text-slate-400">m</span></span>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Altitude</span>
+          <span class="text-sm sm:text-base font-black text-white mt-0.5 font-mono truncate">${Math.round(user.ele || 0)} <span class="text-[10px] font-bold text-slate-400">m</span></span>
         </div>
-        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
-          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Batterie</span>
-          <span class="text-base sm:text-lg font-black mt-0.5 ${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</span>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Batterie</span>
+          <span class="text-sm sm:text-base font-black mt-0.5 font-mono truncate ${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</span>
         </div>
-        <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-2.5 flex flex-col shadow-inner">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Écart Trace</span>
-            ${ecartStatusTag ? `<span class="text-[9px] font-black uppercase px-1.5 py-0.2 rounded ${isFarFromTrack ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">${ecartStatusTag}</span>` : ''}
+            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Écart Trace</span>
+            ${ecartStatusTag ? `<span class="text-[9px] font-black uppercase px-1 py-0.2 rounded shrink-0 ${isFarFromTrack ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">${ecartStatusTag}</span>` : ''}
           </div>
-          <span class="text-base sm:text-lg font-black ${ecartDisplayColor} mt-0.5">${ecartDisplayVal}</span>
+          <span class="text-sm sm:text-base font-black ${ecartDisplayColor} mt-0.5 font-mono truncate">${ecartDisplayVal}</span>
         </div>
       </div>
 
@@ -4519,21 +4520,32 @@ function initPixelSanctuaryGuardians() {
 }
 
 // ============================================================================
-// SYSTÈME DE DÉPLACEMENT LIBRE DES FENÊTRES ET POPUPS (DRAGGABLE MODALS & POPUPS)
+// CONTRÔLEUR UNIFIÉ DE DÉPLACEMENT & ZOOM TACTILE À 2 DOIGTS (100% ISOLÉ & FLUIDE)
 // ============================================================================
-// ============================================================================
-// SYSTÈME DE DÉPLACEMENT & ZOOM TACTILE À 2 DOIGTS (PINCH-TO-ZOOM STRICTEMENT ISOLÉ)
-// ============================================================================
-function makeElementPinchZoomable(containerEl) {
-  if (!containerEl || containerEl.dataset.pinchZoomActive) return;
-  containerEl.dataset.pinchZoomActive = 'true';
+function makeElementInteractive(containerEl, customCardSelector, customHandleSelector) {
+  if (!containerEl || containerEl.dataset.interactiveActive) return;
+  containerEl.dataset.interactiveActive = 'true';
 
-  const card = containerEl.querySelector('.bg-slate-900, .custom-modal-card, .leaflet-popup-content-wrapper, .emergency-modal-inner') || containerEl;
+  const card = (customCardSelector ? containerEl.querySelector(customCardSelector) : null) ||
+               containerEl.querySelector('.bg-slate-900, .custom-modal-card, .leaflet-popup-content-wrapper, .emergency-modal-inner') ||
+               containerEl;
 
+  const handle = (customHandleSelector ? containerEl.querySelector(customHandleSelector) : null) ||
+                 containerEl.querySelector('.popup-drag-bar, .modal-drag-bar, .draggable-header-handle') ||
+                 card.querySelector('.border-b, .border-b-2') ||
+                 card;
+
+  handle.classList.add('draggable-header-handle');
+  handle.style.cursor = 'grab';
+
+  let isDragging = false;
   let isPinching = false;
-  let startDistance = 0;
-  let startScale = 1.0;
-  let currentScale = parseFloat(card.dataset.pinchScale || '1.0');
+  let dragStartX = 0, dragStartY = 0;
+  let curX = parseFloat(card.dataset.dragX || '0');
+  let curY = parseFloat(card.dataset.dragY || '0');
+  let curScale = parseFloat(card.dataset.pinchScale || card.dataset.zoomLevel || card.dataset.uiZoom || '1.0');
+  let pinchStartDist = 0;
+  let pinchStartScale = 1.0;
   let lastTapTime = 0;
 
   // Création dynamique de la bulle de feedback visuel de zoom
@@ -4550,32 +4562,27 @@ function makeElementPinchZoomable(containerEl) {
     zoomBadge.textContent = `🔍 ${pct}%`;
     zoomBadge.classList.add('is-visible');
 
-    const headerBadge = card.querySelector('.popup-zoom-level-badge, #ele-ui-zoom-badge');
-    if (headerBadge) {
-      headerBadge.textContent = `${pct}%`;
-    }
+    const headerBadges = card.querySelectorAll('.popup-zoom-level-badge, #ele-ui-zoom-badge');
+    headerBadges.forEach(b => b.textContent = `${pct}%`);
 
     clearTimeout(zoomBadge._hideTimer);
     zoomBadge._hideTimer = setTimeout(() => {
       zoomBadge.classList.remove('is-visible');
-    }, 1200);
+    }, 1100);
   };
 
-  const applyScaleAndTransform = (scale, smooth = false) => {
-    currentScale = Math.max(0.80, Math.min(1.85, Math.round(scale * 100) / 100));
-    card.dataset.pinchScale = currentScale.toString();
-
-    const dragX = parseFloat(card.dataset.dragX || '0');
-    const dragY = parseFloat(card.dataset.dragY || '0');
-
+  const applyTransform = (smooth = false) => {
     if (smooth) {
-      card.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
-      setTimeout(() => { card.style.transition = ''; }, 260);
+      card.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)';
+      setTimeout(() => { card.style.transition = ''; }, 240);
     }
-
     card.style.transformOrigin = 'center top';
-    card.style.transform = `translate3d(${dragX}px, ${dragY}px, 0px) scale(${currentScale})`;
-    showZoomBadge(currentScale);
+    card.style.transform = `translate3d(${curX}px, ${curY}px, 0px) scale(${curScale})`;
+    card.dataset.dragX = curX.toString();
+    card.dataset.dragY = curY.toString();
+    card.dataset.pinchScale = curScale.toString();
+    card.dataset.zoomLevel = curScale.toString();
+    card.dataset.uiZoom = curScale.toString();
   };
 
   const getDistance = (t1, t2) => {
@@ -4584,48 +4591,106 @@ function makeElementPinchZoomable(containerEl) {
     return Math.sqrt(dx * dx + dy * dy);
   };
 
+  // --- SOURIS (DESKTOP) ---
+  const onMouseDown = (e) => {
+    if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, .popup-zoom-btn, details, summary, i, svg, [onclick]')) {
+      return;
+    }
+    isDragging = true;
+    handle.style.cursor = 'grabbing';
+    dragStartX = e.clientX - curX;
+    dragStartY = e.clientY - curY;
+
+    if (state.map && state.map.dragging) state.map.dragging.disable();
+
+    const onMouseMove = (ev) => {
+      if (!isDragging) return;
+      if (ev.cancelable) ev.preventDefault();
+      curX = ev.clientX - dragStartX;
+      curY = ev.clientY - dragStartY;
+      applyTransform(false);
+    };
+
+    const onMouseUp = () => {
+      isDragging = false;
+      handle.style.cursor = 'grab';
+      if (state.map && state.map.dragging) state.map.dragging.enable();
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove, { passive: false });
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  handle.addEventListener('mousedown', onMouseDown);
+
+  // --- TOUCH TACTILE (SMARTPHONE / TABLETTE) ---
   const onTouchStart = (e) => {
-    // 1. Sanctuarisation : empêcher toute fuite de l'événement vers Leaflet ou la page
+    // Sanctuarisation : empêcher toute fuite de l'événement vers la carte en dessous
     e.stopPropagation();
 
-    // 2. Double-Tap avec 1 doigt : Réinitialisation instantanée à 100%
+    // 1 doigt : Vérifier Double-Tap ou Début de Déplacement (Drag)
     if (e.touches.length === 1) {
       const now = Date.now();
       if (now - lastTapTime < 300) {
-        applyScaleAndTransform(1.0, true);
+        // Double-tap : Réinitialisation instantanée à 100%
+        curScale = 1.0;
+        applyTransform(true);
+        showZoomBadge(1.0);
         lastTapTime = 0;
         return;
       }
       lastTapTime = now;
+
+      // Si le doigt est posé sur la poignée de déplacement (header / bar)
+      const isInteractive = e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, .popup-zoom-btn, details, summary, i, svg, [onclick]');
+      const onHandle = handle.contains(e.target);
+      if (onHandle && !isInteractive) {
+        isDragging = true;
+        handle.style.cursor = 'grabbing';
+        dragStartX = e.touches[0].clientX - curX;
+        dragStartY = e.touches[0].clientY - curY;
+        if (state.map && state.map.dragging) state.map.dragging.disable();
+      }
     }
 
-    // 3. Détection de l'écartement / pincement à 2 doigts
+    // 2 doigts : Démarrer le Pinch-to-Zoom
     if (e.touches.length === 2) {
+      isDragging = false;
       isPinching = true;
       if (e.cancelable) e.preventDefault();
-
+      pinchStartDist = getDistance(e.touches[0], e.touches[1]);
+      pinchStartScale = curScale;
       if (state.map) {
         if (state.map.touchZoom) state.map.touchZoom.disable();
         if (state.map.dragging) state.map.dragging.disable();
       }
-
-      startDistance = getDistance(e.touches[0], e.touches[1]);
-      startScale = parseFloat(card.dataset.pinchScale || '1.0');
     }
   };
 
   const onTouchMove = (e) => {
     e.stopPropagation();
 
+    // Gestion Zoom 2 doigts
     if (isPinching && e.touches.length === 2) {
       if (e.cancelable) e.preventDefault();
-
       const dist = getDistance(e.touches[0], e.touches[1]);
-      if (startDistance > 0) {
-        const factor = dist / startDistance;
-        const targetScale = startScale * factor;
-        applyScaleAndTransform(targetScale, false);
+      if (pinchStartDist > 0) {
+        const factor = dist / pinchStartDist;
+        curScale = Math.max(0.80, Math.min(1.50, Math.round(pinchStartScale * factor * 100) / 100));
+        applyTransform(false);
+        showZoomBadge(curScale);
       }
+      return;
+    }
+
+    // Gestion Déplacement 1 doigt sur la poignée
+    if (isDragging && e.touches.length === 1) {
+      if (e.cancelable) e.preventDefault();
+      curX = e.touches[0].clientX - dragStartX;
+      curY = e.touches[0].clientY - dragStartY;
+      applyTransform(false);
     }
   };
 
@@ -4634,12 +4699,14 @@ function makeElementPinchZoomable(containerEl) {
 
     if (isPinching && e.touches.length < 2) {
       isPinching = false;
-      startDistance = 0;
+      pinchStartDist = 0;
+      if (state.map && state.map.touchZoom) state.map.touchZoom.enable();
+    }
 
-      if (state.map) {
-        if (state.map.touchZoom) state.map.touchZoom.enable();
-        if (state.map.dragging) state.map.dragging.enable();
-      }
+    if (isDragging && e.touches.length === 0) {
+      isDragging = false;
+      handle.style.cursor = 'grab';
+      if (state.map && state.map.dragging) state.map.dragging.enable();
     }
   };
 
@@ -4650,154 +4717,17 @@ function makeElementPinchZoomable(containerEl) {
 }
 
 function makePopupDraggable(popupEl) {
-  if (!popupEl || popupEl.dataset.draggableActive) return;
-  popupEl.dataset.draggableActive = 'true';
-
-  const handle = popupEl.querySelector('.popup-drag-bar') || popupEl.querySelector('.leaflet-popup-content-wrapper') || popupEl;
-  const wrapper = popupEl.querySelector('.leaflet-popup-content-wrapper') || popupEl;
-  handle.style.cursor = 'grab';
-
-  let isDragging = false;
-  let startX = 0, startY = 0;
-  let currentOffsetX = parseFloat(wrapper.dataset.dragX || '0');
-  let currentOffsetY = parseFloat(wrapper.dataset.dragY || '0');
-
-  const onDragStart = (e) => {
-    if (e.touches && e.touches.length >= 2) return; // Priorité absolue au pinch-to-zoom
-    if (e.target.closest('button, a, input, select, textarea, label, .popup-zoom-btn, details, summary, i, svg, [onclick]')) {
-      return;
-    }
-    isDragging = true;
-    handle.style.cursor = 'grabbing';
-
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    startX = clientX - currentOffsetX;
-    startY = clientY - currentOffsetY;
-
-    if (state.map && state.map.dragging) {
-      state.map.dragging.disable();
-    }
-
-    window.addEventListener('mousemove', onDragMove, { passive: false });
-    window.addEventListener('mouseup', onDragEnd);
-    window.addEventListener('touchmove', onDragMove, { passive: false });
-    window.addEventListener('touchend', onDragEnd);
-  };
-
-  const onDragMove = (e) => {
-    if (!isDragging) return;
-    if (e.touches && e.touches.length >= 2) {
-      onDragEnd();
-      return;
-    }
-    if (e.cancelable) e.preventDefault();
-
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    currentOffsetX = clientX - startX;
-    currentOffsetY = clientY - startY;
-
-    const scale = parseFloat(wrapper.dataset.pinchScale || wrapper.dataset.zoomLevel || '1.0');
-    wrapper.dataset.dragX = currentOffsetX.toString();
-    wrapper.dataset.dragY = currentOffsetY.toString();
-    wrapper.style.transformOrigin = 'center top';
-    wrapper.style.transform = `translate3d(${currentOffsetX}px, ${currentOffsetY}px, 0px) scale(${scale})`;
-  };
-
-  const onDragEnd = () => {
-    if (!isDragging) return;
-    isDragging = false;
-    handle.style.cursor = 'grab';
-
-    if (state.map && state.map.dragging) {
-      state.map.dragging.enable();
-    }
-
-    window.removeEventListener('mousemove', onDragMove);
-    window.removeEventListener('mouseup', onDragEnd);
-    window.removeEventListener('touchmove', onDragMove);
-    window.removeEventListener('touchend', onDragEnd);
-  };
-
-  handle.addEventListener('mousedown', onDragStart);
-  handle.addEventListener('touchstart', onDragStart, { passive: false });
+  makeElementInteractive(popupEl, '.leaflet-popup-content-wrapper', '.popup-drag-bar');
 }
 
 function makeModalDraggable(modalId) {
-  const modal = document.getElementById(modalId);
+  const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId;
   if (!modal) return;
-  const card = modal.querySelector('.bg-slate-900') || modal.querySelector('.emergency-modal-inner') || modal;
-  if (!card || card.dataset.draggableActive) return;
-  card.dataset.draggableActive = 'true';
+  makeElementInteractive(modal);
+}
 
-  const handle = modal.querySelector('.modal-drag-bar') || card.querySelector('.border-b, .border-b-2') || card;
-  handle.classList.add('draggable-header-handle');
-  handle.style.cursor = 'grab';
-
-  let isDragging = false;
-  let startX = 0, startY = 0;
-  let curX = parseFloat(card.dataset.dragX || '0');
-  let curY = parseFloat(card.dataset.dragY || '0');
-
-  const onStart = (e) => {
-    if (e.touches && e.touches.length >= 2) return; // Priorité au zoom à 2 doigts
-    if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, .popup-zoom-btn, details, summary, i, svg, [onclick]')) return;
-    isDragging = true;
-    handle.style.cursor = 'grabbing';
-
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    startX = clientX - curX;
-    startY = clientY - curY;
-
-    if (state.map && state.map.dragging) {
-      state.map.dragging.disable();
-    }
-
-    window.addEventListener('mousemove', onMove, { passive: false });
-    window.addEventListener('mouseup', onEnd);
-    window.addEventListener('touchmove', onMove, { passive: false });
-    window.addEventListener('touchend', onEnd);
-  };
-
-  const onMove = (e) => {
-    if (!isDragging) return;
-    if (e.touches && e.touches.length >= 2) {
-      onEnd();
-      return;
-    }
-    if (e.cancelable) e.preventDefault();
-
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    curX = clientX - startX;
-    curY = clientY - startY;
-
-    const scale = parseFloat(card.dataset.pinchScale || '1.0');
-    card.dataset.dragX = curX.toString();
-    card.dataset.dragY = curY.toString();
-    card.style.transformOrigin = 'center top';
-    card.style.transform = `translate3d(${curX}px, ${curY}px, 0px) scale(${scale})`;
-  };
-
-  const onEnd = () => {
-    if (!isDragging) return;
-    isDragging = false;
-    handle.style.cursor = 'grab';
-
-    if (state.map && state.map.dragging) {
-      state.map.dragging.enable();
-    }
-
-    window.removeEventListener('mousemove', onMove);
-    window.removeEventListener('mouseup', onEnd);
-    window.removeEventListener('touchmove', onMove);
-    window.removeEventListener('touchend', onEnd);
-  };
-
-  handle.addEventListener('mousedown', onStart);
-  handle.addEventListener('touchstart', onStart, { passive: false });
+function makeElementPinchZoomable(containerEl) {
+  makeElementInteractive(containerEl);
 }
 
 function initAllDraggableModals() {
@@ -4810,8 +4740,7 @@ function initAllDraggableModals() {
   modalIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
-      makeModalDraggable(id);
-      makeElementPinchZoomable(el);
+      makeElementInteractive(el);
     }
   });
 }
