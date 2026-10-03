@@ -9,7 +9,9 @@ Conception & Développement : **Jean-Luc DAUSSY (JLD Apps) - 2026**
 ## 🌐 Liens Utiles & Accès Direct
 
 - 🚀 **Application en Ligne (GitHub Pages)** : [https://jldaussy.github.io/randotracker/](https://jldaussy.github.io/randotracker/)
-- 📄 **Mode d'emploi complet (PDF)** : [RandoTracker_Mode_d_emploi.pdf](https://jldaussy.github.io/randotracker/RandoTracker_Mode_d_emploi.pdf)
+- 📖 **Site Web du Mode d'Emploi** : [https://jldaussy.github.io/randotracker-guide/](https://jldaussy.github.io/randotracker-guide/)
+- 📄 **Mode d'Emploi Complet (PDF A4 6 pages)** : [RandoTracker_Mode_d_emploi.pdf](https://jldaussy.github.io/randotracker-guide/RandoTracker_Mode_d_emploi.pdf)
+- 📚 **Dépôt GitHub de la Documentation** : [https://github.com/JLDAUSSY/randotracker-guide](https://github.com/JLDAUSSY/randotracker-guide)
 - 🛡️ **Politique de Confidentialité** : [https://jldaussy.github.io/randotracker/privacy.html](https://jldaussy.github.io/randotracker/privacy.html)
 - 📱 **Package Android** : `fr.jldaussy.randotracker` (Android 7.0+ / Target SDK 36)
 
