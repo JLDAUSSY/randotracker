@@ -200,7 +200,7 @@ for fn in required_functions:
 exports_to_test = [
     'toggleEmergencyModal', 'openEmergencyModal', 'closeEmergencyModal',
     'renderEmergencyActionsPad', 'initiateEmergencyCall', 'makeEmergencyCall', 'sendEmergencySms',
-    'sendGpsNotification', 'closeProfileModal',
+    'sendGpsNotification', 'closeProfileModal', 'openProfileModal',
     'onNavGpsClick', 'onNavTracesClick', 'toggleUsersDrawer', 'closeAllDrawers',
     'openTracksModal', 'openInviteModal', 'openAnnouncementModal',
     'openElevationDrawer', 'closeElevationDrawer', 'toggleElevationFullscreen',
@@ -212,7 +212,8 @@ exports_to_test = [
     'makePopupDraggable', 'makeModalDraggable', 'initAllDraggableModals',
     'playAnnouncementAlert', 'adjustPopupZoom', 'checkOnboardingStatus',
     'openOnboardingModal', 'closeOnboardingModal', 'acceptOnboarding',
-    'requestWakeLock', 'releaseWakeLock'
+    'requestWakeLock', 'releaseWakeLock',
+    'checkAndDisplayAppOpenAd', 'closeAppOpenAd', 'renderTrackAdBanner', 'renderProfileAdBanner', 'MONETIZATION_CONFIG'
 ]
 
 for fn in exports_to_test:
@@ -243,6 +244,15 @@ run_test("Vitesse moyenne en déplacement (movingAvgSpeed & isAutoPaused)", lamb
 run_test("Auto-Pause intelligente avec seuil 1.0 km/h", lambda: "instantSpeed >= 1.0" in js_text or "isMoving" in js_text)
 run_test("Watchdog GPS haute fréquence à 3.5s (3500ms)", lambda: "3500" in js_text and "startGpsForcedWatchdog" in js_text)
 run_test("Alerte Sortie de Trace (Off-Track) déclenchée >50m", lambda: "distM > 50" in js_text and "playOffTrackAlertSound" in js_text)
+
+# Tests Monétisation AdMob & Amazon Partenaires
+run_test("Google AdMob/AdSense : Script avec publisher ID ca-pub-1457919469523324 dans le HEAD", lambda: 'ca-pub-1457919469523324' in html_text and 'adsbygoogle.js' in html_text)
+run_test("Modale Pub Ouverture Quotidienne AdMob définie dans le DOM (#app-open-ad-modal)", lambda: bool(soup.find(id='app-open-ad-modal')))
+run_test("Bandeau Amazon Partenaire défini dans Modale Traces (#tracks-modal-ad-banner)", lambda: bool(soup.find(id='tracks-modal-ad-banner')))
+run_test("Bandeau Amazon Partenaire défini dans Modale Profil (#profile-modal-ad-banner)", lambda: bool(soup.find(id='profile-modal-ad-banner')))
+run_test("Tag Partenaire Amazon configuré (watermetrics-21)", lambda: "tag: 'watermetrics-21'" in js_text or 'watermetrics-21' in js_text)
+run_test("Styles CSS Pub : .app-open-ad-card & .rando-ad-banner définis", lambda: '.app-open-ad-card' in css_text and '.rando-ad-banner' in css_text)
+
 
 # ----------------------------------------------------------------------
 # 5. SIMULATION & TESTS ALGORITHMIQUES (DÉDUPLICATION, TÉLÉMÉTRIE, HAVERSINE, RÉTENTION 5H)
@@ -345,8 +355,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=53',
-    'http://127.0.0.1:8000/app.js?v=53',
+    'http://127.0.0.1:8000/styles.css?v=54',
+    'http://127.0.0.1:8000/app.js?v=54',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
 ]

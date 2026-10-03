@@ -28,6 +28,79 @@ const TRACK_COLORS = [
 ];
 
 // ============================================================================
+// CONFIGURATION MONÉTISATION : GOOGLE ADMOB & AMAZON PARTENAIRES
+// ============================================================================
+const MONETIZATION_CONFIG = {
+  // Google AdMob & AdSense (Éditeur officiel)
+  admob: {
+    publisherId: 'ca-pub-1457919469523324',
+    appOpenAdUnitId: 'ca-app-pub-1457919469523324/9876543210',
+    enabled: true
+  },
+  // Amazon Partenaires (Tag certifié multi-produits)
+  amazon: {
+    tag: 'watermetrics-21',
+    // Suggestions d'équipements pour la modale Traces GPX
+    trackSuggestions: [
+      {
+        icon: '🥾',
+        badge: 'Équipement Recommandé',
+        title: 'Bâtons de Randonnée Anti-Chocs',
+        desc: 'Soulagez vos genoux et gagnez en stabilité en montée comme en descente.',
+        btnText: 'Voir les bâtons',
+        searchQuery: 'batons randonnee telescopiques anti chocs legers'
+      },
+      {
+        icon: '👟',
+        badge: 'Confort & Protection',
+        title: 'Chaussures & Chaussettes Anti-Ampoules',
+        desc: 'Adhérence tout-terrain Vibram et imperméabilité Gore-Tex pour vos parcours.',
+        btnText: 'Voir les chaussures',
+        searchQuery: 'chaussures randonnee homme femme gore tex vibram'
+      },
+      {
+        icon: '🎒',
+        badge: 'Portage & Hydratation',
+        title: 'Sacs à Dos Légers & Gourdes Filtrantes',
+        desc: 'Portage ergonomique ventilé et eau potable garantie partout en montagne.',
+        btnText: 'Voir les sacs & gourdes',
+        searchQuery: 'sac a dos randonnee legere gourde filtrante poche a eau'
+      }
+    ],
+    // Suggestions d'équipements pour la modale Mon Profil
+    profileSuggestions: [
+      {
+        icon: '🔋',
+        badge: 'Autonomie GPS Recommandée',
+        title: 'Batterie Externe Étanche 20 000 mAh',
+        desc: 'Gardez votre smartphone et le suivi GPS allumés toute la journée sans coupure.',
+        btnText: 'Voir les batteries GPS',
+        searchQuery: 'batterie externe powerbank 20000mah etanche antichoc randonnee'
+      },
+      {
+        icon: '🔦',
+        badge: 'Sécurité & Visibilité',
+        title: 'Lampes Frontales Puissantes & Rechargeables',
+        desc: 'Éclairage haute puissance et autonomie en cas de fin de randonnée tardive.',
+        btnText: 'Voir les lampes frontales',
+        searchQuery: 'lampe frontale puissante rechargeable usb rando trail'
+      },
+      {
+        icon: '🩹',
+        badge: 'Sécurité du Groupe',
+        title: 'Trousses de Secours Compactes & Couvertures',
+        desc: 'Matériel de premiers soins indispensable pour parer aux petits imprévus.',
+        btnText: 'Voir les trousses de secours',
+        searchQuery: 'trousse de secours compacte randonnee montagne premier secours'
+      }
+    ]
+  }
+};
+
+let currentTrackAdIndex = 0;
+let currentProfileAdIndex = 0;
+
+// ============================================================================
 // IDENTIFIANT UNIQUE PERSISTANT DE L'UTILISATEUR
 // ============================================================================
 function getOrCreateUserId() {
@@ -657,6 +730,104 @@ function closeProfileModal() {
   closeAllDrawers(); // Ferme également le panneau participants pour revenir directement sur la carte
 }
 
+// ============================================================================
+// GESTION DES ESPACES PUBLICITAIRES : ADMOB & AMAZON PARTENAIRES
+// ============================================================================
+function renderTrackAdBanner() {
+  const container = document.getElementById('tracks-modal-ad-banner');
+  if (!container) return;
+  const items = MONETIZATION_CONFIG.amazon.trackSuggestions;
+  if (!items || items.length === 0) return;
+  const item = items[currentTrackAdIndex % items.length];
+  currentTrackAdIndex++;
+
+  const queryUrl = `https://www.amazon.fr/s?k=${encodeURIComponent(item.searchQuery)}&tag=${encodeURIComponent(MONETIZATION_CONFIG.amazon.tag)}`;
+
+  container.innerHTML = `
+    <div class="rando-ad-banner-left">
+      <span class="rando-ad-icon">${item.icon}</span>
+      <div class="rando-ad-text-wrap">
+        <span class="rando-ad-tag">✨ Sponsorisé • ${item.badge}</span>
+        <h5 class="rando-ad-title">${item.title}</h5>
+        <p class="rando-ad-desc">${item.desc}</p>
+      </div>
+    </div>
+    <a href="${queryUrl}" target="_blank" rel="noopener sponsored" class="rando-ad-btn">
+      <span>${item.btnText}</span>
+      <span>→</span>
+    </a>
+  `;
+}
+
+function renderProfileAdBanner() {
+  const container = document.getElementById('profile-modal-ad-banner');
+  if (!container) return;
+  const items = MONETIZATION_CONFIG.amazon.profileSuggestions;
+  if (!items || items.length === 0) return;
+  const item = items[currentProfileAdIndex % items.length];
+  currentProfileAdIndex++;
+
+  const queryUrl = `https://www.amazon.fr/s?k=${encodeURIComponent(item.searchQuery)}&tag=${encodeURIComponent(MONETIZATION_CONFIG.amazon.tag)}`;
+
+  container.innerHTML = `
+    <div class="rando-ad-banner-left">
+      <span class="rando-ad-icon">${item.icon}</span>
+      <div class="rando-ad-text-wrap">
+        <span class="rando-ad-tag">🔋 Sponsorisé • ${item.badge}</span>
+        <h5 class="rando-ad-title">${item.title}</h5>
+        <p class="rando-ad-desc">${item.desc}</p>
+      </div>
+    </div>
+    <a href="${queryUrl}" target="_blank" rel="noopener sponsored" class="rando-ad-btn">
+      <span>${item.btnText}</span>
+      <span>→</span>
+    </a>
+  `;
+}
+
+function checkAndDisplayAppOpenAd() {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+    const lastAdDate = localStorage.getItem('randotracker_last_app_open_ad_date');
+
+    if (lastAdDate === today) {
+      // Déjà affiché aujourd'hui : inhibition conforme
+      return;
+    }
+
+    const modal = document.getElementById('app-open-ad-modal');
+    if (modal) {
+      // Temporisation douce pour laisser l'interface et la carte s'initialiser
+      setTimeout(() => {
+        const onboarding = document.getElementById('onboarding-modal');
+        if (onboarding && !onboarding.classList.contains('hidden')) {
+          return;
+        }
+        modal.classList.remove('hidden');
+        localStorage.setItem('randotracker_last_app_open_ad_date', today);
+      }, 1200);
+    }
+  } catch (e) {
+    console.warn('[AdMob/Monetization] checkAndDisplayAppOpenAd:', e);
+  }
+}
+
+function closeAppOpenAd() {
+  const modal = document.getElementById('app-open-ad-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+function openProfileModal() {
+  const profileModal = document.getElementById('profile-modal');
+  if (!profileModal) return;
+  updateProfileUI();
+  renderProfileAdBanner();
+  profileModal.classList.remove('hidden');
+  pushModalState('profile-modal');
+}
+
 function saveUserProfile() {
   const name = document.getElementById('input-user-name').value.trim();
   const role = document.getElementById('input-user-role').value;
@@ -1226,6 +1397,7 @@ function openTracksModal() {
   const modal = document.getElementById('tracks-modal');
   if (!modal) return;
   renderTracksModalContent();
+  renderTrackAdBanner();
   modal.classList.remove('hidden');
   pushModalState('tracks-modal');
 }
@@ -4261,21 +4433,14 @@ function setupEventListeners() {
   }
 
   // Modal Profil Utilisateur (Nom, Rôle, 12 Avatars, Trace GPX Suivie, Durée limite)
-  const profileModal = document.getElementById('profile-modal');
-  const openProfile = () => {
-    updateProfileUI();
-    profileModal.classList.remove('hidden');
-    pushModalState('profile-modal');
-  };
-
   const openProfileBtn = document.getElementById('open-profile-btn');
   const editProfileBtn = document.getElementById('edit-profile-btn');
   const closeProfileBtn = document.getElementById('close-profile-modal-btn');
   const cancelProfileBtn = document.getElementById('cancel-profile-btn');
   const saveProfileBtn = document.getElementById('save-profile-btn');
 
-  if (openProfileBtn) openProfileBtn.addEventListener('click', openProfile);
-  if (editProfileBtn) editProfileBtn.addEventListener('click', openProfile);
+  if (openProfileBtn) openProfileBtn.addEventListener('click', openProfileModal);
+  if (editProfileBtn) editProfileBtn.addEventListener('click', openProfileModal);
   if (closeProfileBtn) closeProfileBtn.addEventListener('click', closeProfileModal);
   if (cancelProfileBtn) cancelProfileBtn.addEventListener('click', closeProfileModal);
 
@@ -4875,6 +5040,9 @@ function initServiceWorkerNotificationListener() {
       console.log('[GPS] Démarrage automatique de la géolocalisation...');
       startGpsWatch(true);
     }
+
+    // Affichage publicitaire quotidien AdMob & Partenaire (1x/jour max)
+    checkAndDisplayAppOpenAd();
   } catch(e) { console.error('[Init Onboarding/GPS]', e); }
 }
 
@@ -4897,7 +5065,7 @@ function isAnyModalOrDrawerOpen() {
   const modals = [
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
-    'emergency-modal', 'onboarding-modal'
+    'emergency-modal', 'onboarding-modal', 'app-open-ad-modal'
   ];
   for (const id of modals) {
     const el = document.getElementById(id);
@@ -4913,10 +5081,11 @@ function isAnyModalOrDrawerOpen() {
 function closeAllModalsAndDrawers() {
   closeAllDrawers();
   closeEmergencyModal();
+  closeAppOpenAd();
   const modals = [
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
-    'elevation-drawer', 'onboarding-modal'
+    'elevation-drawer', 'onboarding-modal', 'app-open-ad-modal'
   ];
   modals.forEach(id => {
     const el = document.getElementById(id);
@@ -5015,6 +5184,12 @@ window.releaseWakeLock = releaseWakeLock;
 window.testWatchNotification = testWatchNotification;
 window.locateAnnouncementSender = locateAnnouncementSender;
 window.closeReceivedAnnouncementModal = closeReceivedAnnouncementModal;
+window.openProfileModal = openProfileModal;
+window.checkAndDisplayAppOpenAd = checkAndDisplayAppOpenAd;
+window.closeAppOpenAd = closeAppOpenAd;
+window.renderTrackAdBanner = renderTrackAdBanner;
+window.renderProfileAdBanner = renderProfileAdBanner;
+window.MONETIZATION_CONFIG = MONETIZATION_CONFIG;
 
 
 
