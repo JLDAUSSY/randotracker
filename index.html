@@ -51,6 +51,15 @@
 
   <!-- Custom Styles with Cache-Busting v49 -->
   <link rel="stylesheet" href="styles.css?v=49" />
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for (var i = 0; i < regs.length; i++) {
+          regs[i].update();
+        }
+      });
+    }
+  </script>
 </head>
 <body class="h-full w-full overflow-hidden bg-slate-950 text-slate-100 flex flex-col font-sans select-none" style="height: 100dvh;">
 
