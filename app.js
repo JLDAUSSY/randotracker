@@ -3078,6 +3078,7 @@ function handleIncomingMessage(data) {
       removeUserMarker(data.targetUserId);
       saveOtherUsersToStorage();
       renderUsersList();
+    }
   } else if (data.type === 'broadcast_announcement') {
     if (!window._seenAnnouncements) window._seenAnnouncements = new Set();
     const msgKey = `${data.senderId || data.author || 'anon'}_${data.timestamp || 0}_${data.text || ''}`;
