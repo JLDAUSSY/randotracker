@@ -843,6 +843,11 @@ function initMap() {
       const popupEl = e.popup.getElement();
       if (popupEl) {
         makePopupDraggable(popupEl);
+        makeElementPinchZoomable(popupEl);
+        if (typeof L !== 'undefined' && L.DomEvent) {
+          L.DomEvent.disableClickPropagation(popupEl);
+          L.DomEvent.disableScrollPropagation(popupEl);
+        }
         applySavedPopupZoom(popupEl);
       }
     }
@@ -4350,38 +4355,41 @@ function adjustPopupZoom(btn, delta) {
   const popupEl = btn.closest('.leaflet-popup') || btn.closest('.leaflet-popup-content-wrapper');
   if (!popupEl) return;
   const wrapper = popupEl.querySelector('.leaflet-popup-content-wrapper') || popupEl;
-  const content = popupEl.querySelector('.leaflet-popup-content') || wrapper;
 
-  let currentZoom = parseFloat(wrapper.dataset.zoomLevel || localStorage.getItem('rando_popup_zoom') || '1.0');
-  currentZoom = Math.max(0.75, Math.min(1.6, Math.round((currentZoom + delta) * 10) / 10));
+  let currentZoom = parseFloat(wrapper.dataset.pinchScale || wrapper.dataset.zoomLevel || localStorage.getItem('rando_popup_zoom') || '1.0');
+  currentZoom = Math.max(0.80, Math.min(1.85, Math.round((currentZoom + delta) * 10) / 10));
   
+  wrapper.dataset.pinchScale = currentZoom.toString();
   wrapper.dataset.zoomLevel = currentZoom.toString();
   localStorage.setItem('rando_popup_zoom', currentZoom.toString());
 
-  content.style.fontSize = `${15 * currentZoom}px`;
-  content.style.minWidth = `${Math.round(280 * currentZoom)}px`;
-  content.style.maxWidth = `${Math.round(360 * currentZoom)}px`;
+  const curX = parseFloat(wrapper.dataset.dragX || '0');
+  const curY = parseFloat(wrapper.dataset.dragY || '0');
+  wrapper.style.transformOrigin = 'center top';
+  wrapper.style.transform = `translate3d(${curX}px, ${curY}px, 0px) scale(${currentZoom})`;
 
-  const badges = popupEl.querySelectorAll('.popup-zoom-level-badge');
-  badges.forEach(b => b.textContent = `${Math.round(currentZoom * 100)}%`);
+  const badges = popupEl.querySelectorAll('.popup-zoom-level-badge, .pinch-zoom-feedback-badge');
+  badges.forEach(b => {
+    b.textContent = `${Math.round(currentZoom * 100)}%`;
+  });
 }
 
 function adjustElevationDrawerZoom(delta) {
   const drawer = document.getElementById('elevation-drawer');
   if (!drawer) return;
-  let currentZoom = parseFloat(drawer.dataset.uiZoom || localStorage.getItem('rando_ele_ui_zoom') || '1.0');
-  currentZoom = Math.max(0.75, Math.min(1.5, Math.round((currentZoom + delta) * 10) / 10));
+  let currentZoom = parseFloat(drawer.dataset.pinchScale || drawer.dataset.uiZoom || localStorage.getItem('rando_ele_ui_zoom') || '1.0');
+  currentZoom = Math.max(0.80, Math.min(1.85, Math.round((currentZoom + delta) * 10) / 10));
+  drawer.dataset.pinchScale = currentZoom.toString();
   drawer.dataset.uiZoom = currentZoom.toString();
   localStorage.setItem('rando_ele_ui_zoom', currentZoom.toString());
 
   const badge = document.getElementById('ele-ui-zoom-badge');
   if (badge) badge.textContent = `${Math.round(currentZoom * 100)}%`;
 
-  drawer.style.fontSize = `${14 * currentZoom}px`;
-  const statValues = drawer.querySelectorAll('#ele-stat-dist, #ele-stat-gain, #ele-stat-minmax, #ele-stat-slope');
-  statValues.forEach(el => {
-    el.style.fontSize = `${14 * currentZoom}px`;
-  });
+  const curX = parseFloat(drawer.dataset.dragX || '0');
+  const curY = parseFloat(drawer.dataset.dragY || '0');
+  drawer.style.transformOrigin = 'center top';
+  drawer.style.transform = `translate3d(${curX}px, ${curY}px, 0px) scale(${currentZoom})`;
 
   if (state.chartInstance) {
     state.chartInstance.resize();
@@ -4513,6 +4521,134 @@ function initPixelSanctuaryGuardians() {
 // ============================================================================
 // SYSTÈME DE DÉPLACEMENT LIBRE DES FENÊTRES ET POPUPS (DRAGGABLE MODALS & POPUPS)
 // ============================================================================
+// ============================================================================
+// SYSTÈME DE DÉPLACEMENT & ZOOM TACTILE À 2 DOIGTS (PINCH-TO-ZOOM STRICTEMENT ISOLÉ)
+// ============================================================================
+function makeElementPinchZoomable(containerEl) {
+  if (!containerEl || containerEl.dataset.pinchZoomActive) return;
+  containerEl.dataset.pinchZoomActive = 'true';
+
+  const card = containerEl.querySelector('.bg-slate-900, .custom-modal-card, .leaflet-popup-content-wrapper, .emergency-modal-inner') || containerEl;
+
+  let isPinching = false;
+  let startDistance = 0;
+  let startScale = 1.0;
+  let currentScale = parseFloat(card.dataset.pinchScale || '1.0');
+  let lastTapTime = 0;
+
+  // Création dynamique de la bulle de feedback visuel de zoom
+  let zoomBadge = card.querySelector('.pinch-zoom-feedback-badge');
+  if (!zoomBadge) {
+    zoomBadge = document.createElement('div');
+    zoomBadge.className = 'pinch-zoom-feedback-badge';
+    card.style.position = 'relative';
+    card.appendChild(zoomBadge);
+  }
+
+  const showZoomBadge = (scale) => {
+    const pct = Math.round(scale * 100);
+    zoomBadge.textContent = `🔍 ${pct}%`;
+    zoomBadge.classList.add('is-visible');
+
+    const headerBadge = card.querySelector('.popup-zoom-level-badge, #ele-ui-zoom-badge');
+    if (headerBadge) {
+      headerBadge.textContent = `${pct}%`;
+    }
+
+    clearTimeout(zoomBadge._hideTimer);
+    zoomBadge._hideTimer = setTimeout(() => {
+      zoomBadge.classList.remove('is-visible');
+    }, 1200);
+  };
+
+  const applyScaleAndTransform = (scale, smooth = false) => {
+    currentScale = Math.max(0.80, Math.min(1.85, Math.round(scale * 100) / 100));
+    card.dataset.pinchScale = currentScale.toString();
+
+    const dragX = parseFloat(card.dataset.dragX || '0');
+    const dragY = parseFloat(card.dataset.dragY || '0');
+
+    if (smooth) {
+      card.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+      setTimeout(() => { card.style.transition = ''; }, 260);
+    }
+
+    card.style.transformOrigin = 'center top';
+    card.style.transform = `translate3d(${dragX}px, ${dragY}px, 0px) scale(${currentScale})`;
+    showZoomBadge(currentScale);
+  };
+
+  const getDistance = (t1, t2) => {
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const onTouchStart = (e) => {
+    // 1. Sanctuarisation : empêcher toute fuite de l'événement vers Leaflet ou la page
+    e.stopPropagation();
+
+    // 2. Double-Tap avec 1 doigt : Réinitialisation instantanée à 100%
+    if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapTime < 300) {
+        applyScaleAndTransform(1.0, true);
+        lastTapTime = 0;
+        return;
+      }
+      lastTapTime = now;
+    }
+
+    // 3. Détection de l'écartement / pincement à 2 doigts
+    if (e.touches.length === 2) {
+      isPinching = true;
+      if (e.cancelable) e.preventDefault();
+
+      if (state.map) {
+        if (state.map.touchZoom) state.map.touchZoom.disable();
+        if (state.map.dragging) state.map.dragging.disable();
+      }
+
+      startDistance = getDistance(e.touches[0], e.touches[1]);
+      startScale = parseFloat(card.dataset.pinchScale || '1.0');
+    }
+  };
+
+  const onTouchMove = (e) => {
+    e.stopPropagation();
+
+    if (isPinching && e.touches.length === 2) {
+      if (e.cancelable) e.preventDefault();
+
+      const dist = getDistance(e.touches[0], e.touches[1]);
+      if (startDistance > 0) {
+        const factor = dist / startDistance;
+        const targetScale = startScale * factor;
+        applyScaleAndTransform(targetScale, false);
+      }
+    }
+  };
+
+  const onTouchEnd = (e) => {
+    e.stopPropagation();
+
+    if (isPinching && e.touches.length < 2) {
+      isPinching = false;
+      startDistance = 0;
+
+      if (state.map) {
+        if (state.map.touchZoom) state.map.touchZoom.enable();
+        if (state.map.dragging) state.map.dragging.enable();
+      }
+    }
+  };
+
+  containerEl.addEventListener('touchstart', onTouchStart, { passive: false });
+  containerEl.addEventListener('touchmove', onTouchMove, { passive: false });
+  containerEl.addEventListener('touchend', onTouchEnd, { passive: false });
+  containerEl.addEventListener('touchcancel', onTouchEnd, { passive: false });
+}
+
 function makePopupDraggable(popupEl) {
   if (!popupEl || popupEl.dataset.draggableActive) return;
   popupEl.dataset.draggableActive = 'true';
@@ -4527,6 +4663,7 @@ function makePopupDraggable(popupEl) {
   let currentOffsetY = parseFloat(wrapper.dataset.dragY || '0');
 
   const onDragStart = (e) => {
+    if (e.touches && e.touches.length >= 2) return; // Priorité absolue au pinch-to-zoom
     if (e.target.closest('button, a, input, select, textarea, label, .popup-zoom-btn, details, summary, i, svg, [onclick]')) {
       return;
     }
@@ -4550,6 +4687,10 @@ function makePopupDraggable(popupEl) {
 
   const onDragMove = (e) => {
     if (!isDragging) return;
+    if (e.touches && e.touches.length >= 2) {
+      onDragEnd();
+      return;
+    }
     if (e.cancelable) e.preventDefault();
 
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -4557,9 +4698,11 @@ function makePopupDraggable(popupEl) {
     currentOffsetX = clientX - startX;
     currentOffsetY = clientY - startY;
 
+    const scale = parseFloat(wrapper.dataset.pinchScale || wrapper.dataset.zoomLevel || '1.0');
     wrapper.dataset.dragX = currentOffsetX.toString();
     wrapper.dataset.dragY = currentOffsetY.toString();
-    wrapper.style.transform = `translate3d(${currentOffsetX}px, ${currentOffsetY}px, 0px)`;
+    wrapper.style.transformOrigin = 'center top';
+    wrapper.style.transform = `translate3d(${currentOffsetX}px, ${currentOffsetY}px, 0px) scale(${scale})`;
   };
 
   const onDragEnd = () => {
@@ -4598,6 +4741,7 @@ function makeModalDraggable(modalId) {
   let curY = parseFloat(card.dataset.dragY || '0');
 
   const onStart = (e) => {
+    if (e.touches && e.touches.length >= 2) return; // Priorité au zoom à 2 doigts
     if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, .popup-zoom-btn, details, summary, i, svg, [onclick]')) return;
     isDragging = true;
     handle.style.cursor = 'grabbing';
@@ -4619,6 +4763,10 @@ function makeModalDraggable(modalId) {
 
   const onMove = (e) => {
     if (!isDragging) return;
+    if (e.touches && e.touches.length >= 2) {
+      onEnd();
+      return;
+    }
     if (e.cancelable) e.preventDefault();
 
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -4626,9 +4774,11 @@ function makeModalDraggable(modalId) {
     curX = clientX - startX;
     curY = clientY - startY;
 
+    const scale = parseFloat(card.dataset.pinchScale || '1.0');
     card.dataset.dragX = curX.toString();
     card.dataset.dragY = curY.toString();
-    card.style.transform = `translate3d(${curX}px, ${curY}px, 0px)`;
+    card.style.transformOrigin = 'center top';
+    card.style.transform = `translate3d(${curX}px, ${curY}px, 0px) scale(${scale})`;
   };
 
   const onEnd = () => {
@@ -4654,9 +4804,16 @@ function initAllDraggableModals() {
   const modalIds = [
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal',
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
-    'about-modal', 'onboarding-modal', 'elevation-drawer'
+    'about-modal', 'onboarding-modal', 'elevation-drawer', 'users-panel',
+    'emergency-modal'
   ];
-  modalIds.forEach(id => makeModalDraggable(id));
+  modalIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      makeModalDraggable(id);
+      makeElementPinchZoomable(el);
+    }
+  });
 }
 
 // ============================================================================
@@ -4912,6 +5069,7 @@ window.isAnyModalOrDrawerOpen = isAnyModalOrDrawerOpen;
 window.closeAllModalsAndDrawers = closeAllModalsAndDrawers;
 window.makePopupDraggable = makePopupDraggable;
 window.makeModalDraggable = makeModalDraggable;
+window.makeElementPinchZoomable = makeElementPinchZoomable;
 window.initAllDraggableModals = initAllDraggableModals;
 window.playOffTrackAlertSound = playOffTrackAlertSound;
 window.playAnnouncementAlert = playAnnouncementAlert;

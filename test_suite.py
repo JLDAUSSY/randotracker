@@ -236,6 +236,9 @@ run_test("Envoi de notification systeme Android GPS (sendGpsNotification)", lamb
 
 run_test("Fonction JavaScript definie : playOffTrackAlertSound()", lambda: "playOffTrackAlertSound" in js_text)
 run_test("Export global window.playOffTrackAlertSound", lambda: "window.playOffTrackAlertSound" in js_text)
+run_test("Fonction JavaScript definie : makeElementPinchZoomable()", lambda: "makeElementPinchZoomable" in js_text)
+run_test("Export global window.makeElementPinchZoomable", lambda: "window.makeElementPinchZoomable" in js_text)
+run_test("Bulle de feedback visuel de zoom (.pinch-zoom-feedback-badge)", lambda: ".pinch-zoom-feedback-badge" in css_text and "zoomBadge" in js_text)
 run_test("Vitesse moyenne en déplacement (movingAvgSpeed & isAutoPaused)", lambda: "movingAvgSpeed" in js_text and "isAutoPaused" in js_text)
 run_test("Auto-Pause intelligente avec seuil 1.0 km/h", lambda: "instantSpeed >= 1.0" in js_text or "isMoving" in js_text)
 run_test("Watchdog GPS haute fréquence à 3.5s (3500ms)", lambda: "3500" in js_text and "startGpsForcedWatchdog" in js_text)
@@ -342,8 +345,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=52',
-    'http://127.0.0.1:8000/app.js?v=52',
+    'http://127.0.0.1:8000/styles.css?v=53',
+    'http://127.0.0.1:8000/app.js?v=53',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
 ]

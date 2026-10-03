@@ -1073,6 +1073,55 @@ main {
 .popup-scaled-125 { font-size: 18px !important; }
 .popup-scaled-150 { font-size: 21px !important; }
 
+/* BULLE DE FEEDBACK VISUEL DU PINCH-TO-ZOOM */
+.pinch-zoom-feedback-badge {
+  position: absolute;
+  top: 12px;
+  right: 58px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background: rgba(6, 78, 59, 0.95) !important;
+  border: 1.5px solid #10b981 !important;
+  color: #6ee7b7 !important;
+  font-size: 11.5px !important;
+  font-weight: 900 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
+  pointer-events: none !important;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  z-index: 100 !important;
+}
+
+.pinch-zoom-feedback-badge.is-visible {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+}
+
+/* GESTION STRICTE DU TOUCH ACTION SUR LES FENÊTRES FLOTTANTES ET MODALES */
+.draggable-header-handle,
+.modal-drag-bar,
+.popup-drag-bar {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+#invite-modal > div,
+#announcement-modal > div,
+#received-announcement-modal > div,
+#tracks-modal > div,
+#layer-modal > div,
+#room-modal > div,
+#profile-modal > div,
+#about-modal > div,
+#onboarding-modal > div,
+.leaflet-popup-content-wrapper,
+#elevation-drawer {
+  touch-action: pan-y !important;
+}
+
 /* 9. CARTES DE TRACES DANS LE GESTIONNAIRE */
 .track-card-item {
   background-color: #0f172a !important;
