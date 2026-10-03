@@ -130,8 +130,8 @@ android {{
         applicationId = "fr.jldaussy.randotracker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.0.9"
+        versionCode = 11
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -196,10 +196,10 @@ with open(os.path.join(res_dir, "values", "strings.xml"), "w", encoding="utf-8")
 
 colors_xml = """<resources>
     <color name="colorPrimary">#064e3b</color>
-    <color name="colorPrimaryDark">#0f172a</color>
+    <color name="colorPrimaryDark">#0d273a</color>
     <color name="colorAccent">#10b981</color>
-    <color name="navigationColor">#0f172a</color>
-    <color name="ic_launcher_background">#0f172a</color>
+    <color name="navigationColor">#0d273a</color>
+    <color name="ic_launcher_background">#0d273a</color>
 </resources>
 """
 with open(os.path.join(res_dir, "values", "colors.xml"), "w", encoding="utf-8") as f:
