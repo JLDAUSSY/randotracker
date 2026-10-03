@@ -3697,27 +3697,43 @@ function sendGpsNotification(customTitle, customBody) {
   const title = customTitle || defaultTitle;
   const body = customBody || defaultBody;
   const tag = customTitle ? `rando-msg-${Date.now()}` : 'rando-emergency-gps';
+  const iconUrl = new URL('icon-192.png', window.location.href).href;
+
+  const notifOptions = {
+    body: body,
+    icon: iconUrl,
+    badge: iconUrl,
+    tag: tag,
+    renotify: true,
+    silent: false,
+    requireInteraction: true,
+    vibrate: [300, 150, 300, 150, 300]
+  };
 
   try {
     if ('Notification' in window) {
       if (Notification.permission === 'granted') {
-        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+        let shown = false;
+        if (navigator.serviceWorker) {
+          navigator.serviceWorker.getRegistration().then(reg => {
+            if (reg && reg.showNotification) {
+              reg.showNotification(title, notifOptions);
+              shown = true;
+            }
+          }).catch(() => {});
+        }
+        if (!shown && navigator.serviceWorker && navigator.serviceWorker.ready) {
           navigator.serviceWorker.ready.then(reg => {
-            reg.showNotification(title, {
-              body: body,
-              icon: './icon-192.png',
-              badge: './icon-192.png',
-              tag: tag,
-              renotify: true,
-              silent: false,
-              requireInteraction: true,
-              vibrate: [300, 150, 300, 150, 300]
-            });
-          }).catch(() => {
-            try { new Notification(title, { body: body, icon: './icon-192.png' }); } catch (e) {}
-          });
-        } else {
-          try { new Notification(title, { body: body, icon: './icon-192.png' }); } catch (e) {}
+            if (reg && reg.showNotification) {
+              reg.showNotification(title, notifOptions);
+              shown = true;
+            }
+          }).catch(() => {});
+        }
+        if (!shown) {
+          try {
+            new Notification(title, notifOptions);
+          } catch (e) {}
         }
       } else if (Notification.permission !== 'denied') {
         Notification.requestPermission().then(perm => {
@@ -3732,27 +3748,34 @@ function sendGpsNotification(customTitle, customBody) {
   }
 }
 
-function testWatchNotification() {
+async function testWatchNotification() {
+  // 1. Toujours jouer l'alerte sonore et la vibration haptique en premier
   playAnnouncementAlert();
-  if ('Notification' in window) {
-    if (Notification.permission === 'granted') {
-      sendGpsNotification('📢 Test RandoTracker', 'Vibration et notification reçues avec succès sur votre montre Garmin !');
-      showToast('🔔 Notification de test envoyée au téléphone et à la montre !', 'success');
-    } else if (Notification.permission === 'denied') {
-      showToast('⚠️ Notifications bloquées. Activez-les dans les paramètres de votre téléphone.', 'error');
-      alert('Les notifications sont bloquées sur votre téléphone pour RandoTracker.\n\nRendez-vous dans Paramètres Android > Applications > RandoTracker > Notifications > Autoriser.');
-    } else {
-      Notification.requestPermission().then(perm => {
-        if (perm === 'granted') {
-          sendGpsNotification('📢 Test RandoTracker', 'Vibration et notification reçues avec succès sur votre montre Garmin !');
-          showToast('🔔 Notification de test envoyée au téléphone et à la montre !', 'success');
-        } else {
-          showToast('❌ Permission de notification refusée.', 'error');
-        }
-      });
-    }
-  } else {
+
+  if (!('Notification' in window)) {
     showToast('⚠️ Notifications système non supportées sur ce navigateur.', 'warning');
+    return;
+  }
+
+  try {
+    let perm = Notification.permission;
+    if (perm === 'default') {
+      showToast('🔔 Demande d\'autorisation des notifications...', 'info');
+      perm = await Notification.requestPermission();
+    }
+
+    if (perm === 'granted') {
+      sendGpsNotification('📢 Test RandoTracker', 'Vibration et notification reçues avec succès sur votre montre et téléphone !');
+      showToast('🔔 Notification envoyée au téléphone et à la montre !', 'success');
+    } else if (perm === 'denied') {
+      showToast('⚠️ Notifications bloquées dans le navigateur.', 'error');
+      alert('Les notifications sont bloquées pour ce site.\n\nDans Chrome, appuyez sur l\'icône des paramètres à gauche de l\'adresse web (ou dans Paramètres Android > Applications > Chrome > Notifications) et activez « Autoriser les notifications ».');
+    } else {
+      showToast('❌ Permission de notification non accordée.', 'error');
+    }
+  } catch (e) {
+    console.error('[Test Notif]', e);
+    showToast('❌ Erreur lors du test de notification', 'error');
   }
 }
 

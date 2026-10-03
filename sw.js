@@ -1,12 +1,12 @@
-// Service Worker pour RandoTracker PWA - Version 49
-const CACHE_NAME = 'rando-tracker-v49';
+// Service Worker pour RandoTracker PWA - Version 50
+const CACHE_NAME = 'rando-tracker-v50';
 const TILES_CACHE_NAME = 'rando-tiles-v1';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=49',
-  './app.js?v=49',
+  './styles.css?v=50',
+  './app.js?v=50',
   './manifest.json',
   './logo.png',
   './icon-192.png',
@@ -105,5 +105,17 @@ self.addEventListener('fetch', (event) => {
           }
         });
       })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) return client.focus();
+      }
+      if (clients.openWindow) return clients.openWindow('./');
+    })
   );
 });
