@@ -2861,10 +2861,13 @@ function initMqttSync() {
     mqttClient.on('connect', () => {
       console.log('[MQTT] Connecté avec succès au salon:', state.roomCode);
       updateConnectionStatus(true);
-      const announceTopic = `randotracker/v1/rooms/${sanitizedRoom}/announcement`;
-      mqttClient.subscribe([topic, announceTopic], { qos: 1 }, (err) => {
+      mqttClient.subscribe([topic], { qos: 1 }, (err) => {
         if (!err) {
-          console.log(`[MQTT] Abonné aux topics : ${topic} & ${announceTopic}`);
+          console.log(`[MQTT] Abonné au topic : ${topic}`);
+
+          // Nettoyer tout ancien message retained résiduel sur HiveMQ
+          const announceTopic = `randotracker/v1/rooms/${sanitizedRoom}/announcement`;
+          try { mqttClient.publish(announceTopic, '', { retain: true, qos: 0 }); } catch (e) {}
           
           // 1. Annoncer notre arrivée dans le salon
           publishMessage({
@@ -2931,11 +2934,6 @@ function publishMessage(payload) {
     const topic = `randotracker/v1/rooms/${sanitizedRoom}/events`;
     const qos = (payload.type === 'broadcast_announcement' || payload.type === 'group_sos_alert' || payload.type === 'sync_tracks') ? 1 : 0;
     mqttClient.publish(topic, msgStr, { qos: qos });
-
-    if (payload.type === 'broadcast_announcement') {
-      const announceTopic = `randotracker/v1/rooms/${sanitizedRoom}/announcement`;
-      mqttClient.publish(announceTopic, msgStr, { qos: 1, retain: true });
-    }
   }
 
   if (state.broadcastChannel) {
@@ -3080,12 +3078,13 @@ function handleIncomingMessage(data) {
       renderUsersList();
     }
   } else if (data.type === 'broadcast_announcement') {
-    if (!window._seenAnnouncements) window._seenAnnouncements = new Set();
-    const msgKey = `${data.senderId || data.author || 'anon'}_${data.timestamp || 0}_${data.text || ''}`;
-    if (window._seenAnnouncements.has(msgKey)) return;
-    window._seenAnnouncements.add(msgKey);
-    // Ignorer si le message date de plus de 45 minutes
-    if (data.timestamp && (Date.now() - data.timestamp > 45 * 60 * 1000)) {
+    const msgKey = `${data.senderId || data.author || 'anon'}_${data.timestamp || 0}_${(data.text || '').substring(0, 30)}`;
+    if (isAnnouncementAlreadySeen(msgKey)) return;
+    markAnnouncementSeen(msgKey);
+
+    // Ignorer les alertes intrusives si le message a été émis il y a plus de 3 minutes (ex: reconnexion après veille)
+    if (data.timestamp && (Date.now() - data.timestamp > 3 * 60 * 1000)) {
+      displayAnnouncementBanner(data.author, data.icon, data.role, data.text, data.timestamp);
       return;
     }
     handleReceivedAnnouncement(data);
@@ -3095,6 +3094,26 @@ function handleIncomingMessage(data) {
     saveOtherUsersToStorage();
     renderUsersList();
   }
+}
+
+function isAnnouncementAlreadySeen(msgKey) {
+  try {
+    const seen = JSON.parse(sessionStorage.getItem('rando_seen_announcements') || '[]');
+    return seen.includes(msgKey);
+  } catch (e) {
+    return false;
+  }
+}
+
+function markAnnouncementSeen(msgKey) {
+  try {
+    let seen = JSON.parse(sessionStorage.getItem('rando_seen_announcements') || '[]');
+    if (!seen.includes(msgKey)) {
+      seen.push(msgKey);
+      if (seen.length > 50) seen = seen.slice(-50);
+      sessionStorage.setItem('rando_seen_announcements', JSON.stringify(seen));
+    }
+  } catch (e) {}
 }
 
 // ============================================================================
@@ -4707,10 +4726,14 @@ function checkPendingNotification() {
       const lastAnn = localStorage.getItem('rando_last_announcement');
       if (lastAnn) {
         const parsed = JSON.parse(lastAnn);
-        if (Date.now() - (parsed.timestamp || 0) < 2 * 60 * 60 * 1000) { // < 2h
-          setTimeout(() => {
-            handleReceivedAnnouncement(parsed);
-          }, 350);
+        const notifKey = 'notif_opened_' + (parsed.timestamp || 0);
+        if (!sessionStorage.getItem(notifKey)) {
+          sessionStorage.setItem(notifKey, '1');
+          if (Date.now() - (parsed.timestamp || 0) < 30 * 60 * 1000) { // < 30 min
+            setTimeout(() => {
+              handleReceivedAnnouncement(parsed);
+            }, 350);
+          }
         }
       }
       // Nettoyer l'URL proprement sans recharger
