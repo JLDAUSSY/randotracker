@@ -62,7 +62,6 @@ public class RandoMainActivity extends AppCompatActivity {
         setupBackPressedHandler();
 
         checkAndRequestPermissions();
-        startGpsService();
 
         loadTargetUrl(getIntent());
     }
@@ -212,6 +211,11 @@ public class RandoMainActivity extends AppCompatActivity {
         loadTargetUrl(intent);
     }
 
+    private boolean hasLocationPermissions() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+               ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+    }
+
     private void checkAndRequestPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             String[] permissions;
@@ -238,9 +242,13 @@ public class RandoMainActivity extends AppCompatActivity {
 
             if (needsRequest) {
                 ActivityCompat.requestPermissions(this, permissions, PERMISSION_REQ_CODE);
+            } else {
+                startGpsService();
+                requestBatteryOptimizationExemption();
             }
+        } else {
+            startGpsService();
         }
-        requestBatteryOptimizationExemption();
     }
 
     private void requestBatteryOptimizationExemption() {
@@ -261,6 +269,10 @@ public class RandoMainActivity extends AppCompatActivity {
     }
 
     private void startGpsService() {
+        if (!hasLocationPermissions()) {
+            Log.w(TAG, "Permissions localisation non accordees, demarrage reporte");
+            return;
+        }
         try {
             Intent serviceIntent = new Intent(this, RandoGpsForegroundService.class);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -277,10 +289,13 @@ public class RandoMainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQ_CODE) {
-            startGpsService();
-            if (webView != null) {
-                webView.reload();
+            if (hasLocationPermissions()) {
+                startGpsService();
+                if (webView != null) {
+                    webView.reload();
+                }
             }
+            requestBatteryOptimizationExemption();
         }
     }
 

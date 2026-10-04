@@ -175,10 +175,21 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
+        try {
+            boolean hasFine = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            boolean hasCoarse = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && (hasFine || hasCoarse)) {
+                try {
+                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+                } catch (Exception e) {
+                    startForeground(NOTIFICATION_ID, notification);
+                }
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur startForegroundTracking", e);
         }
     }
 
@@ -229,6 +240,13 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
     }
 
     private void initLocationProviders() {
+        boolean hasFine = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        boolean hasCoarse = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        if (!hasFine && !hasCoarse) {
+            Log.w(TAG, "Permissions localisation non accordees au Service, attente...");
+            return;
+        }
+
         // 1. Google Play Services Fused Location Provider (Standard de haute précision en arrière-plan)
         try {
             fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
