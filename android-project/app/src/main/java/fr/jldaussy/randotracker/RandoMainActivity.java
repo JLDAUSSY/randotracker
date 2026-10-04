@@ -45,12 +45,19 @@ public class RandoMainActivity extends AppCompatActivity {
             Log.e("RandoCrashGuard", "Caught uncaught exception in " + thread.getName(), throwable);
         });
 
-        // Setup container et WebView plein ecran
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setStatusBarColor(android.graphics.Color.parseColor("#0d273a"));
+            getWindow().setNavigationBarColor(android.graphics.Color.parseColor("#0d273a"));
+        }
+
+        // Setup container avec respect de la barre d'état et WebView
         FrameLayout rootLayout = new FrameLayout(this);
         rootLayout.setLayoutParams(new ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 
             ViewGroup.LayoutParams.MATCH_PARENT
         ));
+        rootLayout.setFitsSystemWindows(true);
+        rootLayout.setBackgroundColor(android.graphics.Color.parseColor("#0d273a"));
 
         webView = new WebView(this);
         webView.setLayoutParams(new FrameLayout.LayoutParams(
