@@ -254,6 +254,7 @@ run_test("Gardien WakeLock : Ré-enclenchement automatique continu si relâcheme
 
 # Tests Monétisation AdMob & Amazon Partenaires
 run_test("Google AdMob/AdSense : Script avec publisher ID ca-pub-1457919469523324 dans le HEAD", lambda: 'ca-pub-1457919469523324' in html_text and 'adsbygoogle.js' in html_text)
+run_test("Google AdMob : Bloc d'annonce officiel RandoTracker Slot 7772255130 dans le DOM", lambda: '7772255130' in html_text and '7772255130' in js_text)
 run_test("Modale Pub Ouverture Quotidienne AdMob définie dans le DOM (#app-open-ad-modal)", lambda: bool(soup.find(id='app-open-ad-modal')))
 run_test("Bandeau Amazon Partenaire défini dans Modale Traces (#tracks-modal-ad-banner)", lambda: bool(soup.find(id='tracks-modal-ad-banner')))
 run_test("Bandeau Amazon Partenaire défini dans Modale Profil (#profile-modal-ad-banner)", lambda: bool(soup.find(id='profile-modal-ad-banner')))
@@ -362,8 +363,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=55',
-    'http://127.0.0.1:8000/app.js?v=55',
+    'http://127.0.0.1:8000/styles.css?v=56',
+    'http://127.0.0.1:8000/app.js?v=56',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
 ]

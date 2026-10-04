@@ -34,7 +34,9 @@ const MONETIZATION_CONFIG = {
   // Google AdMob & AdSense (Éditeur officiel)
   admob: {
     publisherId: 'ca-pub-1457919469523324',
-    appOpenAdUnitId: 'ca-app-pub-1457919469523324/9876543210',
+    appId: 'ca-app-pub-1457919469523324~7359434004',
+    appOpenAdUnitId: 'ca-app-pub-1457919469523324/7772255130',
+    slotId: '7772255130',
     enabled: true
   },
   // Amazon Partenaires (Tag certifié multi-produits)
@@ -805,6 +807,15 @@ function checkAndDisplayAppOpenAd() {
         }
         modal.classList.remove('hidden');
         localStorage.setItem('randotracker_last_app_open_ad_date', today);
+
+        // Chargement officiel AdMob / AdSense
+        try {
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+        } catch (adErr) {
+          console.log('[AdMob] In-browser load fallback:', adErr);
+          const fallbackCard = document.getElementById('admob-fallback-card');
+          if (fallbackCard) fallbackCard.classList.remove('hidden');
+        }
       }, 1200);
     }
   } catch (e) {
