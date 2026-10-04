@@ -4680,7 +4680,7 @@ function adjustPopupZoom(btn, delta) {
   const wrapper = popupEl.querySelector('.leaflet-popup-content-wrapper') || popupEl;
 
   let currentZoom = parseFloat(wrapper.dataset.pinchScale || wrapper.dataset.zoomLevel || localStorage.getItem('rando_popup_zoom') || '1.0');
-  currentZoom = Math.max(0.80, Math.min(1.85, Math.round((currentZoom + delta) * 10) / 10));
+  currentZoom = Math.max(0.70, Math.min(2.80, Math.round((currentZoom + delta) * 10) / 10));
   
   wrapper.dataset.pinchScale = currentZoom.toString();
   wrapper.dataset.zoomLevel = currentZoom.toString();
@@ -4701,7 +4701,7 @@ function adjustElevationDrawerZoom(delta) {
   const drawer = document.getElementById('elevation-drawer');
   if (!drawer) return;
   let currentZoom = parseFloat(drawer.dataset.pinchScale || drawer.dataset.uiZoom || localStorage.getItem('rando_ele_ui_zoom') || '1.0');
-  currentZoom = Math.max(0.80, Math.min(1.85, Math.round((currentZoom + delta) * 10) / 10));
+  currentZoom = Math.max(0.70, Math.min(2.80, Math.round((currentZoom + delta) * 10) / 10));
   drawer.dataset.pinchScale = currentZoom.toString();
   drawer.dataset.uiZoom = currentZoom.toString();
   localStorage.setItem('rando_ele_ui_zoom', currentZoom.toString());
@@ -5000,7 +5000,7 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
       const dist = getDistance(e.touches[0], e.touches[1]);
       if (pinchStartDist > 0) {
         const factor = dist / pinchStartDist;
-        curScale = Math.max(0.80, Math.min(1.50, Math.round(pinchStartScale * factor * 100) / 100));
+        curScale = Math.max(0.70, Math.min(2.80, Math.round(pinchStartScale * factor * 100) / 100));
         applyTransform(false);
         showZoomBadge(curScale);
       }
