@@ -25,7 +25,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v49...');
+  console.log('[SW] Installation v57...');
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -37,7 +37,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation v49...');
+  console.log('[SW] Activation v57...');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(

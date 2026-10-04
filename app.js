@@ -874,9 +874,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=49')
+    navigator.serviceWorker.register('./sw.js?v=57')
       .then((reg) => {
-        console.log('[PWA] Service Worker v49 actif:', reg.scope);
+        console.log('[PWA] Service Worker v57 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
