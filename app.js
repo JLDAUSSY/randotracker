@@ -3511,71 +3511,57 @@ function initMqttSync() {
 }
 
 function publishMessage(payload) {
-  payload.senderId = state.myUser.id;
-  payload.room = state.roomCode;
-  payload.timestamp = payload.timestamp || Date.now();
+  try {
+    payload.senderId = state.myUser.id;
+    payload.room = state.roomCode;
+    payload.timestamp = payload.timestamp || Date.now();
 
-  const msgStr = JSON.stringify(payload);
+    const msgStr = JSON.stringify(payload);
 
-  if (mqttClient && mqttClient.connected) {
-    const sanitizedRoom = state.roomCode.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const topic = `randotracker/v1/rooms/${sanitizedRoom}/events`;
-    const qos = (payload.type === 'broadcast_announcement' || payload.type === 'group_sos_alert' || payload.type === 'sync_tracks') ? 1 : 0;
-    mqttClient.publish(topic, msgStr, { qos: qos });
-  }
+    if (mqttClient && mqttClient.connected) {
+      const sanitizedRoom = state.roomCode.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const topic = `randotracker/v1/rooms/${sanitizedRoom}/events`;
+      const qos = (payload.type === 'broadcast_announcement' || payload.type === 'group_sos_alert' || payload.type === 'sync_tracks') ? 1 : 0;
+      mqttClient.publish(topic, msgStr, { qos: qos });
+    }
 
-  if (state.broadcastChannel) {
-    try { state.broadcastChannel.postMessage(payload); } catch (e) {}
+    if (state.broadcastChannel) {
+      try { state.broadcastChannel.postMessage(payload); } catch (e) {}
+    }
+  } catch (e) {
+    console.warn('[PublishMessage] Erreur:', e);
   }
 }
 
 function broadcastMyPosition() {
-  state.myUser.lastSeen = Date.now();
-  createOrUpdateUserMarker(state.myUser);
-  renderUsersList();
-  syncNativeAndroidSession();
+  try {
+    state.myUser.lastSeen = Date.now();
+    createOrUpdateUserMarker(state.myUser);
+    renderUsersList();
+    syncNativeAndroidSession();
 
-  publishMessage({
-    type: 'update_position',
-    user: state.myUser
-  });
+    publishMessage({
+      type: 'update_position',
+      user: state.myUser
+    });
+  } catch (e) {
+    console.warn('[BroadcastMyPosition] Erreur:', e);
+  }
 }
 
 function handleIncomingMessage(data) {
-  if (!data || !data.type) return;
-  if (data.senderId === state.myUser.id) return; // Ignore nos propres messages
-  if (data.room && data.room !== state.roomCode) return;
+  try {
+    if (!data || !data.type) return;
+    if (data.senderId === state.myUser.id) return; // Ignore nos propres messages
+    if (data.room && data.room !== state.roomCode) return;
 
-  if (data.type === 'request_presence') {
-    // Un participant demande la liste des présents : répondre immédiatement
-    publishMessage({
-      type: 'respond_presence',
-      user: state.myUser
-    });
-    // Si nous avons des traces, les transmettre
-    if (state.tracks.length > 0) {
-      publishMessage({
-        type: 'sync_tracks',
-        from: state.myUser.id,
-        tracks: state.tracks
-      });
-    }
-  } else if (data.type === 'user_joined') {
-    const user = data.user;
-    if (user && user.id !== state.myUser.id) {
-      state.otherUsers.set(user.id, user);
-      createOrUpdateUserMarker(user);
-      saveOtherUsersToStorage();
-      renderUsersList();
-      showToast(`👋 ${user.name} a rejoint la rando !`, 'info');
-
-      // Répondre IMMÉDIATEMENT au nouvel arrivant avec notre présence
+    if (data.type === 'request_presence') {
+      // Un participant demande la liste des présents : répondre immédiatement
       publishMessage({
         type: 'respond_presence',
         user: state.myUser
       });
-
-      // Si nous avons des traces GPX chargées, nous les envoyons au nouvel arrivant
+      // Si nous avons des traces, les transmettre
       if (state.tracks.length > 0) {
         publishMessage({
           type: 'sync_tracks',
@@ -3583,105 +3569,126 @@ function handleIncomingMessage(data) {
           tracks: state.tracks
         });
       }
-    }
-  } else if (data.type === 'respond_presence' || data.type === 'update_position' || data.type === 'user_updated') {
-    const user = data.user;
-    if (user && user.id !== state.myUser.id) {
-      if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
+    } else if (data.type === 'user_joined') {
+      const user = data.user;
+      if (user && user.id !== state.myUser.id) {
         state.otherUsers.set(user.id, user);
         createOrUpdateUserMarker(user);
         saveOtherUsersToStorage();
         renderUsersList();
-      }
-    }
-  } else if (data.type === 'sync_tracks') {
-    // Réception des traces GPX de la rando envoyées par Jean-Luc ou un participant
-    if (Array.isArray(data.tracks) && data.tracks.length > 0) {
-      const isDifferent = state.tracks.length !== data.tracks.length ||
-        state.tracks.some((t, i) => !data.tracks[i] || t.id !== data.tracks[i].id);
+        showToast(`👋 ${user.name} a rejoint la rando !`, 'info');
 
-      if (state.tracks.length === 0 || isDifferent) {
-        // Nettoyer anciennes traces sur la carte
-        state.tracks.forEach(t => {
-          const l = state.trackLayers.get(t.id);
-          if (l) state.map.removeLayer(l);
-        });
-        state.tracks = [];
-        state.trackLayers.clear();
-
-        // Charger et afficher les traces reçues
-        data.tracks.forEach((track, idx) => {
-          track.color = TRACK_COLORS[idx % TRACK_COLORS.length];
-          track.visible = true;
-          state.tracks.push(track);
-          renderTrackOnMap(track);
+        // Répondre IMMÉDIATEMENT au nouvel arrivant avec notre présence
+        publishMessage({
+          type: 'respond_presence',
+          user: state.myUser
         });
 
-        renderQuickTracksBar();
-        fitAllTracks();
-        saveHikeSessionToStorage();
-        updateProfileUI();
-        showToast(`🗺️ Randonnée synchronisée (${state.tracks.length} trace(s) reçue(s)) !`, 'success');
+        // Si nous avons des traces GPX chargées, nous les envoyons au nouvel arrivant
+        if (state.tracks.length > 0) {
+          publishMessage({
+            type: 'sync_tracks',
+            from: state.myUser.id,
+            tracks: state.tracks
+          });
+        }
       }
-    }
-  } else if (data.type === 'reset_session' || data.type === 'clear_tracks') {
-    // 1. Effacer les traces GPX
-    state.tracks.forEach(t => {
-      const l = state.trackLayers.get(t.id);
-      if (l) state.map.removeLayer(l);
-    });
-    state.tracks = [];
-    state.trackLayers.clear();
-    state.myUser.assignedTrackId = 'auto';
+    } else if (data.type === 'respond_presence' || data.type === 'update_position' || data.type === 'user_updated') {
+      const user = data.user;
+      if (user && user.id !== state.myUser.id) {
+        if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
+          state.otherUsers.set(user.id, user);
+          createOrUpdateUserMarker(user);
+          saveOtherUsersToStorage();
+          renderUsersList();
+        }
+      }
+    } else if (data.type === 'sync_tracks') {
+      // Réception des traces GPX de la rando envoyées par Jean-Luc ou un participant
+      if (Array.isArray(data.tracks) && data.tracks.length > 0) {
+        const isDifferent = state.tracks.length !== data.tracks.length ||
+          state.tracks.some((t, i) => !data.tracks[i] || t.id !== data.tracks[i].id);
 
-    // 2. Effacer les autres participants (sauf Moi)
-    state.otherUsers.forEach((u, id) => {
-      removeUserMarker(id);
-    });
-    state.otherUsers.clear();
+        if (state.tracks.length === 0 || isDifferent) {
+          // Nettoyer anciennes traces sur la carte
+          state.tracks.forEach(t => {
+            const l = state.trackLayers.get(t.id);
+            if (l) state.map.removeLayer(l);
+          });
+          state.tracks = [];
+          state.trackLayers.clear();
 
-    // 3. Purger les stockages locaux
-    localStorage.removeItem('rando_saved_session');
-    localStorage.removeItem('rando_saved_other_users');
+          // Charger et afficher les traces reçues
+          data.tracks.forEach((track, idx) => {
+            track.color = TRACK_COLORS[idx % TRACK_COLORS.length];
+            track.visible = true;
+            state.tracks.push(track);
+            renderTrackOnMap(track);
+          });
 
-    // 4. Mettre à jour l'affichage
-    renderQuickTracksBar();
-    renderUsersList();
-    updateProfileUI();
-    showToast('Randonnée réinitialisée par l\'organisateur.', 'info');
-  } else if (data.type === 'kick_all') {
-    if (data.from !== state.myUser.id) {
-      state.otherUsers.forEach((u, id) => removeUserMarker(id));
+          renderQuickTracksBar();
+          fitAllTracks();
+          saveHikeSessionToStorage();
+          updateProfileUI();
+          showToast(`🗺️ Randonnée synchronisée (${state.tracks.length} trace(s) reçue(s)) !`, 'success');
+        }
+      }
+    } else if (data.type === 'reset_session' || data.type === 'clear_tracks') {
+      // 1. Effacer les traces GPX
+      state.tracks.forEach(t => {
+        const l = state.trackLayers.get(t.id);
+        if (l) state.map.removeLayer(l);
+      });
+      state.tracks = [];
+      state.trackLayers.clear();
+      state.myUser.assignedTrackId = 'auto';
+
+      // 2. Effacer les autres participants (sauf Moi)
+      state.otherUsers.forEach((u, id) => {
+        removeUserMarker(id);
+      });
       state.otherUsers.clear();
+
+      // 3. Purger les stockages locaux
+      localStorage.removeItem('rando_saved_session');
       localStorage.removeItem('rando_saved_other_users');
+
+      // 4. Mettre à jour l'affichage
+      renderQuickTracksBar();
       renderUsersList();
-      showToast('Salon des marcheurs purgé par l\'organisateur.', 'info');
-    }
-  } else if (data.type === 'kick_user') {
-    if (data.targetUserId === state.myUser.id) {
-      showToast('⚠️ Vous avez été retiré de la session par l\'organisateur.', 'warning');
-    } else if (state.otherUsers.has(data.targetUserId)) {
-      state.otherUsers.delete(data.targetUserId);
-      removeUserMarker(data.targetUserId);
+      updateProfileUI();
+      showToast('Randonnée réinitialisée par l\'organisateur.', 'info');
+    } else if (data.type === 'kick_all') {
+      if (data.from !== state.myUser.id) {
+        state.otherUsers.forEach((u, id) => removeUserMarker(id));
+        state.otherUsers.clear();
+        localStorage.removeItem('rando_saved_other_users');
+        renderUsersList();
+        showToast('Salon des marcheurs purgé par l\'organisateur.', 'info');
+      }
+    } else if (data.type === 'kick_user') {
+      if (data.targetUserId === state.myUser.id) {
+        showToast('⚠️ Vous avez été retiré de la session par l\'organisateur.', 'warning');
+      } else if (state.otherUsers.has(data.targetUserId)) {
+        state.otherUsers.delete(data.targetUserId);
+        removeUserMarker(data.targetUserId);
+        saveOtherUsersToStorage();
+        renderUsersList();
+      }
+    } else if (data.type === 'broadcast_announcement') {
+      const msgKey = `${data.senderId || data.author || 'anon'}_${data.timestamp || 0}_${(data.text || '').substring(0, 30)}`;
+      if (isAnnouncementAlreadySeen(msgKey)) return;
+      markAnnouncementSeen(msgKey);
+
+      handleReceivedAnnouncement(data);
+    } else if (data.type === 'user_left') {
+      state.otherUsers.delete(data.userId);
+      removeUserMarker(data.userId);
       saveOtherUsersToStorage();
       renderUsersList();
     }
-  } else if (data.type === 'broadcast_announcement') {
-    const msgKey = `${data.senderId || data.author || 'anon'}_${data.timestamp || 0}_${(data.text || '').substring(0, 30)}`;
-    if (isAnnouncementAlreadySeen(msgKey)) return;
-    markAnnouncementSeen(msgKey);
-
-    // Ignorer les alertes intrusives si le message a été émis il y a plus de 3 minutes (ex: reconnexion après veille)
-    if (data.timestamp && (Date.now() - data.timestamp > 3 * 60 * 1000)) {
-      displayAnnouncementBanner(data.author, data.icon, data.role, data.text, data.timestamp);
-      return;
-    }
-    handleReceivedAnnouncement(data);
-  } else if (data.type === 'user_left') {
-    state.otherUsers.delete(data.userId);
-    removeUserMarker(data.userId);
-    saveOtherUsersToStorage();
-    renderUsersList();
+  } catch (err) {
+    console.warn('[HandleIncomingMessage] Erreur isolée:', err);
   }
 }
 
