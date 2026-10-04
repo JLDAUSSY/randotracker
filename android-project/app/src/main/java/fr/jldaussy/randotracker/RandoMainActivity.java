@@ -204,14 +204,31 @@ public class RandoMainActivity extends AppCompatActivity {
 
     private void loadTargetUrl(Intent intent) {
         String urlToLoad = DEFAULT_URL;
+        String roomToJoin = null;
         if (intent != null && intent.getData() != null) {
-            String dataUrl = intent.getData().toString();
+            Uri data = intent.getData();
+            String dataUrl = data.toString();
             if (dataUrl.startsWith("https://jldaussy.github.io/randotracker")) {
                 urlToLoad = dataUrl;
+                try {
+                    roomToJoin = data.getQueryParameter("room");
+                } catch (Exception ignored) {}
             }
         }
         Log.d(TAG, "Chargement WebView : " + urlToLoad);
-        webView.loadUrl(urlToLoad);
+        final String targetUrl = urlToLoad;
+        if (webView != null) {
+            if (roomToJoin != null && !roomToJoin.isEmpty()) {
+                final String finalRoom = roomToJoin;
+                webView.evaluateJavascript("if (typeof window.joinRoomDirectly === 'function') { window.joinRoomDirectly('" + finalRoom + "'); true; } else { false; }", (res) -> {
+                    if (res == null || !"true".equals(res.replace("\"", ""))) {
+                        webView.loadUrl(targetUrl);
+                    }
+                });
+            } else {
+                webView.loadUrl(targetUrl);
+            }
+        }
     }
 
     @Override
@@ -233,12 +250,14 @@ public class RandoMainActivity extends AppCompatActivity {
                 permissions = new String[]{
                     Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.CAMERA,
                     Manifest.permission.POST_NOTIFICATIONS
                 };
             } else {
                 permissions = new String[]{
                     Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.CAMERA
                 };
             }
 
@@ -346,7 +365,7 @@ public class RandoMainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.2.2 (16)";
+            return "1.2.3 (17)";
         }
 
         @JavascriptInterface

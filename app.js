@@ -130,7 +130,7 @@ const state = {
   isOrganizer: true, // true pour l'Organisateur, false pour les Invités
   myUser: {
     id: getOrCreateUserId(),
-    name: 'Animateur',
+    name: 'Guide',
     role: 'Guide de tête',
     icon: '🌲',
     color: '#059669',
@@ -654,23 +654,29 @@ function loadUserProfile() {
   loadSavedUiScale();
 
   const urlParams = new URLSearchParams(window.location.search);
-  const isGuest = !!urlParams.get('room');
+  const isGuest = !!urlParams.get('room') || (window.location.hash && window.location.hash.includes('room='));
 
-  const savedName = localStorage.getItem('rando_user_name');
+  let savedName = localStorage.getItem('rando_user_name');
   const savedRole = localStorage.getItem('rando_user_role');
   const savedIcon = localStorage.getItem('rando_user_icon');
   const savedColor = localStorage.getItem('rando_user_color');
   const savedTrack = localStorage.getItem('rando_user_track');
   const savedDuration = localStorage.getItem('rando_share_duration');
 
-  if (savedName) {
+  // Purger l'ancien libellé par défaut "Animateur"
+  if (savedName === 'Animateur') {
+    savedName = isGuest ? 'Randonneur' : 'Guide';
+    localStorage.setItem('rando_user_name', savedName);
+  }
+
+  if (savedName && savedName.trim() !== '') {
     state.myUser.name = savedName;
   } else {
-    state.myUser.name = isGuest ? 'Randonneur' : 'Animateur';
+    state.myUser.name = isGuest ? 'Randonneur' : 'Guide';
     localStorage.setItem('rando_user_name', state.myUser.name);
   }
 
-  if (savedRole) {
+  if (savedRole && savedRole.trim() !== '') {
     state.myUser.role = savedRole;
   } else {
     state.myUser.role = isGuest ? 'Randonneur' : 'Guide de tête';
@@ -3385,6 +3391,244 @@ function copyInviteLink() {
 }
 
 // ============================================================================
+// SCANNER QR CODE INTÉGRÉ (CAMÉRA) & REJOINDRE SALON & SAISIE PRÉNOM
+// ============================================================================
+let html5QrCodeScanner = null;
+let selectedPromptIcon = '🐺';
+let selectedPromptColor = '#9333ea';
+
+function openQrScanner() {
+  const modal = document.getElementById('qr-scan-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    pushModalState('qr-scan-modal');
+  }
+
+  const inviteModal = document.getElementById('invite-modal');
+  if (inviteModal) inviteModal.classList.add('hidden');
+  const roomModal = document.getElementById('room-modal');
+  if (roomModal) roomModal.classList.add('hidden');
+
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast('Chargement du module caméra...', 'info');
+    setTimeout(startCameraScanner, 800);
+    return;
+  }
+  startCameraScanner();
+}
+
+function startCameraScanner() {
+  const qrReaderEl = document.getElementById('qr-reader-view');
+  if (!qrReaderEl || typeof Html5Qrcode === 'undefined') return;
+
+  if (html5QrCodeScanner) {
+    try {
+      html5QrCodeScanner.stop().then(() => {
+        html5QrCodeScanner.clear();
+        html5QrCodeScanner = null;
+        launchCamera();
+      }).catch(() => {
+        html5QrCodeScanner = null;
+        launchCamera();
+      });
+      return;
+    } catch (e) {
+      html5QrCodeScanner = null;
+    }
+  }
+  launchCamera();
+}
+
+function launchCamera() {
+  try {
+    html5QrCodeScanner = new Html5Qrcode("qr-reader-view");
+    const config = {
+      fps: 10,
+      qrbox: { width: 250, height: 250 },
+      aspectRatio: 1.0
+    };
+
+    html5QrCodeScanner.start(
+      { facingMode: "environment" },
+      config,
+      (decodedText) => {
+        console.log('[QR Scanner] QR Code détecté:', decodedText);
+        onQrCodeScanned(decodedText);
+      },
+      (errorMessage) => {
+        // Balayage en cours
+      }
+    ).catch(err => {
+      console.warn('[QR Scanner] Caméra arrière indisponible, essai caméra par défaut:', err);
+      html5QrCodeScanner.start(
+        { facingMode: "user" },
+        config,
+        (decodedText) => {
+          onQrCodeScanned(decodedText);
+        },
+        () => {}
+      ).catch(e => {
+        console.error('[QR Scanner] Échec total accès caméra:', e);
+        showToast('Impossible d\'accéder à la caméra. Autorisez l\'accès ou saisissez le code.', 'error');
+      });
+    });
+  } catch (err) {
+    console.error('[QR Scanner] Erreur start camera:', err);
+  }
+}
+
+function closeQrScanner() {
+  const modal = document.getElementById('qr-scan-modal');
+  if (modal) modal.classList.add('hidden');
+
+  if (html5QrCodeScanner) {
+    try {
+      html5QrCodeScanner.stop().then(() => {
+        html5QrCodeScanner.clear();
+        html5QrCodeScanner = null;
+      }).catch(() => {
+        html5QrCodeScanner = null;
+      });
+    } catch (e) {
+      html5QrCodeScanner = null;
+    }
+  }
+}
+
+function onQrCodeScanned(decodedText) {
+  if (!decodedText) return;
+  closeQrScanner();
+
+  let roomCode = null;
+  try {
+    if (decodedText.includes('room=')) {
+      const url = new URL(decodedText, window.location.origin);
+      roomCode = url.searchParams.get('room');
+      if (!roomCode && url.hash && url.hash.includes('room=')) {
+        const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+        roomCode = hashParams.get('room');
+      }
+    } else if (decodedText.includes('#room=')) {
+      roomCode = decodedText.split('#room=')[1].split('&')[0];
+    } else if (/^[A-Za-z0-9_-]{3,24}$/.test(decodedText.trim())) {
+      roomCode = decodedText.trim();
+    }
+  } catch (e) {
+    const match = decodedText.match(/[?&#]room=([A-Za-z0-9_-]+)/i);
+    if (match) roomCode = match[1];
+  }
+
+  if (roomCode) {
+    showToast(`📸 QR Code lu : Salon ${roomCode}`, 'success');
+    joinRoomDirectly(roomCode);
+  } else {
+    showToast(`QR Code détecté : ${decodedText.substring(0, 30)}...`, 'info');
+  }
+}
+
+function joinRoomDirectly(newRoomCode) {
+  if (!newRoomCode) return;
+  const sanitized = newRoomCode.toUpperCase().trim().replace(/[^A-Z0-9_-]/g, '_');
+  if (!sanitized) return;
+
+  console.log('[Room] Rejoint le salon:', sanitized);
+
+  // Nettoyer les anciens participants de l'ancien salon
+  state.otherUsers.forEach((u, id) => removeUserMarker(id));
+  state.otherUsers.clear();
+  localStorage.removeItem(`rando_users_${state.roomCode}`);
+
+  state.roomCode = sanitized;
+  updateRoomDisplay();
+  loadSavedOtherUsersFromStorage();
+
+  // Fermer les modales ouvertes
+  const modalsToClose = ['room-modal', 'invite-modal', 'qr-scan-modal'];
+  modalsToClose.forEach(mId => {
+    const el = document.getElementById(mId);
+    if (el) el.classList.add('hidden');
+  });
+
+  // Réinitialiser le BroadcastChannel local
+  if (state.broadcastChannel) {
+    try { state.broadcastChannel.close(); } catch (e) {}
+  }
+  try {
+    state.broadcastChannel = new BroadcastChannel(`rando_${state.roomCode}`);
+    state.broadcastChannel.onmessage = (event) => handleIncomingMessage(event.data);
+  } catch (e) {}
+
+  // Relancer la synchronisation MQTT
+  if (mqttClient) {
+    try { mqttClient.end(true); } catch(e) {}
+    mqttClient = null;
+  }
+  initMqttSync();
+  syncNativeAndroidSession();
+  saveHikeSessionToStorage();
+
+  // Vérifier et demander le prénom si générique
+  checkAndPromptUserName();
+
+  showToast(`✅ Connecté au salon : ${state.roomCode}`, 'success');
+}
+
+function checkAndPromptUserName() {
+  const name = (state.myUser.name || '').trim();
+  const genericNames = ['animateur', 'randonneur', 'participant', 'marcheur', 'guide', 'guide de tête', ''];
+  if (genericNames.includes(name.toLowerCase())) {
+    setTimeout(openNamePromptModal, 400);
+  }
+}
+
+function openNamePromptModal() {
+  const modal = document.getElementById('name-prompt-modal');
+  const input = document.getElementById('input-prompt-user-name');
+  if (input) {
+    const current = (state.myUser.name || '').trim();
+    input.value = (!['animateur', 'randonneur', 'participant', 'marcheur'].includes(current.toLowerCase())) ? current : '';
+    setTimeout(() => input.focus(), 300);
+  }
+  if (modal) {
+    modal.classList.remove('hidden');
+    pushModalState('name-prompt-modal');
+  }
+}
+
+function closeNamePromptModal() {
+  const modal = document.getElementById('name-prompt-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function savePromptUserName() {
+  const input = document.getElementById('input-prompt-user-name');
+  const enteredName = input ? input.value.trim() : '';
+  if (enteredName) {
+    state.myUser.name = enteredName;
+  } else if (!state.myUser.name || state.myUser.name.toLowerCase() === 'animateur') {
+    state.myUser.name = 'Randonneur';
+  }
+  state.myUser.icon = selectedPromptIcon;
+  state.myUser.color = selectedPromptColor;
+  state.myUser.role = 'Randonneur';
+
+  localStorage.setItem('rando_user_name', state.myUser.name);
+  localStorage.setItem('rando_user_icon', state.myUser.icon);
+  localStorage.setItem('rando_user_color', state.myUser.color);
+  localStorage.setItem('rando_user_role', state.myUser.role);
+
+  updateProfileUI();
+  syncNativeAndroidSession();
+  broadcastMyPosition();
+  publishMessage({
+    type: 'user_updated',
+    user: state.myUser
+  });
+  closeNamePromptModal();
+  showToast(`Bienvenue ${state.myUser.name} ! Profil mis à jour.`, 'success');
+}
+
+// ============================================================================
 // ============================================================================
 // SYNCHRONISATION EN TEMPS RÉEL (MQTT 4G/5G/Wi-Fi & BroadcastChannel)
 // ============================================================================
@@ -4853,6 +5097,48 @@ function setupEventListeners() {
     });
   }
 
+  // Scanner QR Code Camera & Boutons Déclencheurs
+  const scanRoomBtn = document.getElementById('btn-scan-qr-room');
+  if (scanRoomBtn) scanRoomBtn.addEventListener('click', openQrScanner);
+
+  const scanDrawerBtn = document.getElementById('drawer-scan-btn');
+  if (scanDrawerBtn) scanDrawerBtn.addEventListener('click', openQrScanner);
+
+  const scanInviteBtn = document.getElementById('btn-scan-qr-from-invite');
+  if (scanInviteBtn) scanInviteBtn.addEventListener('click', openQrScanner);
+
+  const closeQrScanBtn = document.getElementById('close-qr-scan-btn');
+  if (closeQrScanBtn) closeQrScanBtn.addEventListener('click', closeQrScanner);
+
+  const cancelQrScanBtn = document.getElementById('cancel-qr-scan-btn');
+  if (cancelQrScanBtn) cancelQrScanBtn.addEventListener('click', closeQrScanner);
+
+  // Modale Accueil Nouveau Marcheur / Saisie Prénom
+  const savePromptUserBtn = document.getElementById('save-prompt-user-btn');
+  if (savePromptUserBtn) savePromptUserBtn.addEventListener('click', savePromptUserName);
+
+  const inputPromptName = document.getElementById('input-prompt-user-name');
+  if (inputPromptName) {
+    inputPromptName.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        savePromptUserName();
+      }
+    });
+  }
+
+  document.querySelectorAll('.prompt-avatar-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.prompt-avatar-btn').forEach(b => {
+        b.classList.remove('border-emerald-400', 'scale-110', 'bg-emerald-600/30', 'border-purple-500', 'bg-purple-600/30');
+        b.classList.add('border-transparent', 'bg-slate-800');
+      });
+      btn.classList.remove('border-transparent', 'bg-slate-800');
+      btn.classList.add('border-emerald-400', 'scale-110', 'bg-emerald-600/30');
+      selectedPromptIcon = btn.getAttribute('data-icon') || '🐺';
+      selectedPromptColor = btn.getAttribute('data-color') || '#9333ea';
+    });
+  });
+
   // Modal À Propos : Jean-Luc DAUSSY 2026
   const aboutModal = document.getElementById('about-modal');
   const brandHeaderBtn = document.getElementById('brand-header-btn');
@@ -5516,7 +5802,8 @@ function isAnyModalOrDrawerOpen() {
   const modals = [
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
-    'emergency-modal', 'onboarding-modal', 'app-open-ad-modal'
+    'emergency-modal', 'onboarding-modal', 'app-open-ad-modal',
+    'qr-scan-modal', 'name-prompt-modal'
   ];
   for (const id of modals) {
     const el = document.getElementById(id);
@@ -5533,10 +5820,13 @@ function closeAllModalsAndDrawers() {
   closeAllDrawers();
   closeEmergencyModal();
   closeAppOpenAd();
+  closeQrScanner();
+  closeNamePromptModal();
   const modals = [
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
-    'elevation-drawer', 'onboarding-modal', 'app-open-ad-modal'
+    'elevation-drawer', 'onboarding-modal', 'app-open-ad-modal',
+    'qr-scan-modal', 'name-prompt-modal'
   ];
   modals.forEach(id => {
     const el = document.getElementById(id);
@@ -5648,6 +5938,16 @@ window.stopGpsWorkerHeartbeat = stopGpsWorkerHeartbeat;
 window.enterPocketMode = enterPocketMode;
 window.exitPocketMode = exitPocketMode;
 window.updatePocketModeTelemetry = updatePocketModeTelemetry;
+
+// QR Scanner & Saisie Prénom Marcheur
+window.openQrScanner = openQrScanner;
+window.closeQrScanner = closeQrScanner;
+window.onQrCodeScanned = onQrCodeScanned;
+window.joinRoomDirectly = joinRoomDirectly;
+window.checkAndPromptUserName = checkAndPromptUserName;
+window.openNamePromptModal = openNamePromptModal;
+window.closeNamePromptModal = closeNamePromptModal;
+window.savePromptUserName = savePromptUserName;
 
 
 

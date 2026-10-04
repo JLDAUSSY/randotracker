@@ -118,9 +118,22 @@ run_test("Profil Altimétrique : Boutons Zoom + et Zoom -", lambda: 'zoomInEleva
 run_test("Profil Altimétrique : Boutons Pan Gauche / Droite", lambda: soup.find(id='ele-pan-left-btn') is not None and soup.find(id='ele-pan-right-btn') is not None)
 run_test("Profil Altimétrique : Mini-carte de navigation / Scrubber (#ele-minimap-container)", lambda: soup.find(id='ele-minimap-container') is not None)
 
-modals = ['invite-modal', 'announcement-modal', 'received-announcement-modal', 'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal', 'onboarding-modal']
+modals = [
+    'invite-modal', 'announcement-modal', 'received-announcement-modal',
+    'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
+    'onboarding-modal', 'qr-scan-modal', 'name-prompt-modal'
+]
 for m in modals:
     run_test(f"Presence de la sous-modale dialog #{m}", lambda m=m: soup.find(id=m) is not None)
+
+# Scanner QR Code & Accueil Nouveau Marcheur
+run_test("Scanner QR : Viseur camera present (#qr-reader-view)", lambda: soup.find(id='qr-reader-view') is not None)
+run_test("Scanner QR : Bouton declencheur dans modale Salon (#btn-scan-qr-room)", lambda: soup.find(id='btn-scan-qr-room') is not None)
+run_test("Scanner QR : Bouton declencheur dans tiroir Groupe (#drawer-scan-btn)", lambda: soup.find(id='drawer-scan-btn') is not None)
+run_test("Scanner QR : Bouton declencheur dans modale Inviter (#btn-scan-qr-from-invite)", lambda: soup.find(id='btn-scan-qr-from-invite') is not None)
+run_test("Accueil Marcheur : Champ prenom present (#input-prompt-user-name)", lambda: soup.find(id='input-prompt-user-name') is not None)
+run_test("Accueil Marcheur : Bouton validation present (#save-prompt-user-btn)", lambda: soup.find(id='save-prompt-user-btn') is not None)
+run_test("Accueil Marcheur : Selecteur d'avatars (.prompt-avatar-btn >= 6)", lambda: len(soup.find_all(class_='prompt-avatar-btn')) >= 6)
 
 # ----------------------------------------------------------------------
 # 2. TESTS DE LA HIÉRARCHIE CSS & GÉOMÉTRIE Z-INDEX
@@ -192,7 +205,9 @@ required_functions = [
     'playAnnouncementAlert', 'adjustPopupZoom', 'checkOnboardingStatus',
     'openOnboardingModal', 'closeOnboardingModal', 'acceptOnboarding',
     'requestWakeLock', 'releaseWakeLock',
-    'enterPocketMode', 'exitPocketMode', 'updatePocketModeTelemetry'
+    'enterPocketMode', 'exitPocketMode', 'updatePocketModeTelemetry',
+    'openQrScanner', 'closeQrScanner', 'onQrCodeScanned', 'joinRoomDirectly',
+    'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName'
 ]
 
 for fn in required_functions:
@@ -216,7 +231,9 @@ exports_to_test = [
     'requestWakeLock', 'releaseWakeLock',
     'checkAndDisplayAppOpenAd', 'closeAppOpenAd', 'renderTrackAdBanner', 'renderProfileAdBanner', 'MONETIZATION_CONFIG',
     'startBackgroundKeepAlive', 'stopBackgroundKeepAlive', 'startGpsWorkerHeartbeat', 'stopGpsWorkerHeartbeat',
-    'enterPocketMode', 'exitPocketMode', 'updatePocketModeTelemetry'
+    'enterPocketMode', 'exitPocketMode', 'updatePocketModeTelemetry',
+    'openQrScanner', 'closeQrScanner', 'onQrCodeScanned', 'joinRoomDirectly',
+    'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName'
 ]
 
 for fn in exports_to_test:
@@ -277,6 +294,30 @@ run_test("Mode Poche : Bouton flottant présent dans le DOM (#btn-enter-pocket-m
 run_test("Mode Poche : Écran noir anti-tactile défini dans le DOM (#pocket-mode-overlay)", lambda: bool(soup.find(id='pocket-mode-overlay')))
 run_test("Mode Poche : Bouton déverrouillage présent (#pocket-unlock-btn)", lambda: bool(soup.find(id='pocket-unlock-btn')))
 run_test("Application Native : Fichier RandoTracker.apk généré et présent à la racine", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) and os.path.getsize(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) > 1000000)
+
+# Tests Intégration Native Android (Permissions Caméra & Version 1.2.3 / 17)
+manifest_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'AndroidManifest.xml')
+gradle_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'build.gradle.kts')
+main_activity_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoMainActivity.java')
+
+if os.path.exists(manifest_path):
+    with open(manifest_path, 'r', encoding='utf-8') as f:
+        manifest_content = f.read()
+    run_test("Android Manifest : Permission CAMERA déclarée", lambda: 'android.permission.CAMERA' in manifest_content)
+    run_test("Android Manifest : Feature Caméra déclarée", lambda: 'android.hardware.camera' in manifest_content)
+
+if os.path.exists(gradle_path):
+    with open(gradle_path, 'r', encoding='utf-8') as f:
+        gradle_content = f.read()
+    run_test("Android Gradle : VersionCode 17 configuré", lambda: 'versionCode = 17' in gradle_content)
+    run_test("Android Gradle : VersionName 1.2.3 configuré", lambda: 'versionName = "1.2.3"' in gradle_content)
+
+if os.path.exists(main_activity_path):
+    with open(main_activity_path, 'r', encoding='utf-8') as f:
+        main_act_content = f.read()
+    run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
+    run_test("MainActivity : Version 1.2.3 (17) dans le bridge natif", lambda: '1.2.3 (17)' in main_act_content)
+    run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
 
 
 # ----------------------------------------------------------------------
