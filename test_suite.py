@@ -363,8 +363,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=56',
-    'http://127.0.0.1:8000/app.js?v=56',
+    'http://127.0.0.1:8000/styles.css?v=57',
+    'http://127.0.0.1:8000/app.js?v=57',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
 ]

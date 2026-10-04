@@ -2822,6 +2822,9 @@ function releaseWakeLock() {
 // ============================================================================
 let silentAudioKeeper = null;
 let silentAudioBlobUrl = null;
+let audioContextKeeper = null;
+let audioOscillator = null;
+let isAudioUnlocked = false;
 
 function createSilentAudioBlobUrl() {
   if (silentAudioBlobUrl) return silentAudioBlobUrl;
@@ -2860,8 +2863,38 @@ function createSilentAudioBlobUrl() {
   }
 }
 
-function startBackgroundKeepAlive() {
+function unlockAndStartKeepAlive() {
+  if (isAudioUnlocked) {
+    if (audioContextKeeper && audioContextKeeper.state === 'suspended') {
+      audioContextKeeper.resume().catch(() => {});
+    }
+    if (silentAudioKeeper && silentAudioKeeper.paused) {
+      silentAudioKeeper.play().catch(() => {});
+    }
+    return;
+  }
+
   try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      if (!audioContextKeeper) {
+        audioContextKeeper = new AudioCtx();
+      }
+      if (audioContextKeeper.state === 'suspended') {
+        audioContextKeeper.resume().catch(() => {});
+      }
+      if (!audioOscillator) {
+        try {
+          audioOscillator = audioContextKeeper.createOscillator();
+          const gainNode = audioContextKeeper.createGain();
+          gainNode.gain.value = 0.00001; // Ultra-faible inaudible mais actif pour garder le sous-système audio Android éveillé
+          audioOscillator.connect(gainNode);
+          gainNode.connect(audioContextKeeper.destination);
+          audioOscillator.start();
+        } catch (e) {}
+      }
+    }
+
     if (!silentAudioKeeper) {
       const audioUrl = createSilentAudioBlobUrl();
       silentAudioKeeper = new Audio(audioUrl);
@@ -2874,6 +2907,9 @@ function startBackgroundKeepAlive() {
         console.warn('[KeepAlive] Lecture audio différée:', err);
       });
     }
+
+    isAudioUnlocked = true;
+    console.log('[KeepAlive] Moteur audio et maintien d\'arrière-plan déverrouillé avec succès');
 
     // Enregistrement MediaSession Système pour empêcher Android d'endormir le JS
     if ('mediaSession' in navigator) {
@@ -2891,10 +2927,12 @@ function startBackgroundKeepAlive() {
 
         navigator.mediaSession.setActionHandler('play', () => {
           if (silentAudioKeeper) silentAudioKeeper.play().catch(() => {});
+          if (audioContextKeeper && audioContextKeeper.state === 'suspended') audioContextKeeper.resume().catch(() => {});
           navigator.mediaSession.playbackState = 'playing';
         });
         navigator.mediaSession.setActionHandler('pause', () => {
           if (silentAudioKeeper) silentAudioKeeper.play().catch(() => {});
+          navigator.mediaSession.playbackState = 'playing';
         });
       } catch (e) {
         console.warn('[MediaSession] Non disponible:', e);
@@ -2905,11 +2943,24 @@ function startBackgroundKeepAlive() {
   }
 }
 
+// Auto-déverrouillage instantané sur le moindre toucher ou interaction utilisateur
+['click', 'touchstart', 'touchend', 'pointerdown', 'keydown'].forEach(evt => {
+  window.addEventListener(evt, unlockAndStartKeepAlive, { passive: true });
+});
+
+function startBackgroundKeepAlive() {
+  unlockAndStartKeepAlive();
+}
+
 function stopBackgroundKeepAlive() {
   if (silentAudioKeeper) {
     try {
       silentAudioKeeper.pause();
-      silentAudioKeeper = null;
+    } catch (e) {}
+  }
+  if (audioContextKeeper && audioContextKeeper.state === 'running') {
+    try {
+      audioContextKeeper.suspend().catch(() => {});
     } catch (e) {}
   }
   if ('mediaSession' in navigator) {
@@ -2935,7 +2986,7 @@ function startGpsWorkerHeartbeat(onSuccessCallback) {
           if (timer) clearInterval(timer);
           timer = setInterval(function() {
             self.postMessage('tick');
-          }, 3500);
+          }, 3000);
         } else if (e.data === 'stop') {
           if (timer) clearInterval(timer);
           timer = null;
@@ -2949,19 +3000,34 @@ function startGpsWorkerHeartbeat(onSuccessCallback) {
       if (e.data === 'tick' && state.isTrackingGps) {
         const now = Date.now();
         const lastTime = state.lastGpsTimestamp || 0;
-        // Si aucun point GPS n'a été reçu depuis plus de 3.5s, forcer l'interrogation matérielle
-        if (now - lastTime >= 3500 && navigator.geolocation) {
+
+        // 1. Forcer l'interrogation matérielle des satellites GPS si aucun point récent (< 3s)
+        if (now - lastTime >= 3000 && navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             onSuccessCallback,
             (err) => { console.warn('[GPS Worker Heartbeat] Refresh matériel passif:', err.code); },
-            { enableHighAccuracy: true, timeout: 6000, maximumAge: 1000 }
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
           );
         }
-        // Maintien d'émission réseau MQTT en arrière-plan vers les autres marcheurs
-        if (state.lastGpsPos) {
+
+        // 2. Reconnexion automatique MQTT si déconnecté en arrière-plan
+        if (!mqttClient || !mqttClient.connected) {
+          console.log('[GPS Worker Heartbeat] MQTT déconnecté, reconnexion immédiate...');
+          initMqttSync();
+        } else if (state.lastGpsPos) {
+          // 3. Maintien d'émission réseau MQTT en arrière-plan vers les autres marcheurs
           broadcastMyPosition();
         }
-        // Gardien WakeLock si l'écran est resté allumé
+
+        // 4. Maintien Audio
+        if (audioContextKeeper && audioContextKeeper.state === 'suspended') {
+          audioContextKeeper.resume().catch(() => {});
+        }
+        if (silentAudioKeeper && silentAudioKeeper.paused) {
+          silentAudioKeeper.play().catch(() => {});
+        }
+
+        // 5. Gardien WakeLock si l'écran est resté allumé
         if (document.visibilityState === 'visible' && !screenWakeLock) {
           requestWakeLock();
         }
@@ -2972,7 +3038,7 @@ function startGpsWorkerHeartbeat(onSuccessCallback) {
     console.warn('[GPS Worker] Fallback standard timer:', e);
   }
 
-  // Fallback thread principal à 3500ms au cas où Web Worker est désactivé
+  // Fallback thread principal à 3000ms au cas où Web Worker est désactivé
   startGpsForcedWatchdog(onSuccessCallback);
 }
 
@@ -2993,15 +3059,15 @@ function startGpsForcedWatchdog(onSuccessCallback) {
     if (state.isTrackingGps && navigator.geolocation) {
       const now = Date.now();
       const lastTime = state.lastGpsTimestamp || 0;
-      if (now - lastTime >= 3500) {
+      if (now - lastTime >= 3000) {
         navigator.geolocation.getCurrentPosition(
           onSuccessCallback,
           (e) => { console.warn('[GPS Watchdog] Polling passif:', e.code); },
-          { enableHighAccuracy: true, timeout: 6000, maximumAge: 1000 }
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
         );
       }
     }
-  }, 3500);
+  }, 3000);
 }
 
 function stopGpsForcedWatchdog() {
@@ -3131,9 +3197,16 @@ function copyInviteLink() {
 }
 
 // ============================================================================
+// ============================================================================
 // SYNCHRONISATION EN TEMPS RÉEL (MQTT 4G/5G/Wi-Fi & BroadcastChannel)
 // ============================================================================
 let mqttClient = null;
+const MQTT_BROKERS = [
+  'wss://broker.hivemq.com:8884/mqtt',
+  'wss://broker.emqx.io:8084/mqtt'
+];
+let currentBrokerIndex = 0;
+let mqttErrorCount = 0;
 
 function initRealtimeSync() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -3184,34 +3257,40 @@ function initMqttSync() {
     return;
   }
 
+  if (mqttClient && mqttClient.connected) {
+    return;
+  }
+
   if (mqttClient) {
     try { mqttClient.end(true); } catch (e) {}
+    mqttClient = null;
   }
 
   const sanitizedRoom = state.roomCode.replace(/[^a-zA-Z0-9_-]/g, '_');
   const topic = `randotracker/v1/rooms/${sanitizedRoom}/events`;
   const clientId = `rando_${state.myUser.id}_${Math.random().toString(36).substr(2, 6)}`;
 
-  const brokerUrl = 'wss://broker.hivemq.com:8884/mqtt';
-  console.log(`[MQTT] Connexion au broker HiveMQ (${state.roomCode})...`);
+  const brokerUrl = MQTT_BROKERS[currentBrokerIndex];
+  console.log(`[MQTT] Connexion au broker (${brokerUrl}) [Salon: ${state.roomCode}]...`);
 
   try {
     mqttClient = mqtt.connect(brokerUrl, {
       clientId: clientId,
       clean: true,
-      connectTimeout: 10000,
-      reconnectPeriod: 2500,
+      connectTimeout: 8000,
+      reconnectPeriod: 2000,
       keepalive: 15
     });
 
     mqttClient.on('connect', () => {
-      console.log('[MQTT] Connecté avec succès au salon:', state.roomCode);
+      console.log('[MQTT] Connecté avec succès au salon:', state.roomCode, 'sur', brokerUrl);
+      mqttErrorCount = 0;
       updateConnectionStatus(true);
       mqttClient.subscribe([topic], { qos: 1 }, (err) => {
         if (!err) {
           console.log(`[MQTT] Abonné au topic : ${topic}`);
 
-          // Nettoyer tout ancien message retained résiduel sur HiveMQ
+          // Nettoyer tout ancien message retained résiduel
           const announceTopic = `randotracker/v1/rooms/${sanitizedRoom}/announcement`;
           try { mqttClient.publish(announceTopic, '', { retain: true, qos: 0 }); } catch (e) {}
           
@@ -3250,7 +3329,14 @@ function initMqttSync() {
     });
 
     mqttClient.on('error', (err) => {
-      console.warn('[MQTT] Erreur:', err);
+      console.warn('[MQTT] Erreur:', brokerUrl, err);
+      mqttErrorCount++;
+      if (mqttErrorCount >= 2) {
+        currentBrokerIndex = (currentBrokerIndex + 1) % MQTT_BROKERS.length;
+        console.log('[MQTT] Basculement vers broker alternatif:', MQTT_BROKERS[currentBrokerIndex]);
+        mqttErrorCount = 0;
+        setTimeout(initMqttSync, 1000);
+      }
       updateConnectionStatus(false);
     });
 
@@ -3262,8 +3348,8 @@ function initMqttSync() {
     mqttClient.on('reconnect', () => {
       console.log('[MQTT] Reconnexion...');
     });
-  } catch (err) {
-    console.error('[MQTT] Impossible d\'initialiser MQTT:', err);
+  } catch (e) {
+    console.warn('[MQTT] Erreur initialisation:', e);
     updateConnectionStatus(false);
   }
 }
