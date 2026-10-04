@@ -2760,26 +2760,36 @@ function startGpsWatch(useHighAccuracy = true) {
     maximumAge: 0
   });
 
-  // Activer le forçage périodique actif du GPS matériel (Dual-Engine Polling à 3.5s)
-  startGpsForcedWatchdog(onPositionSuccess);
+  // 1. Activer le battement de cœur d'arrière-plan Web Worker & Forçage matériel 3.5s
+  startGpsWorkerHeartbeat(onPositionSuccess);
 
-  // Activer le maintien d'activité en tâche de fond (écran éteint dans la poche)
+  // 2. Activer le maintien d'activité média système (pour écran éteint dans la poche)
   startBackgroundKeepAlive();
 
-  // Activer le maintien d'écran allumé (Screen WakeLock API)
+  // 3. Activer le maintien d'écran allumé (pour téléphone dans la poche écran allumé)
   requestWakeLock();
 }
 
-// Gestion du WakeLock (maintien écran allumé basse consommation)
+// ============================================================================
+// GARDIEN DE VEILLE ÉCRAN & GESTION WAKELOCK (POCHE ÉCRAN ALLUMÉ)
+// ============================================================================
 let screenWakeLock = null;
+let isWakeLockRequested = false;
+
 async function requestWakeLock() {
+  isWakeLockRequested = true;
   if ('wakeLock' in navigator) {
     try {
+      if (screenWakeLock && !screenWakeLock.released) return;
       screenWakeLock = await navigator.wakeLock.request('screen');
       screenWakeLock.addEventListener('release', () => {
         screenWakeLock = null;
+        // Si le GPS tourne toujours et que l'écran/onglet est visible, ré-enclencher immédiatement
+        if (isWakeLockRequested && state.isTrackingGps && document.visibilityState === 'visible') {
+          setTimeout(requestWakeLock, 500);
+        }
       });
-      console.log('[WakeLock] Maintien écran actif');
+      console.log('[WakeLock] Maintien écran actif et sécurisé');
     } catch (err) {
       console.warn('[WakeLock] Non activé:', err);
     }
@@ -2787,6 +2797,7 @@ async function requestWakeLock() {
 }
 
 function releaseWakeLock() {
+  isWakeLockRequested = false;
   if (screenWakeLock) {
     try {
       screenWakeLock.release();
@@ -2795,42 +2806,91 @@ function releaseWakeLock() {
   }
 }
 
-// Watchdog de forçage GPS matériel (3500 ms)
-let gpsForcedInterval = null;
-function startGpsForcedWatchdog(onSuccessCallback) {
-  if (gpsForcedInterval) clearInterval(gpsForcedInterval);
-  gpsForcedInterval = setInterval(() => {
-    if (state.isTrackingGps && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        onSuccessCallback,
-        (e) => { console.warn('[GPS Watchdog] Polling passif:', e.code); },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-      );
-    }
-  }, 7000);
-}
+// ============================================================================
+// MAINTIEN D'ARRIÈRE-PLAN AUDIO & MEDIASESSION (POCHE ÉCRAN ÉTEINT / DOZE MODE)
+// ============================================================================
+let silentAudioKeeper = null;
+let silentAudioBlobUrl = null;
 
-function stopGpsForcedWatchdog() {
-  if (gpsForcedInterval) {
-    clearInterval(gpsForcedInterval);
-    gpsForcedInterval = null;
+function createSilentAudioBlobUrl() {
+  if (silentAudioBlobUrl) return silentAudioBlobUrl;
+  try {
+    const sampleRate = 8000;
+    const numSamples = sampleRate * 2; // 2 secondes de silence PCM
+    const buffer = new ArrayBuffer(44 + numSamples);
+    const view = new DataView(buffer);
+
+    function writeString(offset, string) {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    }
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + numSamples, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM Format
+    view.setUint16(22, 1, true); // Mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate, true);
+    view.setUint16(32, 1, true);
+    view.setUint16(34, 8, true); // 8-bit
+    writeString(36, 'data');
+    view.setUint32(40, numSamples, true);
+    for (let i = 0; i < numSamples; i++) {
+      view.setUint8(44 + i, 128); // 128 = valeur neutre silence en 8-bit
+    }
+    const blob = new Blob([buffer], { type: 'audio/wav' });
+    silentAudioBlobUrl = URL.createObjectURL(blob);
+    return silentAudioBlobUrl;
+  } catch (e) {
+    return 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
   }
 }
 
-// Maintien d'activité en arrière-plan (Background Audio Keep-Alive)
-let silentAudioKeeper = null;
 function startBackgroundKeepAlive() {
-  if (!silentAudioKeeper) {
-    try {
-      // 1 seconde de silence MP3 encodée en base64 pour maintenir la boucle JavaScript active
-      const silentMp3 = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA//OEAAAAAAAAAAAAAAAAAAAAAAAADQAAAAAAA';
-      silentAudioKeeper = new Audio(silentMp3);
+  try {
+    if (!silentAudioKeeper) {
+      const audioUrl = createSilentAudioBlobUrl();
+      silentAudioKeeper = new Audio(audioUrl);
       silentAudioKeeper.loop = true;
-      silentAudioKeeper.volume = 0.01;
-      silentAudioKeeper.play().catch(() => {});
-    } catch (e) {
-      console.warn('[KeepAlive] Audio non initialisé:', e);
+      silentAudioKeeper.volume = 0.001; // Inaudible mais actif pour le système
     }
+    const playPromise = silentAudioKeeper.play();
+    if (playPromise !== undefined) {
+      playPromise.catch((err) => {
+        console.warn('[KeepAlive] Lecture audio différée:', err);
+      });
+    }
+
+    // Enregistrement MediaSession Système pour empêcher Android d'endormir le JS
+    if ('mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: 'RandoTracker • Suivi GPS en direct',
+          artist: `Groupe : ${state.roomCode} (${state.myUser.name})`,
+          album: 'Position partagée en direct dans la poche',
+          artwork: [
+            { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: 'icon-512.png', sizes: '512x512', type: 'image/png' }
+          ]
+        });
+        navigator.mediaSession.playbackState = 'playing';
+
+        navigator.mediaSession.setActionHandler('play', () => {
+          if (silentAudioKeeper) silentAudioKeeper.play().catch(() => {});
+          navigator.mediaSession.playbackState = 'playing';
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          if (silentAudioKeeper) silentAudioKeeper.play().catch(() => {});
+        });
+      } catch (e) {
+        console.warn('[MediaSession] Non disponible:', e);
+      }
+    }
+  } catch (e) {
+    console.warn('[KeepAlive] Erreur initialisation audio:', e);
   }
 }
 
@@ -2840,6 +2900,103 @@ function stopBackgroundKeepAlive() {
       silentAudioKeeper.pause();
       silentAudioKeeper = null;
     } catch (e) {}
+  }
+  if ('mediaSession' in navigator) {
+    try {
+      navigator.mediaSession.playbackState = 'none';
+    } catch (e) {}
+  }
+}
+
+// ============================================================================
+// CHRONOMÈTRE D'ARRIÈRE-PLAN WEB WORKER & DUAL-ENGINE GPS WATCHDOG (3.5s)
+// ============================================================================
+let gpsHeartbeatWorker = null;
+let gpsForcedInterval = null;
+
+function startGpsWorkerHeartbeat(onSuccessCallback) {
+  stopGpsWorkerHeartbeat();
+  try {
+    const workerScript = `
+      let timer = null;
+      self.onmessage = function(e) {
+        if (e.data === 'start') {
+          if (timer) clearInterval(timer);
+          timer = setInterval(function() {
+            self.postMessage('tick');
+          }, 3500);
+        } else if (e.data === 'stop') {
+          if (timer) clearInterval(timer);
+          timer = null;
+        }
+      };
+    `;
+    const blob = new Blob([workerScript], { type: 'application/javascript' });
+    const workerUrl = URL.createObjectURL(blob);
+    gpsHeartbeatWorker = new Worker(workerUrl);
+    gpsHeartbeatWorker.onmessage = function(e) {
+      if (e.data === 'tick' && state.isTrackingGps) {
+        const now = Date.now();
+        const lastTime = state.lastGpsTimestamp || 0;
+        // Si aucun point GPS n'a été reçu depuis plus de 3.5s, forcer l'interrogation matérielle
+        if (now - lastTime >= 3500 && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            onSuccessCallback,
+            (err) => { console.warn('[GPS Worker Heartbeat] Refresh matériel passif:', err.code); },
+            { enableHighAccuracy: true, timeout: 6000, maximumAge: 1000 }
+          );
+        }
+        // Maintien d'émission réseau MQTT en arrière-plan vers les autres marcheurs
+        if (state.lastGpsPos) {
+          broadcastMyPosition();
+        }
+        // Gardien WakeLock si l'écran est resté allumé
+        if (document.visibilityState === 'visible' && !screenWakeLock) {
+          requestWakeLock();
+        }
+      }
+    };
+    gpsHeartbeatWorker.postMessage('start');
+  } catch (e) {
+    console.warn('[GPS Worker] Fallback standard timer:', e);
+  }
+
+  // Fallback thread principal à 3500ms au cas où Web Worker est désactivé
+  startGpsForcedWatchdog(onSuccessCallback);
+}
+
+function stopGpsWorkerHeartbeat() {
+  if (gpsHeartbeatWorker) {
+    try {
+      gpsHeartbeatWorker.postMessage('stop');
+      gpsHeartbeatWorker.terminate();
+    } catch (e) {}
+    gpsHeartbeatWorker = null;
+  }
+  stopGpsForcedWatchdog();
+}
+
+function startGpsForcedWatchdog(onSuccessCallback) {
+  if (gpsForcedInterval) clearInterval(gpsForcedInterval);
+  gpsForcedInterval = setInterval(() => {
+    if (state.isTrackingGps && navigator.geolocation) {
+      const now = Date.now();
+      const lastTime = state.lastGpsTimestamp || 0;
+      if (now - lastTime >= 3500) {
+        navigator.geolocation.getCurrentPosition(
+          onSuccessCallback,
+          (e) => { console.warn('[GPS Watchdog] Polling passif:', e.code); },
+          { enableHighAccuracy: true, timeout: 6000, maximumAge: 1000 }
+        );
+      }
+    }
+  }, 3500);
+}
+
+function stopGpsForcedWatchdog() {
+  if (gpsForcedInterval) {
+    clearInterval(gpsForcedInterval);
+    gpsForcedInterval = null;
   }
 }
 
@@ -2857,7 +3014,7 @@ function stopGpsWatch() {
     state.expiryCheckInterval = null;
   }
 
-  stopGpsForcedWatchdog();
+  stopGpsWorkerHeartbeat();
   stopBackgroundKeepAlive();
   releaseWakeLock();
 
@@ -5190,6 +5347,11 @@ window.closeAppOpenAd = closeAppOpenAd;
 window.renderTrackAdBanner = renderTrackAdBanner;
 window.renderProfileAdBanner = renderProfileAdBanner;
 window.MONETIZATION_CONFIG = MONETIZATION_CONFIG;
+window.startBackgroundKeepAlive = startBackgroundKeepAlive;
+window.stopBackgroundKeepAlive = stopBackgroundKeepAlive;
+window.startGpsWorkerHeartbeat = startGpsWorkerHeartbeat;
+window.stopGpsWorkerHeartbeat = stopGpsWorkerHeartbeat;
+
 
 
 

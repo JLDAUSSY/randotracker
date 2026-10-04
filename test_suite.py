@@ -213,7 +213,8 @@ exports_to_test = [
     'playAnnouncementAlert', 'adjustPopupZoom', 'checkOnboardingStatus',
     'openOnboardingModal', 'closeOnboardingModal', 'acceptOnboarding',
     'requestWakeLock', 'releaseWakeLock',
-    'checkAndDisplayAppOpenAd', 'closeAppOpenAd', 'renderTrackAdBanner', 'renderProfileAdBanner', 'MONETIZATION_CONFIG'
+    'checkAndDisplayAppOpenAd', 'closeAppOpenAd', 'renderTrackAdBanner', 'renderProfileAdBanner', 'MONETIZATION_CONFIG',
+    'startBackgroundKeepAlive', 'stopBackgroundKeepAlive', 'startGpsWorkerHeartbeat', 'stopGpsWorkerHeartbeat'
 ]
 
 for fn in exports_to_test:
@@ -244,6 +245,12 @@ run_test("Vitesse moyenne en déplacement (movingAvgSpeed & isAutoPaused)", lamb
 run_test("Auto-Pause intelligente avec seuil 1.0 km/h", lambda: "instantSpeed >= 1.0" in js_text or "isMoving" in js_text)
 run_test("Watchdog GPS haute fréquence à 3.5s (3500ms)", lambda: "3500" in js_text and "startGpsForcedWatchdog" in js_text)
 run_test("Alerte Sortie de Trace (Off-Track) déclenchée >50m", lambda: "distM > 50" in js_text and "playOffTrackAlertSound" in js_text)
+
+# Tests Suivi GPS dans la poche (Écran éteint & Écran allumé)
+run_test("Maintien Arrière-plan Audio : Générateur WAV PCM silencieux (createSilentAudioBlobUrl)", lambda: 'createSilentAudioBlobUrl' in js_text and 'RIFF' in js_text)
+run_test("Maintien Arrière-plan Audio : Intégration MediaSession API (navigator.mediaSession)", lambda: 'mediaSession' in js_text and 'MediaMetadata' in js_text)
+run_test("Chronomètre Arrière-plan Web Worker : Heartbeat à 3500ms (startGpsWorkerHeartbeat)", lambda: 'startGpsWorkerHeartbeat' in js_text and 'new Worker(workerUrl)' in js_text)
+run_test("Gardien WakeLock : Ré-enclenchement automatique continu si relâchement", lambda: 'isWakeLockRequested' in js_text and 'setTimeout(requestWakeLock' in js_text)
 
 # Tests Monétisation AdMob & Amazon Partenaires
 run_test("Google AdMob/AdSense : Script avec publisher ID ca-pub-1457919469523324 dans le HEAD", lambda: 'ca-pub-1457919469523324' in html_text and 'adsbygoogle.js' in html_text)
@@ -355,8 +362,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=54',
-    'http://127.0.0.1:8000/app.js?v=54',
+    'http://127.0.0.1:8000/styles.css?v=55',
+    'http://127.0.0.1:8000/app.js?v=55',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
 ]
