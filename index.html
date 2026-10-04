@@ -52,8 +52,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v57 -->
-  <link rel="stylesheet" href="styles.css?v=57" />
+  <!-- Custom Styles with Cache-Busting v58 -->
+  <link rel="stylesheet" href="styles.css?v=58" />
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -76,7 +76,7 @@
       <div class="flex flex-col justify-center min-w-0">
         <div class="flex items-center gap-1">
           <span class="app-header-title font-black tracking-tight text-white group-hover:text-emerald-300 transition leading-none truncate">RandoTracker</span>
-          <span class="text-[9px] sm:text-[10px] px-1 py-0.2 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/40 shrink-0" id="header-app-version">v57</span>
+          <span class="text-[9px] sm:text-[10px] px-1 py-0.2 rounded-full bg-emerald-500/25 text-emerald-300 font-mono font-black border border-emerald-500/40 shrink-0" id="header-app-version">v58</span>
         </div>
         <span class="text-[9px] sm:text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider mt-0.5 transition flex items-center gap-0.5 leading-none">
           <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
@@ -141,6 +141,11 @@
       </button>
     </div>
 
+    <!-- BOUTON FLOTTANT MODE POCHE (ÉCRAN NOIR & ANTI-VEILLE) -->
+    <button id="btn-enter-pocket-mode" onclick="enterPocketMode()" class="absolute bottom-4 left-3 z-20 px-3.5 py-2.5 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 font-black text-xs sm:text-sm flex items-center gap-2 border-2 border-slate-750 hover:border-emerald-500 shadow-2xl backdrop-blur-md transition active:scale-95 cursor-pointer" title="Verrouiller l'écran et économiser la batterie en poche">
+      <span class="text-base">🔒</span>
+      <span>Mode Poche</span>
+    </button>
   </main>
 
   <!-- VOILE D'ARRIÈRE-PLAN POUR TIROIRS (FERMETURE EN 1 CLIC) -->
@@ -840,6 +845,24 @@
           </button>
         </div>
 
+        <!-- APPLICATION NATIVE ANDROID APK (POUR ÉCRAN TOTALEMENT ÉTEINT DANS LA POCHE) -->
+        <div class="p-4 bg-emerald-950/40 rounded-2xl border-2 border-emerald-500/50 space-y-2.5">
+          <div class="flex items-center gap-2">
+            <span class="text-xl">🤖</span>
+            <div>
+              <span class="text-xs font-black text-white uppercase block">Application Native Android</span>
+              <span class="text-[10px] text-emerald-400 font-bold">Suivi GPS matériel écran éteint (Bouton Power)</span>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-300 font-semibold leading-relaxed">
+            Pour éteindre complètement l'écran avec le bouton physique Power sans aucune coupure GPS par Android :
+          </p>
+          <a href="RandoTracker.apk" download="RandoTracker.apk" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg transition active:scale-95 no-underline">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            <span>📥 Télécharger l'Appli Android (RandoTracker.apk)</span>
+          </a>
+        </div>
+
         <!-- BANDEAU PARTENAIRE & AUTONOMIE / BATTERIES GPS AMAZON -->
         <div id="profile-modal-ad-banner" class="rando-ad-banner"></div>
       </div>
@@ -859,7 +882,7 @@
   <!-- MODAL FLOTTANTE : JEAN-LUC DAUSSY 2026 -->
   <!-- ================================================================= -->
   <div id="about-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl p-6 sm:p-7 w-full max-w-sm shadow-2xl space-y-5 text-center relative">
+    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl p-6 sm:p-7 w-full max-w-sm shadow-2xl space-y-4 text-center relative max-h-[92vh] overflow-y-auto">
       <button id="close-about-modal-btn" class="modal-close-btn absolute top-4 right-4" title="Fermer">
         <i data-lucide="x" class="w-7 h-7 text-white stroke-[3]"></i>
       </button>
@@ -873,8 +896,8 @@
         <p class="text-xs text-emerald-400 font-bold mt-1">Application de Suivi de Randonnée & Cartes IGN</p>
       </div>
 
-      <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1.5">
-        <div class="text-xl font-black text-white tracking-wide">
+      <div class="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-1">
+        <div class="text-lg font-black text-white tracking-wide">
           Jean-Luc DAUSSY
         </div>
         <div class="text-sm font-mono font-black text-emerald-400">
@@ -886,7 +909,12 @@
         Cartographie Officielle IGN Géoplateforme & OpenTopoMap • Multi-traces GPX • Synchronisation 4G en direct & Calcul d'ETA.
       </p>
 
-      <button id="ok-about-modal-btn" class="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base shadow-xl shadow-emerald-600/30 active:scale-95 transition">
+      <a href="RandoTracker.apk" download="RandoTracker.apk" class="w-full py-3 px-3 rounded-2xl bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs flex items-center justify-center gap-2 border border-emerald-500/60 shadow-lg active:scale-95 transition no-underline">
+        <span>🤖</span>
+        <span>Télécharger l'App Android (.APK)</span>
+      </a>
+
+      <button id="ok-about-modal-btn" class="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base shadow-xl shadow-emerald-600/30 active:scale-95 transition">
         OK
       </button>
     </div>
@@ -1344,7 +1372,58 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v57 -->
-  <script src="app.js?v=57"></script>
+  <!-- ================================================================= -->
+  <!-- ÉCRAN NOIR MODE POCHE (ANTI-VEILLE & ANTI-FAUX CONTACTS)         -->
+  <!-- ================================================================= -->
+  <div id="pocket-mode-overlay" class="hidden">
+    <!-- Haut : Statut & Sécurité -->
+    <div class="flex flex-col items-center gap-1 pt-4 text-center">
+      <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/60 text-emerald-400 text-xs font-black shadow-lg">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="pocket-gps-status">GPS Actif • Suivi en Poche</span>
+      </div>
+      <div class="pocket-clock-text mt-4" id="pocket-clock">--:--</div>
+      <div class="text-xs text-slate-400 font-bold tracking-wide" id="pocket-date">Dimanche 4 Octobre</div>
+    </div>
+
+    <!-- Milieu : Métriques & Télémétrie -->
+    <div class="flex flex-col items-center gap-3.5 w-full">
+      <div class="pocket-stat-grid">
+        <div class="pocket-stat-box">
+          <div class="pocket-stat-val" id="pocket-speed">0.0 km/h</div>
+          <div class="pocket-stat-lbl">Vitesse</div>
+        </div>
+        <div class="pocket-stat-box">
+          <div class="pocket-stat-val" id="pocket-dist">0.0 km</div>
+          <div class="pocket-stat-lbl">Distance</div>
+        </div>
+        <div class="pocket-stat-box">
+          <div class="pocket-stat-val" id="pocket-ele">-- m</div>
+          <div class="pocket-stat-lbl">Altitude</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 text-xs text-slate-400 font-black">
+        <span id="pocket-battery">🔋 90%</span>
+        <span>•</span>
+        <span id="pocket-room" class="text-emerald-400 font-mono">👥 RANDO-2026</span>
+      </div>
+      
+      <p class="text-[11px] text-slate-500 text-center max-w-xs px-4 font-semibold">
+        Écran noir éco-énergie • Touches verrouillées contre les frottements dans la poche.
+      </p>
+    </div>
+
+    <!-- Bas : Déverrouillage -->
+    <div class="w-full flex flex-col items-center gap-2 pb-4">
+      <button type="button" id="pocket-unlock-btn" onclick="exitPocketMode()" class="pocket-unlock-btn">
+        <i data-lucide="lock-open" class="w-6 h-6 text-emerald-400"></i>
+        <span>Toucher pour Déverrouiller</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Application Script with Cache-Busting v58 -->
+  <script src="app.js?v=58"></script>
 </body>
 </html>

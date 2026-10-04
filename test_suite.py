@@ -191,7 +191,8 @@ required_functions = [
     'makePopupDraggable', 'makeModalDraggable', 'initAllDraggableModals',
     'playAnnouncementAlert', 'adjustPopupZoom', 'checkOnboardingStatus',
     'openOnboardingModal', 'closeOnboardingModal', 'acceptOnboarding',
-    'requestWakeLock', 'releaseWakeLock'
+    'requestWakeLock', 'releaseWakeLock',
+    'enterPocketMode', 'exitPocketMode', 'updatePocketModeTelemetry'
 ]
 
 for fn in required_functions:
@@ -214,7 +215,8 @@ exports_to_test = [
     'openOnboardingModal', 'closeOnboardingModal', 'acceptOnboarding',
     'requestWakeLock', 'releaseWakeLock',
     'checkAndDisplayAppOpenAd', 'closeAppOpenAd', 'renderTrackAdBanner', 'renderProfileAdBanner', 'MONETIZATION_CONFIG',
-    'startBackgroundKeepAlive', 'stopBackgroundKeepAlive', 'startGpsWorkerHeartbeat', 'stopGpsWorkerHeartbeat'
+    'startBackgroundKeepAlive', 'stopBackgroundKeepAlive', 'startGpsWorkerHeartbeat', 'stopGpsWorkerHeartbeat',
+    'enterPocketMode', 'exitPocketMode', 'updatePocketModeTelemetry'
 ]
 
 for fn in exports_to_test:
@@ -269,6 +271,12 @@ run_test("Cartographie : Définition de la couche Swisstopo dans state.layers", 
 run_test("Cartographie : Fonction autoSelectMapLayerForCoords présente", lambda: 'autoSelectMapLayerForCoords' in js_text)
 run_test("Cartographie : Détection automatique Royaume-Uni (UK)", lambda: 'lat >= 49.8 && lat <= 60.9' in js_text)
 run_test("Cartographie : Détection automatique Suisse (CH)", lambda: 'lat >= 45.8 && lat <= 47.85' in js_text)
+
+# Tests Mode Poche Anti-Veille & Éco-Énergie
+run_test("Mode Poche : Bouton flottant présent dans le DOM (#btn-enter-pocket-mode)", lambda: bool(soup.find(id='btn-enter-pocket-mode')))
+run_test("Mode Poche : Écran noir anti-tactile défini dans le DOM (#pocket-mode-overlay)", lambda: bool(soup.find(id='pocket-mode-overlay')))
+run_test("Mode Poche : Bouton déverrouillage présent (#pocket-unlock-btn)", lambda: bool(soup.find(id='pocket-unlock-btn')))
+run_test("Application Native : Fichier RandoTracker.apk généré et présent à la racine", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) and os.path.getsize(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) > 1000000)
 
 
 # ----------------------------------------------------------------------
@@ -372,9 +380,10 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=57',
-    'http://127.0.0.1:8000/app.js?v=57',
+    'http://127.0.0.1:8000/styles.css?v=58',
+    'http://127.0.0.1:8000/app.js?v=58',
     'http://127.0.0.1:8000/sw.js',
+    'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
 ]
 

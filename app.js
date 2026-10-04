@@ -874,9 +874,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=57')
+    navigator.serviceWorker.register('./sw.js?v=58')
       .then((reg) => {
-        console.log('[PWA] Service Worker v57 actif:', reg.scope);
+        console.log('[PWA] Service Worker v58 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -3164,6 +3164,90 @@ function toggleGps() {
     }
     state.gpsStartTime = Date.now();
     startGpsWatch(true);
+  }
+}
+
+// ============================================================================
+// MODE POCHE ÉCO-ÉNERGIE & ANTI-VEILLE TACTILE (POUR NAVIGATEURS MOBILES)
+// ============================================================================
+let pocketModeInterval = null;
+
+function enterPocketMode() {
+  const overlay = document.getElementById('pocket-mode-overlay');
+  if (!overlay) return;
+
+  // 1. S'assurer que le suivi GPS est bien démarré
+  if (!state.isTrackingGps) {
+    state.gpsStartTime = Date.now();
+    startGpsWatch(true);
+  }
+
+  // 2. Maintien forcé de l'écran éveillé et du flux GPS via WakeLock
+  requestWakeLock();
+  startBackgroundKeepAlive();
+
+  // 3. Afficher l'écran noir ultra-économe
+  overlay.classList.remove('hidden');
+  pushModalState('pocket-mode-overlay');
+
+  // 4. Mettre à jour l'horloge et la télémétrie en direct
+  updatePocketModeTelemetry();
+  if (pocketModeInterval) clearInterval(pocketModeInterval);
+  pocketModeInterval = setInterval(updatePocketModeTelemetry, 1000);
+
+  showToast('🔒 Mode Poche activé : Écran noir économe & touches sécurisées', 'success');
+}
+
+function exitPocketMode() {
+  const overlay = document.getElementById('pocket-mode-overlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+  if (pocketModeInterval) {
+    clearInterval(pocketModeInterval);
+    pocketModeInterval = null;
+  }
+  showToast('🔓 Écran déverrouillé', 'info');
+}
+
+function updatePocketModeTelemetry() {
+  const overlay = document.getElementById('pocket-mode-overlay');
+  if (!overlay || overlay.classList.contains('hidden')) return;
+
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const clockEl = document.getElementById('pocket-clock');
+  if (clockEl) clockEl.textContent = `${hours}:${minutes}`;
+
+  const dateEl = document.getElementById('pocket-date');
+  if (dateEl) {
+    const options = { weekday: 'long', day: 'numeric', month: 'long' };
+    dateEl.textContent = now.toLocaleDateString('fr-FR', options);
+  }
+
+  const speedEl = document.getElementById('pocket-speed');
+  const distEl = document.getElementById('pocket-dist');
+  const eleEl = document.getElementById('pocket-ele');
+  const batteryEl = document.getElementById('pocket-battery');
+  const roomEl = document.getElementById('pocket-room');
+  const gpsStatusEl = document.getElementById('pocket-gps-status');
+
+  const speedVal = (state.myUser.movingAvgSpeed && state.myUser.movingAvgSpeed > 0)
+    ? state.myUser.movingAvgSpeed.toFixed(1)
+    : (state.myUser.speed || 0).toFixed(1);
+  if (speedEl) speedEl.textContent = `${speedVal} km/h`;
+
+  const distVal = state.myUser.movingDistance || 0;
+  if (distEl) distEl.textContent = `${distVal.toFixed(1)} km`;
+
+  if (eleEl) eleEl.textContent = `${Math.round(state.myUser.ele || 0)} m`;
+  if (batteryEl) batteryEl.textContent = `🔋 ${state.myUser.battery || 90}%`;
+  if (roomEl) roomEl.textContent = `👥 ${state.roomCode}`;
+
+  if (gpsStatusEl) {
+    const acc = state.myUser.accuracy ? ` (±${Math.round(state.myUser.accuracy)}m)` : '';
+    gpsStatusEl.textContent = `GPS Actif${acc} • Suivi en Poche`;
   }
 }
 
@@ -5494,6 +5578,9 @@ window.startBackgroundKeepAlive = startBackgroundKeepAlive;
 window.stopBackgroundKeepAlive = stopBackgroundKeepAlive;
 window.startGpsWorkerHeartbeat = startGpsWorkerHeartbeat;
 window.stopGpsWorkerHeartbeat = stopGpsWorkerHeartbeat;
+window.enterPocketMode = enterPocketMode;
+window.exitPocketMode = exitPocketMode;
+window.updatePocketModeTelemetry = updatePocketModeTelemetry;
 
 
 

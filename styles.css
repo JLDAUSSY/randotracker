@@ -1389,4 +1389,90 @@ main {
   }
 }
 
+/* ========================================================================== */
+/* MODE POCHE ANTI-VEILLE & ÉCO-ÉNERGIE (POUR SUIVI EN POCHE DANS LE NAVIGATEUR) */
+/* ========================================================================== */
+#pocket-mode-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background-color: #000000 !important;
+  z-index: 5000 !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: calc(var(--sat) + 20px) 20px calc(var(--sab) + 24px) 20px;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.pocket-clock-text {
+  font-size: 52px;
+  font-weight: 900;
+  font-family: monospace;
+  color: #f8fafc;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.pocket-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.pocket-stat-box {
+  background: #090d16;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.pocket-stat-val {
+  font-size: 17px;
+  font-weight: 900;
+  color: #10b981;
+  font-family: monospace;
+}
+
+.pocket-stat-lbl {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.pocket-unlock-btn {
+  width: 100%;
+  max-width: 340px;
+  padding: 18px 24px;
+  background: linear-gradient(135deg, #0f172a 0%, #022c22 100%);
+  border: 2px solid #10b981;
+  border-radius: 24px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.pocket-unlock-btn:active {
+  transform: scale(0.96);
+  background: #064e3b;
+}
+
 
