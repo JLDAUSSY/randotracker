@@ -67,15 +67,6 @@ public class RandoMainActivity extends LauncherActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQ_CODE) {
             startGpsService();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(
-                        this,
-                        new String[]{Manifest.permission.ACCESS_BACKGROUND_LOCATION},
-                        PERMISSION_REQ_CODE + 1
-                    );
-                }
-            }
         }
     }
 }
