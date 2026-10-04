@@ -174,6 +174,32 @@ const state = {
 };
 
 // ============================================================================
+// PONT NATIF ANDROID : SYNCHRONISATION ARRIÈRE-PLAN ÉCRAN ÉTEINT
+// ============================================================================
+function syncNativeAndroidSession() {
+  if (window.AndroidBridge && typeof window.AndroidBridge.updateSession === 'function') {
+    try {
+      window.AndroidBridge.updateSession(
+        state.roomCode || 'RANDO-2026',
+        state.myUser.id,
+        state.myUser.name || 'Randonneur',
+        state.myUser.icon || '🥾',
+        state.myUser.color || '#10b981',
+        state.myUser.assignedTrackId || 'auto',
+        state.isTrackingGps !== false
+      );
+      console.log('[NativeBridge] Session synchronisée avec Android Service:', state.roomCode, state.myUser.name);
+    } catch (e) {
+      console.warn('[NativeBridge] Erreur sync session:', e);
+    }
+  }
+}
+
+window.onNativeAndroidReady = function() {
+  syncNativeAndroidSession();
+};
+
+// ============================================================================
 // NOTIFICATIONS TOAST HAUTE VISIBILITÉ
 // ============================================================================
 function showToast(msg, type = 'info') {
@@ -3507,6 +3533,7 @@ function broadcastMyPosition() {
   state.myUser.lastSeen = Date.now();
   createOrUpdateUserMarker(state.myUser);
   renderUsersList();
+  syncNativeAndroidSession();
 
   publishMessage({
     type: 'update_position',
@@ -5305,6 +5332,7 @@ function bootApp() {
   try { loadUserProfile(); } catch(e) { console.error('[Init UserProfile]', e); }
   try { setupEventListeners(); } catch(e) { console.error('[Init EventListeners]', e); }
   try { initRealtimeSync(); } catch(e) { console.error('[Init RealtimeSync]', e); }
+  try { syncNativeAndroidSession(); setInterval(syncNativeAndroidSession, 4000); } catch(e) { console.error('[Init AndroidBridge]', e); }
   try { initPixelSanctuaryGuardians(); } catch(e) { console.error('[Init PixelGuardians]', e); }
   try { initAllDraggableModals(); } catch(e) { console.error('[Init DraggableModals]', e); }
 
