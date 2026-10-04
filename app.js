@@ -3358,8 +3358,8 @@ function copyInviteLink() {
 // ============================================================================
 let mqttClient = null;
 const MQTT_BROKERS = [
-  'wss://broker.hivemq.com:8884/mqtt',
-  'wss://broker.emqx.io:8084/mqtt'
+  'wss://broker.emqx.io:8084/mqtt',
+  'wss://broker.hivemq.com:8884/mqtt'
 ];
 let currentBrokerIndex = 0;
 let mqttErrorCount = 0;
@@ -4806,6 +4806,7 @@ function setupEventListeners() {
           updateRoomDisplay();
           loadSavedOtherUsersFromStorage();
           initMqttSync();
+          syncNativeAndroidSession();
           saveHikeSessionToStorage();
         }
         roomModal.classList.add('hidden');

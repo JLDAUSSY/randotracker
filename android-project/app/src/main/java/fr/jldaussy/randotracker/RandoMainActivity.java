@@ -346,7 +346,7 @@ public class RandoMainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.2.0 (14)";
+            return "1.2.1 (15)";
         }
 
         @JavascriptInterface

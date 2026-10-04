@@ -75,10 +75,10 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
     private double totalDistanceMeters = 0.0;
     private int batteryPct = 100;
     private static final String[] BROKERS = {
-        "ssl://broker.hivemq.com:8883",
         "ssl://broker.emqx.io:8883",
-        "tcp://broker.hivemq.com:1883",
-        "tcp://broker.emqx.io:1883"
+        "tcp://broker.emqx.io:1883",
+        "ssl://broker.hivemq.com:8883",
+        "tcp://broker.hivemq.com:1883"
     };
     private int currentBrokerIndex = 0;
     private boolean isConnectingMqtt = false;
@@ -377,11 +377,54 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
                 String topic = "randotracker/v1/rooms/" + sanitizedRoom + "/events";
                 mqttClient.subscribe(topic, 0);
 
+                publishUserJoinedToMqtt();
+
             } catch (Exception e) {
                 Log.w(TAG, "Erreur connexion MQTT: " + e.getMessage());
                 currentBrokerIndex = (currentBrokerIndex + 1) % BROKERS.length;
             } finally {
                 isConnectingMqtt = false;
+            }
+        }).start();
+    }
+
+    private void publishUserJoinedToMqtt() {
+        new Thread(() -> {
+            try {
+                if (mqttClient == null || !mqttClient.isConnected()) return;
+                long now = System.currentTimeMillis();
+                JSONObject userObj = new JSONObject();
+                userObj.put("id", userId);
+                userObj.put("name", userName);
+                userObj.put("role", "Randonneur");
+                userObj.put("icon", userIcon);
+                userObj.put("color", userColor);
+                userObj.put("assignedTrackId", assignedTrackId);
+                if (lastLocation != null) {
+                    userObj.put("lat", lastLocation.getLatitude());
+                    userObj.put("lon", lastLocation.getLongitude());
+                    userObj.put("ele", Math.round(lastLocation.hasAltitude() ? lastLocation.getAltitude() : 0.0));
+                    userObj.put("speed", Math.round((lastLocation.hasSpeed() ? lastLocation.getSpeed() * 3.6 : 0.0) * 10.0) / 10.0);
+                }
+                userObj.put("battery", batteryPct);
+                userObj.put("lastSeen", now);
+
+                JSONObject payload = new JSONObject();
+                payload.put("type", "user_joined");
+                payload.put("room", roomCode);
+                payload.put("senderId", userId);
+                payload.put("timestamp", now);
+                payload.put("user", userObj);
+
+                String sanitizedRoom = roomCode.replaceAll("[^a-zA-Z0-9_-]", "_");
+                String topic = "randotracker/v1/rooms/" + sanitizedRoom + "/events";
+
+                MqttMessage msg = new MqttMessage(payload.toString().getBytes("UTF-8"));
+                msg.setQos(0);
+                mqttClient.publish(topic, msg);
+                Log.d(TAG, "Notification user_joined diffusee sur " + topic + " pour " + userName);
+            } catch (Exception e) {
+                Log.w(TAG, "Erreur publishUserJoinedToMqtt: " + e.getMessage());
             }
         }).start();
     }
@@ -454,6 +497,7 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_UPDATE_SESSION.equals(intent.getAction())) {
             String newRoom = intent.getStringExtra(EXTRA_ROOM);
+            boolean roomChanged = newRoom != null && !newRoom.isEmpty() && !newRoom.equals(roomCode);
             if (newRoom != null && !newRoom.isEmpty()) roomCode = newRoom;
             
             String newUid = intent.getStringExtra(EXTRA_USER_ID);
@@ -474,6 +518,19 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             isTrackingActive = intent.getBooleanExtra(EXTRA_IS_TRACKING, true);
 
             Log.d(TAG, "Session mise a jour : Salon=" + roomCode + ", User=" + userName + " (" + userId + ")");
+
+            if (roomChanged && mqttClient != null && mqttClient.isConnected()) {
+                try {
+                    String sanitizedRoom = roomCode.replaceAll("[^a-zA-Z0-9_-]", "_");
+                    String topic = "randotracker/v1/rooms/" + sanitizedRoom + "/events";
+                    mqttClient.subscribe(topic, 0);
+                    publishUserJoinedToMqtt();
+                } catch (Exception e) {
+                    Log.w(TAG, "Erreur resouscription MQTT salon", e);
+                }
+            } else if (mqttClient == null || !mqttClient.isConnected()) {
+                initMqttConnection();
+            }
 
             if (lastLocation != null) {
                 updateNotification(lastLocation);
