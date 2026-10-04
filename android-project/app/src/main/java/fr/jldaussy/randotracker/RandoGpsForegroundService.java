@@ -86,110 +86,126 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
     @Override
     public void onCreate() {
         super.onCreate();
-        loadSavedPreferences();
-        createNotificationChannel();
-        startForegroundTracking();
-        acquirePartialWakeLock();
-        initLocationProviders();
-        initMqttConnection();
+        try {
+            loadSavedPreferences();
+            createNotificationChannel();
+            startForegroundTracking();
+            acquirePartialWakeLock();
+            initLocationProviders();
+            initMqttConnection();
+        } catch (Throwable t) {
+            Log.e(TAG, "Erreur dans Service onCreate", t);
+        }
     }
 
     private void loadSavedPreferences() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        roomCode = prefs.getString("room_code", "RANDO-2026");
-        userId = prefs.getString("user_id", "u_native_" + System.currentTimeMillis());
-        userName = prefs.getString("user_name", "Randonneur");
-        userIcon = prefs.getString("user_icon", "🥾");
-        userColor = prefs.getString("user_color", "#10b981");
-        assignedTrackId = prefs.getString("assigned_track_id", "auto");
-        isTrackingActive = prefs.getBoolean("is_tracking", true);
-        Log.d(TAG, "Prefs chargees: Salon=" + roomCode + ", User=" + userName + " (" + userId + ")");
+        try {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            roomCode = prefs.getString("room_code", "RANDO-2026");
+            userId = prefs.getString("user_id", "u_native_" + System.currentTimeMillis());
+            userName = prefs.getString("user_name", "Randonneur");
+            userIcon = prefs.getString("user_icon", "🥾");
+            userColor = prefs.getString("user_color", "#10b981");
+            assignedTrackId = prefs.getString("assigned_track_id", "auto");
+            isTrackingActive = prefs.getBoolean("is_tracking", true);
+            Log.d(TAG, "Prefs chargees: Salon=" + roomCode + ", User=" + userName + " (" + userId + ")");
+        } catch (Throwable t) {
+            Log.e(TAG, "Erreur loadSavedPreferences", t);
+        }
     }
 
     public static void updateSession(Context context, String room, String uid, String name, String icon, String color, String trackId, boolean isTracking) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit()
-            .putString("room_code", room)
-            .putString("user_id", uid)
-            .putString("user_name", name)
-            .putString("user_icon", icon)
-            .putString("user_color", color)
-            .putString("assigned_track_id", trackId)
-            .putBoolean("is_tracking", isTracking)
-            .apply();
+        try {
+            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit()
+                .putString("room_code", room)
+                .putString("user_id", uid)
+                .putString("user_name", name)
+                .putString("user_icon", icon)
+                .putString("user_color", color)
+                .putString("assigned_track_id", trackId)
+                .putBoolean("is_tracking", isTracking)
+                .apply();
 
-        Intent intent = new Intent(context, RandoGpsForegroundService.class);
-        intent.setAction(ACTION_UPDATE_SESSION);
-        intent.putExtra(EXTRA_ROOM, room);
-        intent.putExtra(EXTRA_USER_ID, uid);
-        intent.putExtra(EXTRA_USER_NAME, name);
-        intent.putExtra(EXTRA_USER_ICON, icon);
-        intent.putExtra(EXTRA_USER_COLOR, color);
-        intent.putExtra(EXTRA_TRACK_ID, trackId);
-        intent.putExtra(EXTRA_IS_TRACKING, isTracking);
+            Intent intent = new Intent(context, RandoGpsForegroundService.class);
+            intent.setAction(ACTION_UPDATE_SESSION);
+            intent.putExtra(EXTRA_ROOM, room);
+            intent.putExtra(EXTRA_USER_ID, uid);
+            intent.putExtra(EXTRA_USER_NAME, name);
+            intent.putExtra(EXTRA_USER_ICON, icon);
+            intent.putExtra(EXTRA_USER_COLOR, color);
+            intent.putExtra(EXTRA_TRACK_ID, trackId);
+            intent.putExtra(EXTRA_IS_TRACKING, isTracking);
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent);
-        } else {
-            context.startService(intent);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent);
+            } else {
+                context.startService(intent);
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "Erreur updateSession", t);
         }
     }
 
     private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID,
-                "Suivi GPS RandoTracker",
-                NotificationManager.IMPORTANCE_LOW
-            );
-            channel.setDescription("Maintient le suivi GPS actif dans la poche écran éteint");
-            channel.setShowBadge(false);
-            channel.enableVibration(false);
-            channel.enableLights(false);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Suivi GPS RandoTracker",
+                    NotificationManager.IMPORTANCE_LOW
+                );
+                channel.setDescription("Maintient le suivi GPS actif dans la poche écran éteint");
+                channel.setShowBadge(false);
+                channel.enableVibration(false);
+                channel.enableLights(false);
 
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
+                NotificationManager manager = getSystemService(NotificationManager.class);
+                if (manager != null) {
+                    manager.createNotificationChannel(channel);
+                }
             }
+        } catch (Throwable t) {
+            Log.e(TAG, "Erreur createNotificationChannel", t);
         }
     }
 
     private void startForegroundTracking() {
-        Intent launchIntent = new Intent(this, RandoMainActivity.class);
-        launchIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        
-        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            flags |= PendingIntent.FLAG_IMMUTABLE;
-        }
-        
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, launchIntent, flags);
-
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("🥾 RandoTracker • Suivi GPS actif")
-            .setContentText("Position partagée en direct (écran allumé ou éteint dans la poche)")
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setOngoing(true)
-            .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build();
-
         try {
+            Intent launchIntent = new Intent(this, RandoMainActivity.class);
+            launchIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                flags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+            
+            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, launchIntent, flags);
+
+            Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("🥾 RandoTracker • Suivi GPS actif")
+                .setContentText("Position partagée en direct (écran allumé ou éteint dans la poche)")
+                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+                .setOngoing(true)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .build();
+
             boolean hasFine = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
             boolean hasCoarse = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && (hasFine || hasCoarse)) {
                 try {
                     startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
-                } catch (Exception e) {
+                } catch (Throwable t) {
                     startForeground(NOTIFICATION_ID, notification);
                 }
             } else {
                 startForeground(NOTIFICATION_ID, notification);
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Erreur startForegroundTracking", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "Erreur startForegroundTracking", t);
         }
     }
 
@@ -211,7 +227,7 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle(userIcon + " " + userName + " • Suivi GPS en direct")
                 .setContentText(text)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
                 .setOngoing(true)
                 .setContentIntent(pendingIntent)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -222,8 +238,8 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             if (manager != null) {
                 manager.notify(NOTIFICATION_ID, notification);
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Erreur mise a jour notification", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "Erreur mise a jour notification", t);
         }
     }
 

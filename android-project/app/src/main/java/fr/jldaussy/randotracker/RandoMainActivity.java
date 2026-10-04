@@ -41,6 +41,9 @@ public class RandoMainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            Log.e("RandoCrashGuard", "Caught uncaught exception in " + thread.getName(), throwable);
+        });
 
         // Setup container et WebView plein ecran
         FrameLayout rootLayout = new FrameLayout(this);
