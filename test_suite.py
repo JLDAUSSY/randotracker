@@ -261,6 +261,15 @@ run_test("Bandeau Amazon Partenaire défini dans Modale Profil (#profile-modal-a
 run_test("Tag Partenaire Amazon configuré (watermetrics-21)", lambda: "tag: 'watermetrics-21'" in js_text or 'watermetrics-21' in js_text)
 run_test("Styles CSS Pub : .app-open-ad-card & .rando-ad-banner définis", lambda: '.app-open-ad-card' in css_text and '.rando-ad-banner' in css_text)
 
+# Tests Cartographie Internationale (UK Ordnance / Topo & Swisstopo & Auto-sélection)
+run_test("Cartographie UK : Bouton UK Ordnance / Topo Trails dans #layer-modal", lambda: 'data-layer="uk_topo"' in html_text)
+run_test("Cartographie Suisse : Bouton Swisstopo Alpin dans #layer-modal", lambda: 'data-layer="swisstopo"' in html_text)
+run_test("Cartographie : Définition de la couche UK Topo dans state.layers", lambda: 'state.layers.uk_topo' in js_text and 'Ordnance' in js_text)
+run_test("Cartographie : Définition de la couche Swisstopo dans state.layers", lambda: 'state.layers.swisstopo' in js_text and 'wmts.geo.admin.ch' in js_text)
+run_test("Cartographie : Fonction autoSelectMapLayerForCoords présente", lambda: 'autoSelectMapLayerForCoords' in js_text)
+run_test("Cartographie : Détection automatique Royaume-Uni (UK)", lambda: 'lat >= 49.8 && lat <= 60.9' in js_text)
+run_test("Cartographie : Détection automatique Suisse (CH)", lambda: 'lat >= 45.8 && lat <= 47.85' in js_text)
+
 
 # ----------------------------------------------------------------------
 # 5. SIMULATION & TESTS ALGORITHMIQUES (DÉDUPLICATION, TÉLÉMÉTRIE, HAVERSINE, RÉTENTION 5H)

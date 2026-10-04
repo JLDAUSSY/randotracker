@@ -938,7 +938,32 @@ function initMap() {
     }
   );
 
-  // 3. Fond OpenTopoMap (Courbes de niveau & Sentiers Monde) - Optimisé
+  // 3. Fond UK Ordnance / Topo (Sentiers & Relief Royaume-Uni) - Optimisé
+  state.layers.uk_topo = L.tileLayer(
+    'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    {
+      maxZoom: 17,
+      attribution: '&copy; <a href="https://www.ordnancesurvey.co.uk/" target="_blank">Ordnance Survey OpenData</a> & OpenTopoMap UK',
+      subdomains: 'abc',
+      updateWhenIdle: true,
+      updateInterval: 150,
+      keepBuffer: 1
+    }
+  );
+
+  // 4. Fond Swisstopo (Carte Nationale Suisse Alpin Topo) - Optimisé
+  state.layers.swisstopo = L.tileLayer(
+    'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
+    {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.swisstopo.admin.ch/" target="_blank">swisstopo</a>',
+      updateWhenIdle: true,
+      updateInterval: 150,
+      keepBuffer: 1
+    }
+  );
+
+  // 5. Fond OpenTopoMap (Courbes de niveau & Sentiers Monde) - Optimisé
   state.layers.opentopo = L.tileLayer(
     'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     {
@@ -1079,6 +1104,8 @@ function setBaseLayer(layerKey) {
   const names = {
     ign: 'IGN France',
     ign_es: 'IGN España',
+    uk_topo: 'UK Ordnance',
+    swisstopo: 'Swisstopo',
     opentopo: 'OpenTopoMap',
     satellite: 'IGN Satellite',
     osm: 'OSM Standard'
@@ -1110,7 +1137,17 @@ function detectCountry(lat, lon) {
     return 'FR';
   }
 
-  // 1. ESPAGNE (ES)
+  // 1. ROYAUME-UNI (UK : Angleterre, Écosse, Pays de Galles, Irlande du Nord)
+  if (lat >= 49.8 && lat <= 60.9 && lon >= -8.6 && lon <= 1.8) {
+    return 'UK';
+  }
+
+  // 2. SUISSE (CH)
+  if (lat >= 45.8 && lat <= 47.85 && lon >= 5.95 && lon <= 10.5) {
+    return 'CH';
+  }
+
+  // 3. ESPAGNE (ES)
   // Îles Canaries
   if (lat >= 27.0 && lat <= 29.8 && lon >= -18.5 && lon <= -13.0) return 'ES';
   // Îles Baléares (Majorque, Minorque, Ibiza, Formentera)
@@ -1125,7 +1162,7 @@ function detectCountry(lat, lon) {
     return 'ES';
   }
 
-  // 2. FRANCE (FR)
+  // 4. FRANCE (FR)
   // DROM-COM
   if (lat >= -21.5 && lat <= -20.8 && lon >= 55.1 && lon <= 56.0) return 'FR'; // La Réunion
   if (lat >= 15.8 && lat <= 16.6 && lon >= -61.9 && lon <= -61.0) return 'FR'; // Guadeloupe
@@ -1134,11 +1171,8 @@ function detectCountry(lat, lon) {
   if (lat >= -13.1 && lat <= -12.5 && lon >= 45.0 && lon <= 45.4) return 'FR'; // Mayotte
   // Corse
   if (lat >= 41.3 && lat <= 43.1 && lon >= 8.5 && lon <= 9.6) return 'FR';
-  // France Métropolitaine (avec exclusion fine des Alpes suisses/italiennes)
+  // France Métropolitaine
   if (lat >= 42.3 && lat <= 51.2 && lon >= -5.2 && lon <= 8.3) {
-    if ((lat >= 45.8 && lon >= 7.1) || (lat >= 46.2 && lon >= 6.2)) {
-      return 'OTHER';
-    }
     return 'FR';
   }
 
@@ -1149,21 +1183,33 @@ function autoSelectMapLayerForCoords(lat, lon, reason = 'gps') {
   const country = detectCountry(lat, lon);
   const current = state.activeLayerName;
 
-  if (country === 'ES') {
+  if (country === 'UK') {
+    if (current !== 'uk_topo' && current !== 'satellite') {
+      setBaseLayer('uk_topo');
+      const prefix = reason === 'gpx' ? '🇬🇧 Trace au Royaume-Uni' : '🇬🇧 Position au Royaume-Uni';
+      showToast(`${prefix} : Fond UK Ordnance / Topo activé`, 'info');
+    }
+  } else if (country === 'ES') {
     if (current !== 'ign_es' && current !== 'satellite') {
       setBaseLayer('ign_es');
       const prefix = reason === 'gpx' ? '🇪🇸 Trace en Espagne' : '🇪🇸 Position en Espagne';
       showToast(`${prefix} : Fond IGN España (MTN Topo) activé`, 'info');
     }
+  } else if (country === 'CH') {
+    if (current !== 'swisstopo' && current !== 'satellite') {
+      setBaseLayer('swisstopo');
+      const prefix = reason === 'gpx' ? '🇨🇭 Trace en Suisse' : '🇨🇭 Position en Suisse';
+      showToast(`${prefix} : Fond Swisstopo activé`, 'info');
+    }
   } else if (country === 'FR') {
-    if (current === 'ign_es') {
+    if (current === 'ign_es' || current === 'uk_topo' || current === 'swisstopo') {
       setBaseLayer('ign');
       const prefix = reason === 'gpx' ? '🇫🇷 Trace en France' : '🇫🇷 Position en France';
       showToast(`${prefix} : Fond IGN France activé`, 'info');
     }
   } else {
-    // Zone internationale (Suisse, Italie, etc.)
-    if (current === 'ign' || current === 'ign_es') {
+    // Zone internationale (Italie, etc.)
+    if (current === 'ign' || current === 'ign_es' || current === 'uk_topo' || current === 'swisstopo') {
       setBaseLayer('opentopo');
       const prefix = reason === 'gpx' ? '🏔️ Trace internationale' : '🏔️ Position internationale';
       showToast(`${prefix} : Fond OpenTopoMap activé`, 'info');
