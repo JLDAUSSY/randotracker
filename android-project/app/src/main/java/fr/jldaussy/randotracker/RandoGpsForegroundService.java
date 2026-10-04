@@ -17,13 +17,7 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import androidx.core.app.NotificationCompat;
 
-/**
- * Service Natif Android Foreground Location pour RandoTracker.
- * Maintient le récepteur GPS actif en continu avec une consommation d'énergie
- * minimale même lorsque l'écran est éteint (téléphone dans la poche).
- */
 public class RandoGpsForegroundService extends Service {
-
     public static final String CHANNEL_ID = "rando_gps_tracking_channel";
     public static final int NOTIFICATION_ID = 2026;
     
@@ -92,7 +86,7 @@ public class RandoGpsForegroundService extends Service {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (pm != null) {
                 wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "RandoTracker::NativeGpsWakeLock");
-                wakeLock.acquire(12 * 3600 * 1000L); // Max 12 heures de randonnée
+                wakeLock.acquire(12 * 3600 * 1000L);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -105,36 +99,21 @@ public class RandoGpsForegroundService extends Service {
 
         locationListener = new LocationListener() {
             @Override
-            public void onLocationChanged(Location location) {
-                // Le récepteur GPS matériel reste cadencé pour le système et l'application web TWA
-            }
-
+            public void onLocationChanged(Location location) {}
             @Override
             public void onStatusChanged(String provider, int status, Bundle extras) {}
-
             @Override
             public void onProviderEnabled(String provider) {}
-
             @Override
             public void onProviderDisabled(String provider) {}
         };
 
         try {
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                locationManager.requestLocationUpdates(
-                    LocationManager.GPS_PROVIDER,
-                    2000L, // 2 secondes
-                    0.0f,  // 0 mètres
-                    locationListener
-                );
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 0.0f, locationListener);
             }
             if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                locationManager.requestLocationUpdates(
-                    LocationManager.NETWORK_PROVIDER,
-                    3000L,
-                    0.0f,
-                    locationListener
-                );
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 3000L, 0.0f, locationListener);
             }
         } catch (SecurityException se) {
             se.printStackTrace();
@@ -150,14 +129,10 @@ public class RandoGpsForegroundService extends Service {
     public void onDestroy() {
         super.onDestroy();
         if (locationManager != null && locationListener != null) {
-            try {
-                locationManager.removeUpdates(locationListener);
-            } catch (Exception e) {}
+            try { locationManager.removeUpdates(locationListener); } catch (Exception e) {}
         }
         if (wakeLock != null && wakeLock.isHeld()) {
-            try {
-                wakeLock.release();
-            } catch (Exception e) {}
+            try { wakeLock.release(); } catch (Exception e) {}
         }
     }
 
