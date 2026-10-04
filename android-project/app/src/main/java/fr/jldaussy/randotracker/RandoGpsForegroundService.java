@@ -80,12 +80,18 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
         "ssl://broker.hivemq.com:8883",
         "tcp://broker.hivemq.com:1883"
     };
+    private static volatile RandoGpsForegroundService sInstance = null;
     private int currentBrokerIndex = 0;
     private boolean isConnectingMqtt = false;
+
+    public static RandoGpsForegroundService getInstance() {
+        return sInstance;
+    }
 
     @Override
     public void onCreate() {
         super.onCreate();
+        sInstance = this;
         try {
             loadSavedPreferences();
             createNotificationChannel();
@@ -114,33 +120,80 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
         }
     }
 
+    public void updateSessionDirect(String room, String uid, String name, String icon, String color, String trackId, boolean isTracking) {
+        try {
+            boolean roomChanged = room != null && !room.isEmpty() && !room.equals(roomCode);
+            if (room != null && !room.isEmpty()) roomCode = room;
+            if (uid != null && !uid.isEmpty()) userId = uid;
+            if (name != null && !name.isEmpty()) userName = name;
+            if (icon != null && !icon.isEmpty()) userIcon = icon;
+            if (color != null && !color.isEmpty()) userColor = color;
+            if (trackId != null && !trackId.isEmpty()) assignedTrackId = trackId;
+            isTrackingActive = isTracking;
+
+            Log.d(TAG, "Session mise a jour directe (in-memory) : Salon=" + roomCode + ", User=" + userName + " (" + userId + ")");
+
+            if (roomChanged && mqttClient != null && mqttClient.isConnected()) {
+                new Thread(() -> {
+                    try {
+                        String sanitizedRoom = roomCode.replaceAll("[^a-zA-Z0-9_-]", "_");
+                        String topic = "randotracker/v1/rooms/" + sanitizedRoom + "/events";
+                        mqttClient.subscribe(topic, 0);
+                        publishUserJoinedToMqtt();
+                    } catch (Exception e) {
+                        Log.w(TAG, "Erreur resouscription MQTT salon", e);
+                    }
+                }).start();
+            } else if (mqttClient == null || !mqttClient.isConnected()) {
+                initMqttConnection();
+            }
+
+            if (lastLocation != null) {
+                updateNotification(lastLocation);
+                publishGpsLocationToMqtt(lastLocation);
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "Erreur updateSessionDirect", t);
+        }
+    }
+
     public static void updateSession(Context context, String room, String uid, String name, String icon, String color, String trackId, boolean isTracking) {
         try {
-            SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            prefs.edit()
-                .putString("room_code", room)
-                .putString("user_id", uid)
-                .putString("user_name", name)
-                .putString("user_icon", icon)
-                .putString("user_color", color)
-                .putString("assigned_track_id", trackId)
-                .putBoolean("is_tracking", isTracking)
-                .apply();
+            if (context != null) {
+                SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                prefs.edit()
+                    .putString("room_code", room)
+                    .putString("user_id", uid)
+                    .putString("user_name", name)
+                    .putString("user_icon", icon)
+                    .putString("user_color", color)
+                    .putString("assigned_track_id", trackId)
+                    .putBoolean("is_tracking", isTracking)
+                    .apply();
+            }
 
-            Intent intent = new Intent(context, RandoGpsForegroundService.class);
-            intent.setAction(ACTION_UPDATE_SESSION);
-            intent.putExtra(EXTRA_ROOM, room);
-            intent.putExtra(EXTRA_USER_ID, uid);
-            intent.putExtra(EXTRA_USER_NAME, name);
-            intent.putExtra(EXTRA_USER_ICON, icon);
-            intent.putExtra(EXTRA_USER_COLOR, color);
-            intent.putExtra(EXTRA_TRACK_ID, trackId);
-            intent.putExtra(EXTRA_IS_TRACKING, isTracking);
+            // Si le service est déjà actif en mémoire, mise à jour directe sans déclencher de cycle IPC / Service Start
+            if (sInstance != null) {
+                sInstance.updateSessionDirect(room, uid, name, icon, color, trackId, isTracking);
+                return;
+            }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent);
-            } else {
-                context.startService(intent);
+            if (context != null) {
+                Intent intent = new Intent(context, RandoGpsForegroundService.class);
+                intent.setAction(ACTION_UPDATE_SESSION);
+                intent.putExtra(EXTRA_ROOM, room);
+                intent.putExtra(EXTRA_USER_ID, uid);
+                intent.putExtra(EXTRA_USER_NAME, name);
+                intent.putExtra(EXTRA_USER_ICON, icon);
+                intent.putExtra(EXTRA_USER_COLOR, color);
+                intent.putExtra(EXTRA_TRACK_ID, trackId);
+                intent.putExtra(EXTRA_IS_TRACKING, isTracking);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent);
+                } else {
+                    context.startService(intent);
+                }
             }
         } catch (Throwable t) {
             Log.e(TAG, "Erreur updateSession", t);
@@ -497,45 +550,13 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_UPDATE_SESSION.equals(intent.getAction())) {
             String newRoom = intent.getStringExtra(EXTRA_ROOM);
-            boolean roomChanged = newRoom != null && !newRoom.isEmpty() && !newRoom.equals(roomCode);
-            if (newRoom != null && !newRoom.isEmpty()) roomCode = newRoom;
-            
             String newUid = intent.getStringExtra(EXTRA_USER_ID);
-            if (newUid != null && !newUid.isEmpty()) userId = newUid;
-
             String newName = intent.getStringExtra(EXTRA_USER_NAME);
-            if (newName != null && !newName.isEmpty()) userName = newName;
-
             String newIcon = intent.getStringExtra(EXTRA_USER_ICON);
-            if (newIcon != null && !newIcon.isEmpty()) userIcon = newIcon;
-
             String newColor = intent.getStringExtra(EXTRA_USER_COLOR);
-            if (newColor != null && !newColor.isEmpty()) userColor = newColor;
-
             String newTrackId = intent.getStringExtra(EXTRA_TRACK_ID);
-            if (newTrackId != null && !newTrackId.isEmpty()) assignedTrackId = newTrackId;
-
-            isTrackingActive = intent.getBooleanExtra(EXTRA_IS_TRACKING, true);
-
-            Log.d(TAG, "Session mise a jour : Salon=" + roomCode + ", User=" + userName + " (" + userId + ")");
-
-            if (roomChanged && mqttClient != null && mqttClient.isConnected()) {
-                try {
-                    String sanitizedRoom = roomCode.replaceAll("[^a-zA-Z0-9_-]", "_");
-                    String topic = "randotracker/v1/rooms/" + sanitizedRoom + "/events";
-                    mqttClient.subscribe(topic, 0);
-                    publishUserJoinedToMqtt();
-                } catch (Exception e) {
-                    Log.w(TAG, "Erreur resouscription MQTT salon", e);
-                }
-            } else if (mqttClient == null || !mqttClient.isConnected()) {
-                initMqttConnection();
-            }
-
-            if (lastLocation != null) {
-                updateNotification(lastLocation);
-                publishGpsLocationToMqtt(lastLocation);
-            }
+            boolean tracking = intent.getBooleanExtra(EXTRA_IS_TRACKING, true);
+            updateSessionDirect(newRoom, newUid, newName, newIcon, newColor, newTrackId, tracking);
         }
         return START_STICKY;
     }
@@ -543,6 +564,9 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (sInstance == this) {
+            sInstance = null;
+        }
         if (fusedLocationClient != null && locationCallback != null) {
             try { fusedLocationClient.removeLocationUpdates(locationCallback); } catch (Exception e) {}
         }
@@ -553,7 +577,16 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             try { wakeLock.release(); } catch (Exception e) {}
         }
         if (mqttClient != null) {
-            try { mqttClient.disconnect(); mqttClient.close(); } catch (Exception e) {}
+            new Thread(() -> {
+                try {
+                    if (mqttClient != null && mqttClient.isConnected()) {
+                        mqttClient.disconnect();
+                    }
+                    if (mqttClient != null) {
+                        mqttClient.close();
+                    }
+                } catch (Exception ignored) {}
+            }).start();
         }
     }
 

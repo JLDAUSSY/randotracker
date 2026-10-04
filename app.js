@@ -653,6 +653,9 @@ function setOffTrackSoundEnabled(enabled) {
 function loadUserProfile() {
   loadSavedUiScale();
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const isGuest = !!urlParams.get('room');
+
   const savedName = localStorage.getItem('rando_user_name');
   const savedRole = localStorage.getItem('rando_user_role');
   const savedIcon = localStorage.getItem('rando_user_icon');
@@ -663,18 +666,28 @@ function loadUserProfile() {
   if (savedName) {
     state.myUser.name = savedName;
   } else {
-    state.myUser.name = 'Animateur';
+    state.myUser.name = isGuest ? 'Randonneur' : 'Animateur';
     localStorage.setItem('rando_user_name', state.myUser.name);
   }
 
   if (savedRole) {
     state.myUser.role = savedRole;
   } else {
-    state.myUser.role = 'Guide de tête';
+    state.myUser.role = isGuest ? 'Randonneur' : 'Guide de tête';
+    localStorage.setItem('rando_user_role', state.myUser.role);
   }
 
-  if (savedIcon) state.myUser.icon = savedIcon;
-  if (savedColor) state.myUser.color = savedColor;
+  if (savedIcon) {
+    state.myUser.icon = savedIcon;
+  } else if (isGuest) {
+    state.myUser.icon = '🥾';
+  }
+
+  if (savedColor) {
+    state.myUser.color = savedColor;
+  } else if (isGuest) {
+    state.myUser.color = '#10b981';
+  }
   
   if (savedTrack && !savedTrack.startsWith('track_sample_')) {
     state.myUser.assignedTrackId = savedTrack;
@@ -889,6 +902,7 @@ function saveUserProfile() {
   localStorage.setItem('rando_share_duration', String(state.shareDurationHours));
 
   updateProfileUI();
+  syncNativeAndroidSession();
   saveHikeSessionToStorage();
   closeProfileModal();
   broadcastMyPosition();
@@ -2320,21 +2334,39 @@ function removeUserMarker(userId) {
 // DÉDUPLICATION AUTOMATIQUE INTELLIGENTE DES RANDONNEURS (ANTI-DOUBLONS GHOSTS)
 // ============================================================================
 function deduplicateUsersByName() {
+  const genericNames = new Set(['animateur', 'randonneur', 'marcheur', 'participant', 'guide', 'guide de tête', '']);
   const myName = (state.myUser.name || '').trim().toLowerCase();
   const byName = new Map();
+  const now = Date.now();
 
   state.otherUsers.forEach((user, id) => {
-    const userName = (user.name || '').trim().toLowerCase();
-
-    // 1. Si un participant porte exactement le même prénom/nom que Moi (ex: ancien test sur tablette)
-    if (userName && userName === myName && user.id !== state.myUser.id) {
-      console.log(`[Deduplication] Suppression automatique du doublon de moi-même (${user.name} - ${id})`);
+    // 0. Si pour une raison quelconque mon propre ID s'est retrouvé dans otherUsers, le retirer
+    if (id === state.myUser.id || user.id === state.myUser.id) {
       removeUserMarker(id);
       state.otherUsers.delete(id);
       return;
     }
 
-    // 2. Si deux participants distants portent le même nom (ex: rechargement/nouvel ID pour le même marcheur)
+    const userName = (user.name || '').trim().toLowerCase();
+
+    // RÈGLE D'OR : Les noms génériques par défaut ne sont JAMAIS dédupliqués (ce sont des téléphones distincts)
+    if (!userName || genericNames.has(userName)) {
+      return;
+    }
+
+    // 1. Si un participant porte un nom personnalisé spécifique identique à Moi (ex: ancien test / recharge)
+    if (userName === myName) {
+      const thisTime = user.lastSeen || 0;
+      // Ne purger que si la session est silencieuse depuis plus de 10s (fantôme)
+      if (now - thisTime > 10000) {
+        console.log(`[Deduplication] Suppression session fantôme de moi-même (${user.name} - ${id})`);
+        removeUserMarker(id);
+        state.otherUsers.delete(id);
+        return;
+      }
+    }
+
+    // 2. Si deux participants distants portent le même nom personnalisé (ex: Edith a rechargé sa page et obtenu un nouvel ID)
     if (byName.has(userName)) {
       const existing = byName.get(userName);
       const existingTime = existing.lastSeen || 0;
@@ -2342,7 +2374,7 @@ function deduplicateUsersByName() {
 
       // Conserver la session la plus fraîche/active
       if (thisTime >= existingTime) {
-        console.log(`[Deduplication] Remplacement doublon de ${user.name} (${existing.id}) par la session la plus récente (${id})`);
+        console.log(`[Deduplication] Remplacement session obsolète de ${user.name} (${existing.id}) par la plus récente (${id})`);
         removeUserMarker(existing.id);
         state.otherUsers.delete(existing.id);
         byName.set(userName, user);
@@ -3538,7 +3570,6 @@ function broadcastMyPosition() {
     state.myUser.lastSeen = Date.now();
     createOrUpdateUserMarker(state.myUser);
     renderUsersList();
-    syncNativeAndroidSession();
 
     publishMessage({
       type: 'update_position',
@@ -5340,7 +5371,7 @@ function bootApp() {
   try { loadUserProfile(); } catch(e) { console.error('[Init UserProfile]', e); }
   try { setupEventListeners(); } catch(e) { console.error('[Init EventListeners]', e); }
   try { initRealtimeSync(); } catch(e) { console.error('[Init RealtimeSync]', e); }
-  try { syncNativeAndroidSession(); setInterval(syncNativeAndroidSession, 4000); } catch(e) { console.error('[Init AndroidBridge]', e); }
+  try { syncNativeAndroidSession(); } catch(e) { console.error('[Init AndroidBridge]', e); }
   try { initPixelSanctuaryGuardians(); } catch(e) { console.error('[Init PixelGuardians]', e); }
   try { initAllDraggableModals(); } catch(e) { console.error('[Init DraggableModals]', e); }
 
