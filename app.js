@@ -751,7 +751,7 @@ function loadUserProfile() {
 function formatAvatarHtml(icon, extraClass = '') {
   if (!icon) return '<span>🥾</span>';
   if (icon === '🐱' || icon === 'cat' || icon === 'chat' || (typeof icon === 'string' && icon.includes('cat_icon'))) {
-    return `<img src="cat_icon.png?v=67" alt="Chat" class="w-full h-full object-cover rounded-full pointer-events-none select-none ${extraClass}" />`;
+    return `<img src="cat_icon.png?v=68" alt="Chat" class="w-full h-full object-cover rounded-full pointer-events-none select-none ${extraClass}" />`;
   }
   return `<span>${icon}</span>`;
 }
