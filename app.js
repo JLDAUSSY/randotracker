@@ -769,7 +769,10 @@ function updateProfileUI() {
   const inputTrack = document.getElementById('input-user-track');
   const soundToggle = document.getElementById('toggle-offtrack-sound');
 
-  if (inputName) inputName.value = state.myUser.name;
+  if (inputName) {
+    const n = (state.myUser.name || '').trim();
+    inputName.value = (!['randonneur', 'marcheur', 'participant', 'guide', 'animateur'].includes(n.toLowerCase())) ? n : '';
+  }
   if (inputRole) inputRole.value = state.myUser.role;
   if (inputDuration) inputDuration.value = String(state.shareDurationHours);
   if (soundToggle) soundToggle.checked = isOffTrackSoundEnabled();
@@ -950,8 +953,15 @@ function saveUserProfile() {
   updateProfileUI();
   syncNativeAndroidSession();
   saveHikeSessionToStorage();
+  createOrUpdateUserMarker(state.myUser);
+  deduplicateUsersByName();
+  renderUsersList();
   closeProfileModal();
   broadcastMyPosition();
+  publishMessage({
+    type: 'user_updated',
+    user: state.myUser
+  });
   showToast(`Profil enregistré : ${state.myUser.name} (${state.myUser.icon})`, 'success');
 }
 
@@ -2191,16 +2201,33 @@ function createOrUpdateUserMarker(user) {
 
   const sosClass = user.isSos ? 'is-sos' : '';
   const liveClass = (!user.isSos && !isZoneBlanche) ? 'is-live' : '';
-  const roleBadge = user.role.includes('Guide') ? '👑' : user.role.includes('Serre-file') ? '🛡️' : '🥾';
+  
+  // Rôle spécifique uniquement si Guide / Serre-file / Secours (pas d'icône redondante pour les marcheurs standards)
+  let roleBadge = '';
+  if (user.role) {
+    const r = user.role.toLowerCase();
+    if (r.includes('guide')) roleBadge = '👑 ';
+    else if (r.includes('serre-file')) roleBadge = '🛡️ ';
+    else if (r.includes('secours') || r.includes('sécurité') || r.includes('pc')) roleBadge = '🚑 ';
+  }
+
+  // Nom affiché : pour "Moi", si le prénom n'a pas encore été personnalisé, afficher "Moi"
+  let rawName = (user.name || '').trim();
+  let displayName = rawName;
+  if (isMe && (!rawName || rawName.toLowerCase() === 'randonneur' || rawName.toLowerCase() === 'marcheur')) {
+    displayName = 'Moi';
+  } else if (!rawName) {
+    displayName = isMe ? 'Moi' : 'Randonneur';
+  }
 
   const html = `
     <div class="user-marker-pin" id="marker-${user.id}">
       <div class="user-avatar-bubble ${liveClass} ${sosClass}" style="background-color: ${user.color || '#059669'}; ${isZoneBlanche ? 'opacity: 0.85; filter: saturate(0.8);' : ''}">
-        <span>${user.icon || '🌲'}</span>
+        <span>${user.icon || '🥾'}</span>
       </div>
       <div class="user-label-tag" style="${isZoneBlanche ? 'border-color: #f59e0b; background: rgba(15,23,42,0.95);' : ''}">
-        <span>${roleBadge}</span>
-        <span>${user.name}</span>
+        ${roleBadge ? `<span>${roleBadge}</span>` : ''}
+        <span>${displayName}</span>
         ${user.isSos ? '<span class="text-red-400 font-black ml-1 animate-pulse">SOS</span>' : ''}
         ${isZoneBlanche ? '<span class="text-[10px] text-amber-300 font-black ml-1">🌲 ' + minSinceSeen + 'm</span>' : ''}
       </div>
@@ -2441,16 +2468,12 @@ function deduplicateUsersByName() {
       return;
     }
 
-    // 1. Si un participant porte un nom personnalisé spécifique identique à Moi (ex: ancien test / recharge)
+    // 1. Si un participant distant porte un nom personnalisé identique à Moi (ex: ancien test, recharge ou autre onglet)
     if (userName === myName) {
-      const thisTime = user.lastSeen || 0;
-      // Ne purger que si la session est silencieuse depuis plus de 10s (fantôme)
-      if (now - thisTime > 10000) {
-        console.log(`[Deduplication] Suppression session fantôme de moi-même (${user.name} - ${id})`);
-        removeUserMarker(id);
-        state.otherUsers.delete(id);
-        return;
-      }
+      console.log(`[Deduplication] Suppression session doublon de moi-même (${user.name} - ${id})`);
+      removeUserMarker(id);
+      state.otherUsers.delete(id);
+      return;
     }
 
     // 2. Si deux participants distants portent le même nom personnalisé (ex: Edith a rechargé sa page et obtenu un nouvel ID)
@@ -3719,9 +3742,11 @@ function joinRoomDirectly(newRoomCode) {
 
 function checkAndPromptUserName() {
   const name = (state.myUser.name || '').trim();
-  const genericNames = ['animateur', 'randonneur', 'participant', 'marcheur', 'guide', 'guide de tête', ''];
-  if (genericNames.includes(name.toLowerCase())) {
-    setTimeout(openNamePromptModal, 400);
+  const genericNames = ['animateur', 'randonneur', 'participant', 'marcheur', 'guide', 'guide de tête', 'guide de tete', ''];
+  const hasPrompted = sessionStorage.getItem('rando_prompted_name_this_session');
+  if (!hasPrompted && (!name || genericNames.includes(name.toLowerCase()))) {
+    sessionStorage.setItem('rando_prompted_name_this_session', '1');
+    setTimeout(openNamePromptModal, 500);
   }
 }
 
@@ -3749,11 +3774,11 @@ function savePromptUserName() {
   const enteredName = input ? input.value.trim() : '';
   if (enteredName) {
     state.myUser.name = enteredName;
-  } else if (!state.myUser.name || state.myUser.name.toLowerCase() === 'animateur') {
+  } else {
     state.myUser.name = 'Randonneur';
   }
-  state.myUser.icon = selectedPromptIcon;
-  state.myUser.color = selectedPromptColor;
+  state.myUser.icon = selectedPromptIcon || '🥾';
+  state.myUser.color = selectedPromptColor || '#10b981';
   state.myUser.role = 'Randonneur';
 
   localStorage.setItem('rando_user_name', state.myUser.name);
@@ -3763,6 +3788,9 @@ function savePromptUserName() {
 
   updateProfileUI();
   syncNativeAndroidSession();
+  createOrUpdateUserMarker(state.myUser);
+  deduplicateUsersByName();
+  renderUsersList();
   broadcastMyPosition();
   publishMessage({
     type: 'user_updated',
@@ -5880,6 +5908,11 @@ function bootApp() {
     // Affichage publicitaire quotidien AdMob & Partenaire (1x/jour max)
     checkAndDisplayAppOpenAd();
   } catch(e) { console.error('[Init Onboarding/GPS]', e); }
+
+  // DEMANDE DU PRÉNOM SI NON RENSEIGNÉ OU GÉNÉRIQUE (PC / NOUVEAU SMARTPHONE)
+  try {
+    checkAndPromptUserName();
+  } catch(e) { console.error('[Init PromptUserName]', e); }
 }
 
 function checkPendingNotification() {
