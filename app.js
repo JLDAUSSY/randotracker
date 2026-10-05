@@ -834,6 +834,11 @@ function renderProfileAdBanner() {
 
 function checkAndDisplayAppOpenAd() {
   try {
+    // Si nous sommes dans l'application native Android, ne jamais bloquer l'écran avec une pub web
+    if (window.IS_NATIVE_ANDROID_APP || (window.AndroidBridge && typeof window.AndroidBridge.isNativeApp === 'function')) {
+      return;
+    }
+
     const today = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
     const lastAdDate = localStorage.getItem('randotracker_last_app_open_ad_date');
 
@@ -5707,6 +5712,27 @@ function bootApp() {
     } catch(e) {}
   }, 600);
 
+  // Initialisation Service Worker et Notifications
+  try {
+    initServiceWorkerNotificationListener();
+    checkPendingNotification();
+  } catch(e) { console.error('[Init SW/Notif]', e); }
+
+  // VÉRIFICATION DU GUIDE ONBOARDING (1er démarrage) OU DÉMARRAGE DIRECT GPS
+  try {
+    const hasAcceptedOnboarding = localStorage.getItem('rando_onboarding_accepted');
+    if (!hasAcceptedOnboarding) {
+      checkOnboardingStatus();
+    } else if (navigator.geolocation) {
+      console.log('[GPS] Démarrage automatique de la géolocalisation...');
+      startGpsWatch(true);
+    }
+
+    // Affichage publicitaire quotidien AdMob & Partenaire (1x/jour max)
+    checkAndDisplayAppOpenAd();
+  } catch(e) { console.error('[Init Onboarding/GPS]', e); }
+}
+
 function checkPendingNotification() {
   try {
     const urlParams = new URLSearchParams(window.location.search);
@@ -5763,24 +5789,6 @@ function initServiceWorkerNotificationListener() {
       }
     });
   }
-}
-
-  // VÉRIFICATION DU GUIDE ONBOARDING (1er démarrage) OU DÉMARRAGE DIRECT GPS
-  try {
-    initServiceWorkerNotificationListener();
-    checkPendingNotification();
-
-    const hasAcceptedOnboarding = localStorage.getItem('rando_onboarding_accepted');
-    if (!hasAcceptedOnboarding) {
-      checkOnboardingStatus();
-    } else if (navigator.geolocation) {
-      console.log('[GPS] Démarrage automatique de la géolocalisation...');
-      startGpsWatch(true);
-    }
-
-    // Affichage publicitaire quotidien AdMob & Partenaire (1x/jour max)
-    checkAndDisplayAppOpenAd();
-  } catch(e) { console.error('[Init Onboarding/GPS]', e); }
 }
 
 if (document.readyState === 'loading') {
