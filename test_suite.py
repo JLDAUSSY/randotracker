@@ -68,7 +68,7 @@ run_test("Presence de l'en-tete superieur .app-header", lambda: soup.find('heade
 run_test("Presence du bouton logo avec by JLD", lambda: soup.find(id='brand-header-btn') is not None)
 run_test("Presence du selecteur de traces dans le header", lambda: soup.find(id='open-tracks-modal-btn') is not None)
 run_test("Presence du bouton fond de carte dans le header", lambda: soup.find(id='open-layer-modal-btn') is not None)
-run_test("Presence du bouton inviter dans le header", lambda: soup.find(id='header-invite-btn') is not None)
+run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 
 run_test("Presence de la barre inferieure .app-bottom-nav", lambda: soup.find('nav', class_='app-bottom-nav') is not None)
@@ -315,14 +315,14 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 23 configuré", lambda: 'versionCode = 23' in gradle_content)
-    run_test("Android Gradle : VersionName 1.2.9 configuré", lambda: 'versionName = "1.2.9"' in gradle_content)
+    run_test("Android Gradle : VersionCode 24 configuré", lambda: 'versionCode = 24' in gradle_content)
+    run_test("Android Gradle : VersionName 1.3.0 configuré", lambda: 'versionName = "1.3.0"' in gradle_content)
 
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.2.9 (23) dans le bridge natif", lambda: '1.2.9 (23)' in main_act_content)
+    run_test("MainActivity : Version 1.3.0 (24) dans le bridge natif", lambda: '1.3.0 (24)' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
 
 # Tests de Masquage Strict CSS des Modales & Mode Poche
@@ -337,13 +337,21 @@ run_test("CSS : Masquage strict #app-open-ad-modal.hidden", lambda: '#app-open-a
 # ----------------------------------------------------------------------
 print("\n--- [SECTION 5 : Algorithmes Deduplication, Telemétrie, ETA & Retention 5h] ---")
 
-# Test Algorithme de Déduplication des Utilisateurs (Cas 2 Jean-Luc)
+import unicodedata
+
+def normalize_hiker_name(name):
+    if not name:
+        return ''
+    nfd = unicodedata.normalize('NFD', str(name))
+    clean = ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
+    return re.sub(r'[^a-z0-9]', '', clean.strip().lower())
+
+# Test Algorithme de Déduplication des Utilisateurs (Cas 2 Jean-Luc & Edith vs Édith)
 def simulate_deduplication(my_name, users_list):
     by_name = {}
-    remaining = []
-    my_name_clean = my_name.strip().lower()
+    my_name_clean = normalize_hiker_name(my_name)
     for u in users_list:
-        u_name = u['name'].strip().lower()
+        u_name = normalize_hiker_name(u['name'])
         if u_name == my_name_clean:
             continue
         if u_name in by_name:
@@ -367,6 +375,20 @@ run_test("Deduplication : Sur telephone de Jean-Luc, elimination automatique des
 res_edith = simulate_deduplication('Edith', sample_users)
 run_test("Deduplication : Sur telephone d'Edith, fusion des 2 Jean-Luc en 1 seul (session la plus recente u2)",
          lambda: len(res_edith) == 1 and res_edith[0]['id'] == 'u2')
+
+sample_users_accents = [
+    {'id': 'u1', 'name': 'Edith', 'lastSeen': 1000},
+    {'id': 'u2', 'name': 'Édith', 'lastSeen': 2000},
+    {'id': 'u3', 'name': 'Jean-Luc', 'lastSeen': 2500}
+]
+
+res_edith_accent = simulate_deduplication('Édith', sample_users_accents)
+run_test("Deduplication : Sur telephone d'Édith, elimination des doublons 'Edith' et 'Édith'",
+         lambda: len(res_edith_accent) == 1 and res_edith_accent[0]['name'] == 'Jean-Luc')
+
+res_jl_accent = simulate_deduplication('Jean-Luc', sample_users_accents)
+run_test("Deduplication : Sur telephone de Jean-Luc, fusion de 'Edith' et 'Édith' en 1 seul profil (session la plus recente u2)",
+         lambda: len(res_jl_accent) == 1 and res_jl_accent[0]['id'] == 'u2')
 
 # Rétention 5h
 run_test("Retention stale users configuree a 5 heures (5 * 3600 * 1000)", lambda: bool(re.search(r'5\s*\*\s*3600\s*\*\s*1000', js_text)))
@@ -433,8 +455,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=64',
-    'http://127.0.0.1:8000/app.js?v=64',
+    'http://127.0.0.1:8000/styles.css?v=65',
+    'http://127.0.0.1:8000/app.js?v=65',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'

@@ -2502,13 +2502,23 @@ function removeUserMarker(userId) {
 }
 
 // ============================================================================
-// DÉDUPLICATION AUTOMATIQUE INTELLIGENTE DES RANDONNEURS (ANTI-DOUBLONS GHOSTS)
+// DÉDUPLICATION AUTOMATIQUE INTELLIGENTE DES RANDONNEURS (ANTI-DOUBLONS GHOSTS & ACCENTS)
 // ============================================================================
+function normalizeHikerName(name) {
+  if (!name) return '';
+  return name
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
 function deduplicateUsersByName() {
-  const genericNames = new Set(['randonneur', 'marcheur', 'participant', '']);
-  const myName = (state.myUser.name || '').trim().toLowerCase();
-  const byName = new Map();
-  const now = Date.now();
+  const genericNormalized = new Set(['randonneur', 'marcheur', 'participant', 'guide', 'guidedetete', 'animateur', '']);
+  const myNameNorm = normalizeHikerName(state.myUser.name);
+  const byNormName = new Map();
 
   state.otherUsers.forEach((user, id) => {
     // 0. Si pour une raison quelconque mon propre ID s'est retrouvé dans otherUsers, le retirer
@@ -2518,51 +2528,43 @@ function deduplicateUsersByName() {
       return;
     }
 
-    const userName = (user.name || '').trim().toLowerCase();
+    const uNorm = normalizeHikerName(user.name);
 
-    // 0bis. Purger immédiatement tout fantôme ou intrus résiduel nommé "Guide" ou "Animateur"
-    if (userName === 'guide' || userName === 'animateur' || userName === 'guide de tête' || userName === 'guide de tete') {
-      console.log(`[Deduplication] Élimination du randonneur intrus/fantôme '${user.name}' (${id})`);
-      removeUserMarker(id);
-      state.otherUsers.delete(id);
-      return;
-    }
-
-    // Purger immédiatement tout profil générique ou non nommé
-    if (!userName || genericNames.has(userName)) {
+    // 0bis. Purger immédiatement tout profil générique ou non nommé (Guide, Animateur, Randonneur, etc.)
+    if (!uNorm || genericNormalized.has(uNorm)) {
       console.log(`[Deduplication] Élimination du profil générique/non nommé '${user.name}' (${id})`);
       removeUserMarker(id);
       state.otherUsers.delete(id);
       return;
     }
 
-    // 1. Si un participant distant porte un nom personnalisé identique à Moi (ex: ancien test, recharge ou autre onglet)
-    if (userName === myName) {
+    // 1. Si un participant distant porte le même nom que Moi (insensible aux accents et majuscules : Edith === Édith)
+    if (myNameNorm && uNorm === myNameNorm) {
       console.log(`[Deduplication] Suppression session doublon de moi-même (${user.name} - ${id})`);
       removeUserMarker(id);
       state.otherUsers.delete(id);
       return;
     }
 
-    // 2. Si deux participants distants portent le même nom personnalisé (ex: Edith a rechargé sa page et obtenu un nouvel ID)
-    if (byName.has(userName)) {
-      const existing = byName.get(userName);
+    // 2. Si deux participants distants portent le même prénom (ex: "Edith" vs "Édith", ou reconnexion)
+    if (byNormName.has(uNorm)) {
+      const existing = byNormName.get(uNorm);
       const existingTime = existing.lastSeen || 0;
       const thisTime = user.lastSeen || 0;
 
       // Conserver la session la plus fraîche/active
       if (thisTime >= existingTime) {
-        console.log(`[Deduplication] Remplacement session obsolète de ${user.name} (${existing.id}) par la plus récente (${id})`);
+        console.log(`[Deduplication] Fusion doublon : remplacement session obsolète de ${existing.name} (${existing.id}) par ${user.name} (${id})`);
         removeUserMarker(existing.id);
         state.otherUsers.delete(existing.id);
-        byName.set(userName, user);
+        byNormName.set(uNorm, user);
       } else {
-        console.log(`[Deduplication] Suppression session obsolète de ${user.name} (${id})`);
+        console.log(`[Deduplication] Suppression session doublon obsolète de ${user.name} (${id})`);
         removeUserMarker(id);
         state.otherUsers.delete(id);
       }
     } else {
-      byName.set(userName, user);
+      byNormName.set(uNorm, user);
     }
   });
 }
