@@ -1405,6 +1405,20 @@ main {
 }
 
 /* ========================================================================== */
+/* BOUTON FLOTTANT MODE POCHE (POSITIONNÉ AU-DESSUS DE LA BARRE DU BAS)      */
+/* ========================================================================== */
+#btn-enter-pocket-mode {
+  position: fixed !important;
+  bottom: calc(var(--bottom-nav-height, 88px) + 14px) !important;
+  left: 14px !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+/* ========================================================================== */
 /* MODE POCHE ANTI-VEILLE & ÉCO-ÉNERGIE (POUR SUIVI EN POCHE DANS LE NAVIGATEUR) */
 /* ========================================================================== */
 #pocket-mode-overlay {
