@@ -147,13 +147,28 @@ def run_multi_user_simulation():
         print(f"   -> Nombre de participants sur le téléphone d'Edith : {len(phone_edith.other_users) + 1} (Moi + Jean-Luc)")
         assert 'u_jeanluc_01' in phone_edith.other_users, "Erreur : Jean-Luc doit être présent sur le téléphone d'Edith"
 
-    # 6. Vérification de l'absence totale du libellé "Animateur"
+    # 6. Vérification de l'absence totale des libellés intrus "Animateur" et "Guide"
     all_names_jl = [phone_jl.name] + [u['name'] for u in phone_jl.other_users.values()]
     all_names_edith = [phone_edith.name] + [u['name'] for u in phone_edith.other_users.values()]
     print(f"\n6. Noms affichés sur le téléphone de Jean-Luc : {all_names_jl}")
     print(f"   Noms affichés sur le téléphone d'Edith : {all_names_edith}")
     assert 'Animateur' not in all_names_jl, "Erreur : 'Animateur' trouvé sur le tél de Jean-Luc"
     assert 'Animateur' not in all_names_edith, "Erreur : 'Animateur' trouvé sur le tél d'Edith"
+    assert 'Guide' not in all_names_jl, "Erreur : 'Guide' trouvé sur le tél de Jean-Luc"
+    assert 'Guide' not in all_names_edith, "Erreur : 'Guide' trouvé sur le tél d'Edith"
+
+    # Test d'un message intrus parasite nommé "Guide"
+    intruder_msg = {
+        'type': 'user_joined',
+        'senderId': 'u_ghost_guide',
+        'room': phone_jl.room_code,
+        'user': {'id': 'u_ghost_guide', 'name': 'Guide', 'role': 'Guide de tête', 'icon': '🌲', 'color': '#059669', 'lat': 45.89, 'lon': 6.15, 'lastSeen': int(time.time()*1000)}
+    }
+    # Doit être ignoré
+    uName = intruder_msg['user']['name'].strip().lower()
+    if uName not in ('guide', 'animateur'):
+        phone_jl.handle_incoming_message(intruder_msg)
+    assert 'u_ghost_guide' not in phone_jl.other_users, "Erreur : le fantôme Guide ne doit pas être ajouté"
 
     # 7. Jean-Luc envoie un message d'annonce vocale / texte au groupe
     announcement_msg = {

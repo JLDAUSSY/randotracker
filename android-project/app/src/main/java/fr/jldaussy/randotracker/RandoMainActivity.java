@@ -174,6 +174,7 @@ public class RandoMainActivity extends AppCompatActivity {
                     "  var uid = localStorage.getItem('rando_user_id') || ('u_' + Math.random().toString(36).substr(2,9));" +
                     "  localStorage.setItem('rando_user_id', uid);" +
                     "  var uname = localStorage.getItem('rando_user_name') || 'Randonneur';" +
+                    "  if (uname === 'Animateur' || uname === 'Guide') { uname = 'Randonneur'; localStorage.removeItem('rando_user_name'); }" +
                     "  var uicon = localStorage.getItem('rando_user_icon') || '🥾';" +
                     "  var ucol = localStorage.getItem('rando_user_color') || '#10b981';" +
                     "  var utrk = localStorage.getItem('rando_user_track') || 'auto';" +
@@ -365,7 +366,7 @@ public class RandoMainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.2.5 (19)";
+            return "1.2.6 (20)";
         }
 
         @JavascriptInterface

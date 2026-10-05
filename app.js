@@ -130,7 +130,7 @@ const state = {
   isOrganizer: true, // true pour l'Organisateur, false pour les Invités
   myUser: {
     id: getOrCreateUserId(),
-    name: 'Guide',
+    name: 'Randonneur',
     role: 'Guide de tête',
     icon: '🌲',
     color: '#059669',
@@ -445,13 +445,14 @@ function loadSavedOtherUsersFromStorage() {
     const data = JSON.parse(str);
     if (!data || data.roomCode !== state.roomCode || !Array.isArray(data.users)) return false;
 
-    // Restaurer les participants de la session de moins de 5 heures
+    // Restaurer les participants de la session de moins de 5 heures (en excluant les fantômes "Guide" / "Animateur")
     const now = Date.now();
     const maxFreshnessMs = 5 * 3600 * 1000;
     let loadedCount = 0;
 
     data.users.forEach(u => {
-      if (u && u.id && u.id !== state.myUser.id && (now - (u.lastSeen || 0) < maxFreshnessMs)) {
+      const uName = (u && u.name ? u.name.trim().toLowerCase() : '');
+      if (u && u.id && u.id !== state.myUser.id && uName !== 'guide' && uName !== 'animateur' && (now - (u.lastSeen || 0) < maxFreshnessMs)) {
         state.otherUsers.set(u.id, u);
         createOrUpdateUserMarker(u);
         loadedCount++;
@@ -461,6 +462,9 @@ function loadSavedOtherUsersFromStorage() {
     if (loadedCount > 0) {
       renderUsersList();
       return true;
+    } else {
+      // Si la liste ne contenait que des fantômes obsolètes, réenregistrer une liste propre
+      saveOtherUsersToStorage();
     }
   } catch (e) {
     console.warn('[Storage] Erreur chargement participants:', e);
@@ -663,17 +667,16 @@ function loadUserProfile() {
   const savedTrack = localStorage.getItem('rando_user_track');
   const savedDuration = localStorage.getItem('rando_share_duration');
 
-  // Purger l'ancien libellé par défaut "Animateur"
-  if (savedName === 'Animateur') {
-    savedName = isGuest ? 'Randonneur' : 'Guide';
-    localStorage.setItem('rando_user_name', savedName);
+  // Purger les anciens libellés par défaut "Animateur" et "Guide"
+  if (savedName === 'Animateur' || savedName === 'Guide') {
+    savedName = '';
+    localStorage.removeItem('rando_user_name');
   }
 
   if (savedName && savedName.trim() !== '') {
     state.myUser.name = savedName;
   } else {
-    state.myUser.name = isGuest ? 'Randonneur' : 'Guide';
-    localStorage.setItem('rando_user_name', state.myUser.name);
+    state.myUser.name = 'Randonneur';
   }
 
   if (savedRole && savedRole.trim() !== '') {
@@ -2378,7 +2381,7 @@ function removeUserMarker(userId) {
 // DÉDUPLICATION AUTOMATIQUE INTELLIGENTE DES RANDONNEURS (ANTI-DOUBLONS GHOSTS)
 // ============================================================================
 function deduplicateUsersByName() {
-  const genericNames = new Set(['animateur', 'randonneur', 'marcheur', 'participant', 'guide', 'guide de tête', '']);
+  const genericNames = new Set(['randonneur', 'marcheur', 'participant', '']);
   const myName = (state.myUser.name || '').trim().toLowerCase();
   const byName = new Map();
   const now = Date.now();
@@ -2393,7 +2396,15 @@ function deduplicateUsersByName() {
 
     const userName = (user.name || '').trim().toLowerCase();
 
-    // RÈGLE D'OR : Les noms génériques par défaut ne sont JAMAIS dédupliqués (ce sont des téléphones distincts)
+    // 0bis. Purger immédiatement tout fantôme ou intrus résiduel nommé "Guide" ou "Animateur"
+    if (userName === 'guide' || userName === 'animateur') {
+      console.log(`[Deduplication] Élimination du randonneur intrus/fantôme '${user.name}' (${id})`);
+      removeUserMarker(id);
+      state.otherUsers.delete(id);
+      return;
+    }
+
+    // RÈGLE D'OR : Les noms génériques par défaut (Randonneur) ne sont pas dédupliqués s'ils viennent de téléphones distincts
     if (!userName || genericNames.has(userName)) {
       return;
     }
@@ -3948,6 +3959,11 @@ function handleIncomingMessage(data) {
     } else if (data.type === 'user_joined') {
       const user = data.user;
       if (user && user.id !== state.myUser.id) {
+        const uName = (user.name || '').trim().toLowerCase();
+        if (uName === 'guide' || uName === 'animateur') {
+          console.log(`[Presence] Message ignoré pour nom obsolète '${user.name}' (${user.id})`);
+          return;
+        }
         state.otherUsers.set(user.id, user);
         createOrUpdateUserMarker(user);
         saveOtherUsersToStorage();
@@ -3972,6 +3988,10 @@ function handleIncomingMessage(data) {
     } else if (data.type === 'respond_presence' || data.type === 'update_position' || data.type === 'user_updated') {
       const user = data.user;
       if (user && user.id !== state.myUser.id) {
+        const uName = (user.name || '').trim().toLowerCase();
+        if (uName === 'guide' || uName === 'animateur') {
+          return;
+        }
         if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
           state.otherUsers.set(user.id, user);
           createOrUpdateUserMarker(user);
@@ -5770,6 +5790,7 @@ function bootApp() {
 
   try { createOrUpdateUserMarker(state.myUser); } catch(e) { console.error('[Init UserMarker]', e); }
   try { loadSavedOtherUsersFromStorage(); } catch(e) { console.error('[Init SavedUsers]', e); }
+  try { deduplicateUsersByName(); } catch(e) { console.error('[Init Deduplicate]', e); }
   try { renderUsersList(); } catch(e) { console.error('[Init UsersList]', e); }
 
   // CHARGEMENT DE LA SESSION PERSISTANTE (SI RANDONNÉE EN COURS < 8H/24H)

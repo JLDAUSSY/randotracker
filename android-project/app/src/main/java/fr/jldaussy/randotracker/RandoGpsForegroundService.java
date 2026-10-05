@@ -153,6 +153,9 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             roomCode = prefs.getString("room_code", "RANDO-2026");
             userId = prefs.getString("user_id", "u_native_" + System.currentTimeMillis());
             userName = prefs.getString("user_name", "Randonneur");
+            if ("Animateur".equals(userName) || "Guide".equals(userName)) {
+                userName = "Randonneur";
+            }
             userIcon = prefs.getString("user_icon", "🥾");
             userColor = prefs.getString("user_color", "#10b981");
             assignedTrackId = prefs.getString("assigned_track_id", "auto");
