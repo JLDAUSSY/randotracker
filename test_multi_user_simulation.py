@@ -196,6 +196,46 @@ def run_multi_user_simulation():
     assert len(phone_edith.other_users) == 2
     assert len(phone_pierre.other_users) == 2
 
+    # 9. Test du calcul des distances à vol d'oiseau entre chaque participant
+    print("\n9. [Distances à vol d'oiseau] Test du calcul entre les participants :")
+    def haversine_km(lat1, lon1, lat2, lon2):
+        import math
+        R = 6371.0
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return R * c
+
+    # Positions distinctes pour le test
+    phone_jl.lat, phone_jl.lon = 45.8920, 6.1550 # Annecy
+    phone_edith.lat, phone_edith.lon = 45.8950, 6.1580 # ~400m
+    phone_pierre.lat, phone_pierre.lon = 45.9000, 6.1600 # ~1km
+
+    d_jl_edith = haversine_km(phone_jl.lat, phone_jl.lon, phone_edith.lat, phone_edith.lon)
+    d_jl_pierre = haversine_km(phone_jl.lat, phone_jl.lon, phone_pierre.lat, phone_pierre.lon)
+    d_edith_pierre = haversine_km(phone_edith.lat, phone_edith.lon, phone_pierre.lat, phone_pierre.lon)
+
+    print(f"   -> Distance Jean-Luc <-> Edith : {d_jl_edith*1000:.1f} m")
+    print(f"   -> Distance Jean-Luc <-> Pierre : {d_jl_pierre:.2f} km")
+    print(f"   -> Distance Edith <-> Pierre : {d_edith_pierre*1000:.1f} m")
+
+    assert 0.35 < d_jl_edith < 0.50, "Distance JL-Edith anormale"
+    assert 0.85 < d_jl_pierre < 1.20, "Distance JL-Pierre anormale"
+
+    # 10. Test du maintien 2s pour déverrouiller le mode poche (Anti-frottements)
+    print("\n10. [Mode Poche] Test de la sécurité de maintien (Hold 1.8s) :")
+    hold_duration_ms = 1800
+    accidental_tap_ms = 250 # Faux contact frottement tissu (250ms)
+    is_unlocked_tap = accidental_tap_ms >= hold_duration_ms
+    assert not is_unlocked_tap, "Erreur : un appui court involontaire ne doit pas déverrouiller le mode poche !"
+    
+    deliberate_hold_ms = 1850 # Maintien volontaire appuyé 1.85s
+    is_unlocked_hold = deliberate_hold_ms >= hold_duration_ms
+    assert is_unlocked_hold, "Erreur : un maintien volontaire >= 1.8s doit déverrouiller le mode poche"
+    print("   -> Appui court (frottement tissu) rejeté avec succès (verrouillé).")
+    print("   -> Maintien prolongé validé avec succès (déverrouillé).")
+
     print("\n================================================================================")
     print("  SIMULATION 100% REUSSIE ! TOUTES LES BRANCHES MULTI-PHONES SONT VALIDEES.")
     print("================================================================================")

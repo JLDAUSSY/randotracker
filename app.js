@@ -2192,6 +2192,10 @@ function createOrUpdateUserMarker(user) {
   const distFromMeStr = distFromMe < 1 ? `${Math.round(distFromMe * 1000)} m` : `${distFromMe.toFixed(1)} km`;
   const progress = computeTrackProgress(user);
 
+  // Récupérer tous les autres membres du groupe pour calculer les distances directes à vol d'oiseau
+  const allGroupUsers = [state.myUser, ...Array.from(state.otherUsers.values())];
+  const otherGroupMembers = allGroupUsers.filter(p => p && p.id !== user.id && typeof p.lat === 'number' && typeof p.lon === 'number');
+
   // Calcul rigoureux et transparent de l'écart réel à la trace GPX
   let ecartDisplayVal = '--';
   let ecartDisplayColor = 'text-slate-400';
@@ -2279,6 +2283,35 @@ function createOrUpdateUserMarker(user) {
           <span class="text-sm sm:text-base font-black ${ecartDisplayColor} mt-0.5 font-mono truncate">${ecartDisplayVal}</span>
         </div>
       </div>
+
+      <!-- Distances directes aux autres marcheurs (à vol d'oiseau) -->
+      ${otherGroupMembers.length > 0 ? `
+        <div class="p-2.5 rounded-2xl bg-slate-900/95 border border-slate-800 space-y-1.5 shadow-inner">
+          <div class="text-[11px] font-black text-slate-300 uppercase tracking-wider flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <span class="text-blue-400">📏</span>
+              <span>Distances aux autres marcheurs</span>
+            </span>
+            <span class="text-[9px] text-slate-400 font-semibold">(vol d'oiseau)</span>
+          </div>
+          <div class="space-y-1 max-h-[130px] overflow-y-auto pr-0.5 custom-scrollbar">
+            ${otherGroupMembers.map(p => {
+              const d = calculateDistance(user.lat, user.lon, p.lat, p.lon);
+              const dStr = d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(2)} km`;
+              const isPMe = p.id === state.myUser.id;
+              return `
+                <div class="flex items-center justify-between py-1 px-2 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs">
+                  <div class="flex items-center gap-2 truncate max-w-[170px]">
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${p.color || '#10b981'};"></span>
+                    <span class="font-bold text-slate-200 truncate">${p.icon || '🥾'} ${p.name} ${isPMe ? '<span class="text-[10px] text-emerald-400 font-bold">(Moi)</span>' : ''}</span>
+                  </div>
+                  <span class="font-mono font-black text-blue-400 text-xs shrink-0">${dStr}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
 
       <!-- Progression & ETA de Trace -->
       ${progress ? `
@@ -3267,7 +3300,70 @@ function enterPocketMode() {
   showToast('🔒 Mode Poche activé : Écran noir économe & touches sécurisées', 'success');
 }
 
+let pocketHoldTimer = null;
+let pocketHoldStartTime = 0;
+const POCKET_HOLD_DURATION_MS = 1800; // 1.8 secondes pour déverrouiller
+
+function startPocketHoldUnlock(e) {
+  if (e && e.cancelable) {
+    e.preventDefault();
+  }
+  if (pocketHoldTimer) return;
+
+  pocketHoldStartTime = Date.now();
+  const progressBar = document.getElementById('pocket-unlock-progress');
+  const unlockText = document.getElementById('pocket-unlock-text');
+  const unlockIcon = document.getElementById('pocket-unlock-icon');
+
+  if (unlockText) unlockText.textContent = 'Maintenir appuyé...';
+  if (unlockIcon) unlockIcon.classList.add('animate-pulse');
+
+  // Retour haptique immédiat à l'appui
+  if (window.AndroidBridge && typeof window.AndroidBridge.vibratePhone === 'function') {
+    window.AndroidBridge.vibratePhone(35);
+  } else if (navigator.vibrate) {
+    try { navigator.vibrate(35); } catch (err) {}
+  }
+
+  pocketHoldTimer = setInterval(() => {
+    const elapsed = Date.now() - pocketHoldStartTime;
+    const pct = Math.min(100, Math.round((elapsed / POCKET_HOLD_DURATION_MS) * 100));
+
+    if (progressBar) progressBar.style.width = `${pct}%`;
+
+    if (elapsed >= POCKET_HOLD_DURATION_MS) {
+      // Déverrouillage complété avec succès
+      clearInterval(pocketHoldTimer);
+      pocketHoldTimer = null;
+      if (progressBar) progressBar.style.width = '100%';
+
+      if (window.AndroidBridge && typeof window.AndroidBridge.vibratePhone === 'function') {
+        window.AndroidBridge.vibratePhone(80);
+      } else if (navigator.vibrate) {
+        try { navigator.vibrate([50, 40, 70]); } catch (err) {}
+      }
+
+      exitPocketMode();
+    }
+  }, 25);
+}
+
+function cancelPocketHoldUnlock(e) {
+  if (pocketHoldTimer) {
+    clearInterval(pocketHoldTimer);
+    pocketHoldTimer = null;
+  }
+  const progressBar = document.getElementById('pocket-unlock-progress');
+  const unlockText = document.getElementById('pocket-unlock-text');
+  const unlockIcon = document.getElementById('pocket-unlock-icon');
+
+  if (progressBar) progressBar.style.width = '0%';
+  if (unlockText) unlockText.textContent = 'Maintenir 2s pour déverrouiller';
+  if (unlockIcon) unlockIcon.classList.remove('animate-pulse');
+}
+
 function exitPocketMode() {
+  cancelPocketHoldUnlock();
   const overlay = document.getElementById('pocket-mode-overlay');
   if (overlay) {
     overlay.classList.add('hidden');
@@ -5945,6 +6041,8 @@ window.startGpsWorkerHeartbeat = startGpsWorkerHeartbeat;
 window.stopGpsWorkerHeartbeat = stopGpsWorkerHeartbeat;
 window.enterPocketMode = enterPocketMode;
 window.exitPocketMode = exitPocketMode;
+window.startPocketHoldUnlock = startPocketHoldUnlock;
+window.cancelPocketHoldUnlock = cancelPocketHoldUnlock;
 window.updatePocketModeTelemetry = updatePocketModeTelemetry;
 
 // QR Scanner & Saisie Prénom Marcheur

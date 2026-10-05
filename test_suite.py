@@ -205,7 +205,7 @@ required_functions = [
     'playAnnouncementAlert', 'adjustPopupZoom', 'checkOnboardingStatus',
     'openOnboardingModal', 'closeOnboardingModal', 'acceptOnboarding',
     'requestWakeLock', 'releaseWakeLock',
-    'enterPocketMode', 'exitPocketMode', 'updatePocketModeTelemetry',
+    'enterPocketMode', 'exitPocketMode', 'startPocketHoldUnlock', 'cancelPocketHoldUnlock', 'updatePocketModeTelemetry',
     'openQrScanner', 'closeQrScanner', 'onQrCodeScanned', 'joinRoomDirectly',
     'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName'
 ]
@@ -231,13 +231,19 @@ exports_to_test = [
     'requestWakeLock', 'releaseWakeLock',
     'checkAndDisplayAppOpenAd', 'closeAppOpenAd', 'renderTrackAdBanner', 'renderProfileAdBanner', 'MONETIZATION_CONFIG',
     'startBackgroundKeepAlive', 'stopBackgroundKeepAlive', 'startGpsWorkerHeartbeat', 'stopGpsWorkerHeartbeat',
-    'enterPocketMode', 'exitPocketMode', 'updatePocketModeTelemetry',
+    'enterPocketMode', 'exitPocketMode', 'startPocketHoldUnlock', 'cancelPocketHoldUnlock', 'updatePocketModeTelemetry',
     'openQrScanner', 'closeQrScanner', 'onQrCodeScanned', 'joinRoomDirectly',
     'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName'
 ]
 
 for fn in exports_to_test:
     run_test(f"Export global window.{fn}", lambda fn=fn: f"window.{fn} =" in js_text)
+
+run_test("Mode Poche : Container déverrouillage sécurisé (#pocket-unlock-container)", lambda: bool(soup.find(id='pocket-unlock-container')))
+run_test("Mode Poche : Barre de progression déverrouillage (#pocket-unlock-progress)", lambda: bool(soup.find(id='pocket-unlock-progress')))
+run_test("Mode Poche : Label déverrouillage (#pocket-unlock-text)", lambda: bool(soup.find(id='pocket-unlock-text')))
+run_test("Mode Poche : Icône verrou (#pocket-unlock-icon)", lambda: bool(soup.find(id='pocket-unlock-icon')))
+run_test("Distances aux autres marcheurs : Section intégrée dans popup Leaflet", lambda: "Distances aux autres marcheurs" in js_text and "calculateDistance(user.lat, user.lon, p.lat, p.lon)" in js_text)
 
 run_test("Protection Swipe-Back : Ecouteur popstate actif", lambda: "window.addEventListener('popstate'" in js_text)
 run_test("Protection Pixel : html & body en position fixed et overflow hidden", lambda: "position: fixed !important" in css_text and "overflow: hidden !important" in css_text)
@@ -292,10 +298,10 @@ run_test("Cartographie : Détection automatique Suisse (CH)", lambda: 'lat >= 45
 # Tests Mode Poche Anti-Veille & Éco-Énergie
 run_test("Mode Poche : Bouton flottant présent dans le DOM (#btn-enter-pocket-mode)", lambda: bool(soup.find(id='btn-enter-pocket-mode')))
 run_test("Mode Poche : Écran noir anti-tactile défini dans le DOM (#pocket-mode-overlay)", lambda: bool(soup.find(id='pocket-mode-overlay')))
-run_test("Mode Poche : Bouton déverrouillage présent (#pocket-unlock-btn)", lambda: bool(soup.find(id='pocket-unlock-btn')))
+run_test("Mode Poche : Container déverrouillage présent (#pocket-unlock-container)", lambda: bool(soup.find(id='pocket-unlock-container')))
 run_test("Application Native : Fichier RandoTracker.apk généré et présent à la racine", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) and os.path.getsize(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) > 1000000)
 
-# Tests Intégration Native Android (Permissions Caméra & Version 1.2.3 / 17)
+# Tests Intégration Native Android (Permissions Caméra & Version 1.2.5 / 19)
 manifest_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'AndroidManifest.xml')
 gradle_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'build.gradle.kts')
 main_activity_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoMainActivity.java')
@@ -309,14 +315,14 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 18 configuré", lambda: 'versionCode = 18' in gradle_content)
-    run_test("Android Gradle : VersionName 1.2.4 configuré", lambda: 'versionName = "1.2.4"' in gradle_content)
+    run_test("Android Gradle : VersionCode 19 configuré", lambda: 'versionCode = 19' in gradle_content)
+    run_test("Android Gradle : VersionName 1.2.5 configuré", lambda: 'versionName = "1.2.5"' in gradle_content)
 
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.2.4 (18) dans le bridge natif", lambda: '1.2.4 (18)' in main_act_content)
+    run_test("MainActivity : Version 1.2.5 (19) dans le bridge natif", lambda: '1.2.5 (19)' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
 
 # Tests de Masquage Strict CSS des Modales & Mode Poche
@@ -427,8 +433,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=59',
-    'http://127.0.0.1:8000/app.js?v=59',
+    'http://127.0.0.1:8000/styles.css?v=60',
+    'http://127.0.0.1:8000/app.js?v=60',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'

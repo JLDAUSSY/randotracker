@@ -1469,28 +1469,51 @@ main {
   margin-top: 2px;
 }
 
-.pocket-unlock-btn {
+.pocket-unlock-container {
+  position: relative;
   width: 100%;
   max-width: 340px;
-  padding: 18px 24px;
-  background: linear-gradient(135deg, #0f172a 0%, #022c22 100%);
+  height: 60px;
+  background: #090d16;
   border: 2px solid #10b981;
   border-radius: 24px;
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 900;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
+  transition: transform 0.1s ease, border-color 0.2s ease;
+}
+
+.pocket-unlock-container:active {
+  transform: scale(0.98);
+}
+
+.pocket-unlock-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.35) 0%, rgba(16, 185, 129, 0.9) 100%);
+  transition: width 0.04s linear;
+  pointer-events: none;
+}
+
+.pocket-unlock-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
-  cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease;
-}
-
-.pocket-unlock-btn:active {
-  transform: scale(0.96);
-  background: #064e3b;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+  z-index: 2;
+  pointer-events: none;
 }
 
 /* ========================================================================== */

@@ -53,8 +53,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v59 -->
-  <link rel="stylesheet" href="styles.css?v=59" />
+  <!-- Custom Styles with Cache-Busting v60 -->
+  <link rel="stylesheet" href="styles.css?v=60" />
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -1437,12 +1437,25 @@
       </p>
     </div>
 
-    <!-- Bas : Déverrouillage -->
-    <div class="w-full flex flex-col items-center gap-2 pb-4">
-      <button type="button" id="pocket-unlock-btn" onclick="exitPocketMode()" class="pocket-unlock-btn">
-        <i data-lucide="lock-open" class="w-6 h-6 text-emerald-400"></i>
-        <span>Toucher pour Déverrouiller</span>
-      </button>
+    <!-- Bas : Déverrouillage Sécurisé (Maintien 2s Anti-Frottements) -->
+    <div class="w-full flex flex-col items-center gap-3 pb-4">
+      <div id="pocket-unlock-container" class="pocket-unlock-container"
+           onmousedown="startPocketHoldUnlock(event)" 
+           onmouseup="cancelPocketHoldUnlock(event)" 
+           onmouseleave="cancelPocketHoldUnlock(event)" 
+           ontouchstart="startPocketHoldUnlock(event)" 
+           ontouchend="cancelPocketHoldUnlock(event)" 
+           ontouchcancel="cancelPocketHoldUnlock(event)"
+           oncontextmenu="event.preventDefault()">
+        <div id="pocket-unlock-progress" class="pocket-unlock-progress"></div>
+        <div class="pocket-unlock-content">
+          <i id="pocket-unlock-icon" data-lucide="lock" class="w-6 h-6 text-emerald-400"></i>
+          <span id="pocket-unlock-text">Maintenir 2s pour déverrouiller</span>
+        </div>
+      </div>
+      <p class="text-[10px] text-slate-500 text-center max-w-xs font-semibold px-2">
+        💡 Astuce : Vous pouvez aussi éteindre l'écran avec le bouton Power, le suivi GPS continue en arrière-plan.
+      </p>
     </div>
   </div>
 
@@ -1519,7 +1532,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v59 -->
-  <script src="app.js?v=59"></script>
+  <!-- Main Application Script with Cache-Busting v60 -->
+  <script src="app.js?v=60"></script>
 </body>
 </html>

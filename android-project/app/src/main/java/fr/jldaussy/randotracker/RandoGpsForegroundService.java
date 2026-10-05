@@ -83,6 +83,9 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
     private static volatile RandoGpsForegroundService sInstance = null;
     private int currentBrokerIndex = 0;
     private boolean isConnectingMqtt = false;
+    private android.os.Handler backgroundHandler = null;
+    private Runnable backgroundHeartbeatRunnable = null;
+    private boolean isFusedActive = false;
 
     public static RandoGpsForegroundService getInstance() {
         return sInstance;
@@ -99,8 +102,48 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             acquirePartialWakeLock();
             initLocationProviders();
             initMqttConnection();
+            startBackgroundHeartbeat();
         } catch (Throwable t) {
             Log.e(TAG, "Erreur dans Service onCreate", t);
+        }
+    }
+
+    private void startBackgroundHeartbeat() {
+        try {
+            backgroundHandler = new android.os.Handler(Looper.getMainLooper());
+            backgroundHeartbeatRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (isTrackingActive) {
+                            // Vérifier la santé de la connexion MQTT en arrière-plan
+                            if (mqttClient == null || !mqttClient.isConnected()) {
+                                Log.d(TAG, "[Heartbeat] MQTT non connecté en arrière-plan, tentative de reconnexion...");
+                                initMqttConnection();
+                            } else if (lastLocation != null) {
+                                // Maintien d'émission vers les compagnons toutes les 4s même si écran éteint dans la poche
+                                publishGpsLocationToMqtt(lastLocation);
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.w(TAG, "Erreur background heartbeat", e);
+                    }
+                    if (backgroundHandler != null && backgroundHeartbeatRunnable != null) {
+                        backgroundHandler.postDelayed(this, 4000L);
+                    }
+                }
+            };
+            backgroundHandler.postDelayed(backgroundHeartbeatRunnable, 4000L);
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur startBackgroundHeartbeat", e);
+        }
+    }
+
+    private void stopBackgroundHeartbeat() {
+        if (backgroundHandler != null && backgroundHeartbeatRunnable != null) {
+            backgroundHandler.removeCallbacks(backgroundHeartbeatRunnable);
+            backgroundHeartbeatRunnable = null;
+            backgroundHandler = null;
         }
     }
 
@@ -316,7 +359,7 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             return;
         }
 
-        // 1. Google Play Services Fused Location Provider (Standard de haute précision en arrière-plan)
+        // 1. Google Play Services Fused Location Provider (Haute précision et basse consommation prioritaire)
         try {
             fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
             LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000L)
@@ -336,53 +379,74 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             };
 
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
-            Log.d(TAG, "FusedLocationProviderClient configure avec succes");
+            isFusedActive = true;
+            Log.d(TAG, "FusedLocationProviderClient configure avec succes (Priorite 1)");
         } catch (SecurityException se) {
             Log.e(TAG, "SecurityException FusedLocation", se);
         } catch (Exception e) {
             Log.e(TAG, "Erreur FusedLocationProviderClient", e);
+            isFusedActive = false;
         }
 
-        // 2. Dual-fallback natif LocationManager
-        try {
-            locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-            if (locationManager != null) {
-                locationListener = new LocationListener() {
-                    @Override
-                    public void onLocationChanged(@NonNull Location location) {
-                        onNewLocationReceived(location);
-                    }
-                    @Override
-                    public void onStatusChanged(String provider, int status, Bundle extras) {}
-                    @Override
-                    public void onProviderEnabled(@NonNull String provider) {}
-                    @Override
-                    public void onProviderDisabled(@NonNull String provider) {}
-                };
+        // 2. Fallback natif LocationManager uniquement si FusedLocation est inactif
+        if (!isFusedActive) {
+            try {
+                locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+                if (locationManager != null) {
+                    locationListener = new LocationListener() {
+                        @Override
+                        public void onLocationChanged(@NonNull Location location) {
+                            onNewLocationReceived(location);
+                        }
+                        @Override
+                        public void onStatusChanged(String provider, int status, Bundle extras) {}
+                        @Override
+                        public void onProviderEnabled(@NonNull String provider) {}
+                        @Override
+                        public void onProviderDisabled(@NonNull String provider) {}
+                    };
 
-                if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 0.0f, locationListener, Looper.getMainLooper());
+                    if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 0.0f, locationListener, Looper.getMainLooper());
+                        Log.d(TAG, "LocationManager GPS_PROVIDER configure en fallback");
+                    }
                 }
+            } catch (SecurityException se) {
+                Log.e(TAG, "SecurityException LocationManager fallback", se);
+            } catch (Exception e) {
+                Log.e(TAG, "Erreur LocationManager fallback", e);
             }
-        } catch (SecurityException se) {
-            Log.e(TAG, "SecurityException LocationManager fallback", se);
-        } catch (Exception e) {
-            Log.e(TAG, "Erreur LocationManager fallback", e);
         }
     }
 
     private synchronized void onNewLocationReceived(Location location) {
         if (location == null) return;
 
-        // Éviter les doublons stricts à moins de 500ms
-        if (lastLocation != null && (location.getTime() - lastLocation.getTime() < 500)) {
+        // Éviter les micro-doublons stricts à moins de 800ms
+        if (lastLocation != null && (location.getTime() - lastLocation.getTime() < 800)) {
             return;
         }
 
-        // Calcul distance parcourue
+        // Calcul distance parcourue avec filtre anti-dérive GPS (anti-drift)
         if (lastLocation != null) {
             float d = lastLocation.distanceTo(location);
-            if (d > 0.8f && d < 250.0f) {
+            long dtMs = Math.max(1L, location.getTime() - lastLocation.getTime());
+            float dtSec = dtMs / 1000.0f;
+            float speed = location.hasSpeed() ? location.getSpeed() : (d / dtSec);
+            float accuracy = location.hasAccuracy() ? location.getAccuracy() : 20.0f;
+
+            // Filtre de déplacement réaliste à pied :
+            // - Précision suffisante (< 35m)
+            // - Vitesse minimale > 0.35 m/s (~1.26 km/h) pour éliminer le jitter statique en poche / sur table
+            // - Vitesse maximale < 8.5 m/s (~30 km/h)
+            // - Distance minimale proportionnelle à la précision pour éviter les faux cumuls
+            boolean isValidMovement = accuracy <= 35.0f 
+                && speed >= 0.35f 
+                && speed <= 8.5f 
+                && d >= Math.max(3.0f, accuracy * 0.30f)
+                && d < 250.0f;
+
+            if (isValidMovement) {
                 totalDistanceMeters += d;
             }
         }
@@ -567,6 +631,7 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
         if (sInstance == this) {
             sInstance = null;
         }
+        stopBackgroundHeartbeat();
         if (fusedLocationClient != null && locationCallback != null) {
             try { fusedLocationClient.removeLocationUpdates(locationCallback); } catch (Exception e) {}
         }
