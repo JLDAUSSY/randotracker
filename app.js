@@ -748,10 +748,18 @@ function loadUserProfile() {
   updateProfileUI();
 }
 
+function formatAvatarHtml(icon, extraClass = '') {
+  if (!icon) return '<span>🥾</span>';
+  if (icon === '🐱' || icon === 'cat' || icon === 'chat' || (typeof icon === 'string' && icon.includes('cat_icon'))) {
+    return `<img src="cat_icon.png?v=66" alt="Chat" class="w-full h-full object-cover rounded-full pointer-events-none select-none ${extraClass}" />`;
+  }
+  return `<span>${icon}</span>`;
+}
+
 function updateProfileUI() {
   const headerBadge = document.getElementById('header-avatar-badge');
   if (headerBadge) {
-    headerBadge.textContent = state.myUser.icon;
+    headerBadge.innerHTML = formatAvatarHtml(state.myUser.icon);
     headerBadge.style.backgroundColor = state.myUser.color;
   }
 
@@ -762,7 +770,7 @@ function updateProfileUI() {
   if (myName) myName.textContent = state.myUser.name;
   if (myRole) myRole.textContent = state.myUser.role;
   if (myAvatar) {
-    myAvatar.textContent = state.myUser.icon;
+    myAvatar.innerHTML = formatAvatarHtml(state.myUser.icon);
     myAvatar.style.backgroundColor = state.myUser.color;
   }
 
@@ -2285,7 +2293,7 @@ function createOrUpdateUserMarker(user) {
   const html = `
     <div class="user-marker-pin" id="marker-${user.id}" style="${transformStyle}">
       <div class="user-avatar-bubble ${liveClass} ${sosClass}" style="background-color: ${user.color || '#059669'}; ${isZoneBlanche ? 'opacity: 0.85; filter: saturate(0.8);' : ''}">
-        <span>${user.icon || '🥾'}</span>
+        ${formatAvatarHtml(user.icon || '🥾')}
       </div>
       <div class="user-label-tag" style="${isZoneBlanche ? 'border-color: #f59e0b; background: rgba(15,23,42,0.95);' : ''}">
         ${roleBadge ? `<span>${roleBadge}</span>` : ''}
@@ -2374,8 +2382,8 @@ function createOrUpdateUserMarker(user) {
 
       <!-- En-tête Participant GÉANT -->
       <div class="flex items-center gap-2.5 pb-2.5 border-b-2 border-slate-700/80">
-        <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-xl shrink-0 border-2 border-white/80" style="background-color: ${user.color}">
-          ${user.icon || '🌲'}
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-xl shrink-0 border-2 border-white/80 overflow-hidden" style="background-color: ${user.color}">
+          ${formatAvatarHtml(user.icon || '🌲')}
         </div>
         <div class="min-w-0 flex-1">
           <div class="font-black text-base sm:text-lg text-white truncate leading-tight">${user.name} ${isMe ? '<span class="text-xs text-emerald-400 font-bold ml-1">(Moi)</span>' : ''}</div>
@@ -2430,7 +2438,7 @@ function createOrUpdateUserMarker(user) {
                 <div class="flex items-center justify-between py-1 px-2 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs">
                   <div class="flex items-center gap-2 truncate max-w-[170px]">
                     <span class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${p.color || '#10b981'};"></span>
-                    <span class="font-bold text-slate-200 truncate">${p.icon || '🥾'} ${p.name} ${isPMe ? '<span class="text-[10px] text-emerald-400 font-bold">(Moi)</span>' : ''}</span>
+                    <span class="font-bold text-slate-200 truncate flex items-center gap-1"><span class="w-4 h-4 inline-flex items-center justify-center shrink-0 overflow-hidden">${formatAvatarHtml(p.icon || '🥾')}</span> <span>${p.name}</span> ${isPMe ? '<span class="text-[10px] text-emerald-400 font-bold">(Moi)</span>' : ''}</span>
                   </div>
                   <span class="font-mono font-black text-blue-400 text-xs shrink-0">${dStr}</span>
                 </div>
@@ -2668,8 +2676,8 @@ function renderUsersList() {
       <div class="p-4 rounded-3xl bg-slate-800/95 border-2 ${u.isSos ? 'border-red-500 bg-red-950/40 shadow-red-500/20' : isZoneBlanche ? 'border-amber-500/50 bg-slate-850' : 'border-slate-700'} hover:border-slate-500 transition flex flex-col gap-3 cursor-pointer active:scale-98 shadow-xl" onclick="centerOnUser('${u.id}')">
         <div class="flex items-center justify-between gap-3">
           <div class="flex items-center gap-3.5 min-w-0 flex-1">
-            <div class="w-14 h-14 rounded-full flex items-center justify-center text-3xl font-black text-white shrink-0 shadow-lg relative border-2 border-white/90" style="background-color: ${u.color || '#3b82f6'}; ${isZoneBlanche ? 'opacity: 0.85;' : ''}">
-              ${u.icon || '🥾'}
+            <div class="w-14 h-14 rounded-full flex items-center justify-center text-3xl font-black text-white shrink-0 shadow-lg relative border-2 border-white/90 overflow-hidden" style="background-color: ${u.color || '#3b82f6'}; ${isZoneBlanche ? 'opacity: 0.85;' : ''}">
+              ${formatAvatarHtml(u.icon || '🥾')}
               ${u.isSos ? '<span class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-white animate-ping"></span>' : ''}
             </div>
             <div class="min-w-0 flex-1">
@@ -4447,7 +4455,7 @@ function handleReceivedAnnouncement(data) {
   if (rxTime) rxTime.textContent = `Reçu à ${timeStr}`;
   if (rxText) rxText.textContent = text;
   if (rxBubble) {
-    rxBubble.textContent = icon;
+    rxBubble.innerHTML = formatAvatarHtml(icon);
     if (data.color) rxBubble.style.borderColor = data.color;
   }
 

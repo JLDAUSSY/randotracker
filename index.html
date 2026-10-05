@@ -53,8 +53,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v65 -->
-  <link rel="stylesheet" href="styles.css?v=65" />
+  <!-- Custom Styles with Cache-Busting v66 -->
+  <link rel="stylesheet" href="styles.css?v=66" />
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -80,7 +80,7 @@
           <span class="text-[9px] sm:text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider transition flex items-center gap-0.5">
             <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
           </span>
-          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.3.0</span>
+          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.3.1</span>
         </div>
       </div>
     </div>
@@ -103,7 +103,7 @@
 
       <!-- Mon Profil & Paramètres (Toujours 100% visible et shrink-0) -->
       <button id="open-profile-btn" class="app-header-btn aspect-square !p-0.5 bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 flex items-center justify-center transition active:scale-95 shadow-xl shrink-0" title="Mon Profil & Paramètres">
-        <div id="header-avatar-badge" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 flex items-center justify-center text-sm sm:text-base font-black text-white shadow">
+        <div id="header-avatar-badge" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 flex items-center justify-center text-sm sm:text-base font-black text-white shadow overflow-hidden p-0.5">
           🌲
         </div>
       </button>
@@ -212,7 +212,7 @@
       <div class="p-4 sm:p-5 bg-gradient-to-br from-slate-800/90 to-slate-850 border-b-2 border-slate-800">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3.5">
-            <div id="my-avatar-display" class="w-14 h-14 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center font-black text-2xl text-white shadow-xl">
+            <div id="my-avatar-display" class="w-14 h-14 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center font-black text-2xl text-white shadow-xl overflow-hidden p-0.5">
               🥾
             </div>
             <div>
@@ -759,7 +759,9 @@
           <label class="block text-xs font-black text-slate-400 uppercase mb-2">Votre Avatar & Couleur</label>
           <div class="grid grid-cols-6 gap-2.5" id="avatar-color-picker">
             <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#059669" data-icon="🌲" title="Sapin">🌲</button>
-            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-blue-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#2563eb" data-icon="🦅" title="Aigle">🦅</button>
+            <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-[#f6efe6] border-2 border-transparent flex items-center justify-center text-xl font-black text-slate-800 shadow-lg overflow-hidden p-0.5" data-color="#e8ded1" data-icon="🐱" title="Chat">
+              <img src="cat_icon.png?v=66" alt="Chat" class="w-full h-full object-cover rounded-full pointer-events-none" />
+            </button>
             <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-red-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#dc2626" data-icon="🦊" title="Renard">🦊</button>
             <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-amber-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#d97706" data-icon="🐻" title="Ours">🐻</button>
             <button type="button" class="avatar-opt w-12 h-12 rounded-full bg-purple-600 border-2 border-transparent flex items-center justify-center text-xl font-black text-white shadow-lg" data-color="#9333ea" data-icon="🐺" title="Loup">🐺</button>
@@ -1511,7 +1513,9 @@
             <button type="button" class="prompt-avatar-btn p-2.5 rounded-2xl bg-purple-600/30 border-2 border-purple-500 text-2xl flex items-center justify-center active:scale-95" data-icon="🐺" data-color="#9333ea">🐺</button>
             <button type="button" class="prompt-avatar-btn p-2.5 rounded-2xl bg-slate-800 border-2 border-transparent hover:border-slate-600 text-2xl flex items-center justify-center active:scale-95" data-icon="🥾" data-color="#10b981">🥾</button>
             <button type="button" class="prompt-avatar-btn p-2.5 rounded-2xl bg-slate-800 border-2 border-transparent hover:border-slate-600 text-2xl flex items-center justify-center active:scale-95" data-icon="🌲" data-color="#059669">🌲</button>
-            <button type="button" class="prompt-avatar-btn p-2.5 rounded-2xl bg-slate-800 border-2 border-transparent hover:border-slate-600 text-2xl flex items-center justify-center active:scale-95" data-icon="🦅" data-color="#2563eb">🦅</button>
+            <button type="button" class="prompt-avatar-btn p-1.5 rounded-2xl bg-[#f6efe6]/30 border-2 border-transparent hover:border-slate-600 text-2xl flex items-center justify-center active:scale-95 overflow-hidden w-12 h-12" data-icon="🐱" data-color="#e8ded1" title="Chat">
+              <img src="cat_icon.png?v=66" alt="Chat" class="w-full h-full object-cover rounded-full pointer-events-none" />
+            </button>
             <button type="button" class="prompt-avatar-btn p-2.5 rounded-2xl bg-slate-800 border-2 border-transparent hover:border-slate-600 text-2xl flex items-center justify-center active:scale-95" data-icon="🦊" data-color="#ea580c">🦊</button>
             <button type="button" class="prompt-avatar-btn p-2.5 rounded-2xl bg-slate-800 border-2 border-transparent hover:border-slate-600 text-2xl flex items-center justify-center active:scale-95" data-icon="🦁" data-color="#eab308">🦁</button>
           </div>
@@ -1526,7 +1530,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v65 -->
-  <script src="app.js?v=65"></script>
+  <!-- Main Application Script with Cache-Busting v66 -->
+  <script src="app.js?v=66"></script>
 </body>
 </html>

@@ -315,15 +315,22 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 24 configuré", lambda: 'versionCode = 24' in gradle_content)
-    run_test("Android Gradle : VersionName 1.3.0 configuré", lambda: 'versionName = "1.3.0"' in gradle_content)
+    run_test("Android Gradle : VersionCode 25 configuré", lambda: 'versionCode = 25' in gradle_content)
+    run_test("Android Gradle : VersionName 1.3.1 configuré", lambda: 'versionName = "1.3.1"' in gradle_content)
 
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.3.0 (24) dans le bridge natif", lambda: '1.3.0 (24)' in main_act_content)
+    run_test("MainActivity : Version 1.3.1 (25) dans le bridge natif", lambda: '1.3.1 (25)' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
+
+# Tests Spécifiques Icône Chat Détourée & Redressée
+cat_icon_path = os.path.join(PROJECT_DIR, 'cat_icon.png')
+run_test("Fichier icone chat généré et présent à la racine (cat_icon.png)", lambda: os.path.exists(cat_icon_path) and os.path.getsize(cat_icon_path) > 20000)
+run_test("Avatar Chat présent dans la modale Profil (#avatar-color-picker)", lambda: bool(soup.find(lambda tag: tag.name == 'button' and tag.get('data-icon') == '🐱' and tag.get('title') == 'Chat')))
+run_test("Avatar Chat présent dans la modale Prénom (#prompt-avatar-list)", lambda: bool(soup.find(lambda tag: tag.name == 'button' and tag.get('data-icon') == '🐱' and 'prompt-avatar-btn' in tag.get('class', []))))
+run_test("Fonction JavaScript formatAvatarHtml définie dans app.js", lambda: 'function formatAvatarHtml' in js_text)
 
 # Tests de Masquage Strict CSS des Modales & Mode Poche
 run_test("CSS : Masquage strict #pocket-mode-overlay.hidden", lambda: '#pocket-mode-overlay.hidden' in css_text and 'display: none !important' in css_text)
@@ -455,8 +462,9 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=65',
-    'http://127.0.0.1:8000/app.js?v=65',
+    'http://127.0.0.1:8000/styles.css?v=66',
+    'http://127.0.0.1:8000/app.js?v=66',
+    'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
