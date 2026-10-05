@@ -207,7 +207,8 @@ required_functions = [
     'requestWakeLock', 'releaseWakeLock',
     'enterPocketMode', 'exitPocketMode', 'startPocketHoldUnlock', 'cancelPocketHoldUnlock', 'updatePocketModeTelemetry',
     'openQrScanner', 'closeQrScanner', 'onQrCodeScanned', 'joinRoomDirectly',
-    'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName'
+    'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName',
+    'generateUserPopupHtml', 'refreshActiveUserPopups'
 ]
 
 for fn in required_functions:
@@ -233,7 +234,8 @@ exports_to_test = [
     'startBackgroundKeepAlive', 'stopBackgroundKeepAlive', 'startGpsWorkerHeartbeat', 'stopGpsWorkerHeartbeat',
     'enterPocketMode', 'exitPocketMode', 'startPocketHoldUnlock', 'cancelPocketHoldUnlock', 'updatePocketModeTelemetry',
     'openQrScanner', 'closeQrScanner', 'onQrCodeScanned', 'joinRoomDirectly',
-    'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName'
+    'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName',
+    'generateUserPopupHtml', 'refreshActiveUserPopups'
 ]
 
 for fn in exports_to_test:
@@ -315,14 +317,14 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 29 configuré", lambda: 'versionCode = 29' in gradle_content)
-    run_test("Android Gradle : VersionName 1.3.5 configuré", lambda: 'versionName = "1.3.5"' in gradle_content)
+    run_test("Android Gradle : VersionCode 30 configuré", lambda: 'versionCode = 30' in gradle_content)
+    run_test("Android Gradle : VersionName 1.3.6 configuré", lambda: 'versionName = "1.3.6"' in gradle_content)
 
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.3.5 (29) dans le bridge natif", lambda: '1.3.5 (29)' in main_act_content)
+    run_test("MainActivity : Version 1.3.6 (30) dans le bridge natif", lambda: '1.3.6 (30)' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
 
 # Tests Spécifiques Icônes Chat Détourées (Jaune & Rose)
@@ -466,8 +468,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=70',
-    'http://127.0.0.1:8000/app.js?v=70',
+    'http://127.0.0.1:8000/styles.css?v=71',
+    'http://127.0.0.1:8000/app.js?v=71',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',

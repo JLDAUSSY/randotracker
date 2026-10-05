@@ -2264,13 +2264,231 @@ function refreshColocalizedMarkers(lat, lon) {
   });
 }
 
+function generateUserPopupHtml(userId) {
+  const isMe = (userId === state.myUser.id);
+  const user = isMe ? state.myUser : state.otherUsers.get(userId);
+  if (!user) return '';
+
+  const now = Date.now();
+  const timeSinceSeenMs = now - (user.lastSeen || now);
+  const isZoneBlanche = !isMe && timeSinceSeenMs > 2 * 60 * 1000;
+  const minSinceSeen = Math.max(1, Math.round(timeSinceSeenMs / 60000));
+
+  // Rôle spécifique uniquement si Guide / Serre-file / Secours
+  let roleBadge = '';
+  if (user.role) {
+    const r = user.role.toLowerCase();
+    if (r.includes('guide')) roleBadge = '👑 ';
+    else if (r.includes('serre-file')) roleBadge = '🛡️ ';
+    else if (r.includes('secours') || r.includes('sécurité') || r.includes('pc')) roleBadge = '🚑 ';
+  }
+
+  // Nom affiché : pour "Moi", si le prénom n'a pas encore été personnalisé, afficher "Moi"
+  let rawName = (user.name || '').trim();
+  let displayName = rawName;
+  if (isMe && (!rawName || rawName.toLowerCase() === 'randonneur' || rawName.toLowerCase() === 'marcheur')) {
+    displayName = 'Moi';
+  } else if (!rawName) {
+    displayName = isMe ? 'Moi' : 'Randonneur';
+  }
+
+  const distFromMe = isMe ? 0 : calculateDistance(state.myUser.lat, state.myUser.lon, user.lat, user.lon);
+  const distFromMeStr = distFromMe < 1 ? `${Math.round(distFromMe * 1000)} m` : `${distFromMe.toFixed(1)} km`;
+  const progress = computeTrackProgress(user);
+
+  // Récupérer tous les autres membres du groupe pour calculer les distances directes à vol d'oiseau
+  const allGroupUsers = [state.myUser, ...Array.from(state.otherUsers.values())];
+  const otherGroupMembers = allGroupUsers.filter(p => p && p.id !== user.id && typeof p.lat === 'number' && typeof p.lon === 'number');
+
+  // Calcul rigoureux et transparent de l'écart réel à la trace GPX
+  let ecartDisplayVal = '--';
+  let ecartDisplayColor = 'text-slate-400';
+  let ecartStatusTag = '';
+  let isFarFromTrack = false;
+
+  if (progress && typeof progress.distanceToTrack === 'number') {
+    const dMeters = Math.round(progress.distanceToTrack * 1000);
+    if (dMeters < 30) {
+      ecartDisplayVal = `${dMeters} m`;
+      ecartDisplayColor = 'text-emerald-400';
+      ecartStatusTag = 'Sur tracé';
+    } else if (dMeters < 150) {
+      ecartDisplayVal = `${dMeters} m`;
+      ecartDisplayColor = 'text-emerald-300';
+      ecartStatusTag = 'Proche';
+    } else if (dMeters < 1000) {
+      ecartDisplayVal = `${dMeters} m`;
+      ecartDisplayColor = 'text-amber-400';
+      ecartStatusTag = 'Écart';
+      isFarFromTrack = true;
+    } else {
+      ecartDisplayVal = `${(progress.distanceToTrack).toFixed(1)} km`;
+      ecartDisplayColor = 'text-rose-400';
+      ecartStatusTag = 'Hors circuit';
+      isFarFromTrack = true;
+    }
+  } else if (!isMe) {
+    ecartDisplayVal = distFromMeStr;
+    ecartDisplayColor = 'text-blue-400';
+    ecartStatusTag = 'Dist. / Vous';
+  }
+
+  return `
+    <div class="p-1.5 space-y-2.5 min-w-[260px] max-w-[320px] overflow-hidden box-border">
+      <!-- Barre de déplacement & Zoom de la fenêtre popup -->
+      <div class="popup-drag-bar flex items-center justify-between text-[11px] font-bold text-slate-300">
+        <span class="flex items-center gap-1.5 cursor-grab shrink-0">
+          <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
+          <span class="font-black text-slate-100">Déplacer</span>
+        </span>
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" onclick="adjustPopupZoom(this, -0.15)" class="popup-zoom-btn" title="Réduire la taille">A-</button>
+          <span class="popup-zoom-level-badge text-[10px] font-mono text-emerald-400 px-1 font-black">100%</span>
+          <button type="button" onclick="adjustPopupZoom(this, 0.15)" class="popup-zoom-btn" title="Agrandir la taille">A+</button>
+        </div>
+        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold truncate hidden sm:inline">${isMe ? 'Moi' : 'Profil'}</span>
+      </div>
+
+      <!-- En-tête Participant GÉANT -->
+      <div class="flex items-center gap-2.5 pb-2.5 border-b-2 border-slate-700/80">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-xl shrink-0 border-2 border-white/80 overflow-hidden" style="background-color: ${user.color || '#059669'}">
+          ${formatAvatarHtml(user.icon || '🌲')}
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="font-black text-base sm:text-lg text-white truncate leading-tight">${displayName} ${isMe ? '<span class="text-xs text-emerald-400 font-bold ml-1">(Moi)</span>' : ''}</div>
+          <div class="flex items-center gap-1.5 mt-1 flex-wrap text-xs">
+            <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold border border-slate-700 text-[11px] truncate">${user.role || 'Randonneur'}</span>
+            ${!isMe ? `<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40 text-[11px] truncate">📍 ${distFromMeStr}</span>` : ''}
+            ${progress ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 text-[11px] shrink-0">ETA ${progress.etaShort}</span>` : ''}
+            ${isZoneBlanche ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 text-[11px] truncate">🌲 ${minSinceSeen}m</span>` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- Grille 4 Cartes Statistiques Haut Contraste -->
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Vitesse Moy.</span>
+          <span class="text-sm sm:text-base font-black text-white mt-0.5 font-mono truncate">${(user.movingAvgSpeed && user.movingAvgSpeed > 0 ? user.movingAvgSpeed : (user.speed || 0)).toFixed(1)} <span class="text-[10px] font-bold text-slate-400">km/h</span></span>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Altitude</span>
+          <span class="text-sm sm:text-base font-black text-white mt-0.5 font-mono truncate">${Math.round(user.ele || 0)} <span class="text-[10px] font-bold text-slate-400">m</span></span>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Batterie</span>
+          <span class="text-sm sm:text-base font-black mt-0.5 font-mono truncate ${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</span>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Écart Trace</span>
+            ${ecartStatusTag ? `<span class="text-[9px] font-black uppercase px-1 py-0.2 rounded shrink-0 ${isFarFromTrack ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">${ecartStatusTag}</span>` : ''}
+          </div>
+          <span class="text-sm sm:text-base font-black ${ecartDisplayColor} mt-0.5 font-mono truncate">${ecartDisplayVal}</span>
+        </div>
+      </div>
+
+      <!-- Distances directes aux autres marcheurs (à vol d'oiseau) -->
+      ${otherGroupMembers.length > 0 ? `
+        <div class="p-2.5 rounded-2xl bg-slate-900/95 border border-slate-800 space-y-1.5 shadow-inner">
+          <div class="text-[11px] font-black text-slate-300 uppercase tracking-wider flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <span class="text-blue-400">📏</span>
+              <span>Distances aux autres marcheurs</span>
+            </span>
+            <span class="text-[9px] text-slate-400 font-semibold">(vol d'oiseau)</span>
+          </div>
+          <div class="space-y-1 max-h-[130px] overflow-y-auto pr-0.5 custom-scrollbar">
+            ${otherGroupMembers.map(p => {
+              const d = calculateDistance(user.lat, user.lon, p.lat, p.lon);
+              const dStr = d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(2)} km`;
+              const isPMe = (p.id === state.myUser.id);
+              const pName = (isPMe && (!p.name || p.name.toLowerCase() === 'randonneur' || p.name.toLowerCase() === 'marcheur')) ? 'Moi' : (p.name || 'Marcheur');
+              return `
+                <div class="flex items-center justify-between py-1 px-2 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs">
+                  <div class="flex items-center gap-2 truncate max-w-[170px]">
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${p.color || '#10b981'};"></span>
+                    <span class="font-bold text-slate-200 truncate flex items-center gap-1"><span class="w-4 h-4 inline-flex items-center justify-center shrink-0 overflow-hidden">${formatAvatarHtml(p.icon || '🥾')}</span> <span>${pName}</span> ${isPMe ? '<span class="text-[10px] text-emerald-400 font-bold">(Moi)</span>' : ''}</span>
+                  </div>
+                  <span class="font-mono font-black text-blue-400 text-xs shrink-0">${dStr}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Progression & ETA de Trace -->
+      ${progress ? `
+        <div class="p-3 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2 shadow-inner">
+          <div class="flex items-center justify-between">
+            <span class="font-black text-sm text-slate-200 flex items-center gap-2 truncate max-w-[170px]">
+              <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${progress.trackColor};"></span>
+              <span class="truncate">${progress.trackName}</span>
+            </span>
+            <span class="font-mono font-black text-emerald-400 text-sm">${progress.progressPct}%</span>
+          </div>
+          <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+            <div class="h-full rounded-full transition-all duration-300" style="width: ${progress.progressPct}%; background-color: ${progress.trackColor};"></div>
+          </div>
+          <div class="flex items-center justify-between text-xs text-slate-300 pt-0.5">
+            <span class="font-bold">Reste ${progress.remainingDist.toFixed(1)} km <span class="text-slate-400">(+${progress.remainingEleGain}m D+)</span></span>
+          </div>
+          ${isFarFromTrack ? `
+            <div class="bg-amber-500/15 border border-amber-500/35 rounded-xl px-2.5 py-1.5 text-xs text-amber-200 flex items-center justify-between">
+              <span class="font-bold">⚠️ Hors circuit (${ecartDisplayVal})</span>
+              <span class="text-[11px] text-amber-300 font-mono">Départ à ${(progress.distToStart || progress.distanceToTrack).toFixed(1)} km</span>
+            </div>
+          ` : ''}
+          <div class="bg-amber-500/15 border border-amber-500/35 rounded-xl px-2.5 py-1.5 flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-200">Arrivée estimée :</span>
+            <span class="text-sm font-black text-amber-300 font-mono">${progress.etaString}</span>
+          </div>
+        </div>
+      ` : ''}
+
+      ${user.isSos ? `
+        <div class="p-3 rounded-2xl bg-red-600/30 border-2 border-red-500 text-red-200 text-sm font-black flex items-center gap-2.5 shadow-lg animate-pulse">
+          <i data-lucide="alert-triangle" class="w-6 h-6 text-red-400 shrink-0"></i>
+          <span>🚨 ALERTE SOS SIGNALÉE !</span>
+        </div>
+      ` : ''}
+
+      <div class="text-[11px] text-slate-400 pt-2 border-t border-slate-800/80 flex items-center justify-between font-semibold">
+        <span>${isZoneBlanche ? '🌲 Zone blanche (dernière pos.)' : '🟢 Signal GPS direct'}</span>
+        <span class="${isZoneBlanche ? 'text-amber-300 font-bold' : 'text-slate-200'}">${new Date(user.lastSeen || now).toLocaleTimeString()} ${isZoneBlanche ? `(il y a ${minSinceSeen} min)` : ''}</span>
+      </div>
+
+      ${(!isMe) ? `
+        <div class="pt-2 border-t border-slate-700/80">
+          <button onclick="deleteParticipant('${user.id}')" class="w-full py-2.5 px-3 rounded-xl bg-red-600/20 hover:bg-red-600/35 text-red-300 hover:text-white border border-red-500/50 hover:border-red-400 font-black text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md" title="Supprimer ce marcheur de la session">
+            <i data-lucide="user-x" class="w-4 h-4 text-red-400"></i>
+            <span>Supprimer ce marcheur</span>
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function refreshActiveUserPopups() {
+  state.userMarkers.forEach((marker, userId) => {
+    if (marker && marker.isPopupOpen && marker.isPopupOpen()) {
+      marker.setPopupContent(generateUserPopupHtml(userId));
+      if (window.lucide && lucide.createIcons) {
+        lucide.createIcons();
+      }
+    }
+  });
+}
+
 function createOrUpdateUserMarker(user) {
   let marker = state.userMarkers.get(user.id);
   const isMe = user.id === state.myUser.id;
   const now = Date.now();
   const timeSinceSeenMs = now - (user.lastSeen || now);
   const isZoneBlanche = !isMe && timeSinceSeenMs > 2 * 60 * 1000;
-  const minSinceSeen = Math.round(timeSinceSeenMs / 60000);
+  const minSinceSeen = Math.max(1, Math.round(timeSinceSeenMs / 60000));
 
   const sosClass = user.isSos ? 'is-sos' : '';
   const liveClass = (!user.isSos && !isZoneBlanche) ? 'is-live' : '';
@@ -2321,190 +2539,21 @@ function createOrUpdateUserMarker(user) {
   if (!marker) {
     marker = L.marker([user.lat, user.lon], { icon: customIcon }).addTo(state.map);
     state.userMarkers.set(user.id, marker);
+    marker.bindPopup(() => generateUserPopupHtml(user.id));
   } else {
     marker.setLatLng([user.lat, user.lon]);
     marker.setIcon(customIcon);
+    marker.bindPopup(() => generateUserPopupHtml(user.id));
+    if (marker.isPopupOpen && marker.isPopupOpen()) {
+      marker.setPopupContent(generateUserPopupHtml(user.id));
+      if (window.lucide && lucide.createIcons) {
+        lucide.createIcons();
+      }
+    }
   }
 
   // Actualiser instantanément la disposition des autres marcheurs colocalisés proches
   setTimeout(() => refreshColocalizedMarkers(user.lat, user.lon), 50);
-
-  const distFromMe = isMe ? 0 : calculateDistance(state.myUser.lat, state.myUser.lon, user.lat, user.lon);
-  const distFromMeStr = distFromMe < 1 ? `${Math.round(distFromMe * 1000)} m` : `${distFromMe.toFixed(1)} km`;
-  const progress = computeTrackProgress(user);
-
-  // Récupérer tous les autres membres du groupe pour calculer les distances directes à vol d'oiseau
-  const allGroupUsers = [state.myUser, ...Array.from(state.otherUsers.values())];
-  const otherGroupMembers = allGroupUsers.filter(p => p && p.id !== user.id && typeof p.lat === 'number' && typeof p.lon === 'number');
-
-  // Calcul rigoureux et transparent de l'écart réel à la trace GPX
-  let ecartDisplayVal = '--';
-  let ecartDisplayColor = 'text-slate-400';
-  let ecartStatusTag = '';
-  let isFarFromTrack = false;
-
-  if (progress && typeof progress.distanceToTrack === 'number') {
-    const dMeters = Math.round(progress.distanceToTrack * 1000);
-    if (dMeters < 30) {
-      ecartDisplayVal = `${dMeters} m`;
-      ecartDisplayColor = 'text-emerald-400';
-      ecartStatusTag = 'Sur tracé';
-    } else if (dMeters < 150) {
-      ecartDisplayVal = `${dMeters} m`;
-      ecartDisplayColor = 'text-emerald-300';
-      ecartStatusTag = 'Proche';
-    } else if (dMeters < 1000) {
-      ecartDisplayVal = `${dMeters} m`;
-      ecartDisplayColor = 'text-amber-400';
-      ecartStatusTag = 'Écart';
-      isFarFromTrack = true;
-    } else {
-      ecartDisplayVal = `${(progress.distanceToTrack).toFixed(1)} km`;
-      ecartDisplayColor = 'text-rose-400';
-      ecartStatusTag = 'Hors circuit';
-      isFarFromTrack = true;
-    }
-  } else if (!isMe) {
-    ecartDisplayVal = distFromMeStr;
-    ecartDisplayColor = 'text-blue-400';
-    ecartStatusTag = 'Dist. / Vous';
-  }
-
-  marker.bindPopup(`
-    <div class="p-1.5 space-y-2.5 min-w-[260px] max-w-[320px] overflow-hidden box-border">
-      <!-- Barre de déplacement & Zoom de la fenêtre popup -->
-      <div class="popup-drag-bar flex items-center justify-between text-[11px] font-bold text-slate-300">
-        <span class="flex items-center gap-1.5 cursor-grab shrink-0">
-          <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
-          <span class="font-black text-slate-100">Déplacer</span>
-        </span>
-        <div class="flex items-center gap-1 shrink-0">
-          <button type="button" onclick="adjustPopupZoom(this, -0.15)" class="popup-zoom-btn" title="Réduire la taille">A-</button>
-          <span class="popup-zoom-level-badge text-[10px] font-mono text-emerald-400 px-1 font-black">100%</span>
-          <button type="button" onclick="adjustPopupZoom(this, 0.15)" class="popup-zoom-btn" title="Agrandir la taille">A+</button>
-        </div>
-        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold truncate hidden sm:inline">${isMe ? 'Moi' : 'Profil'}</span>
-      </div>
-
-      <!-- En-tête Participant GÉANT -->
-      <div class="flex items-center gap-2.5 pb-2.5 border-b-2 border-slate-700/80">
-        <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-xl shrink-0 border-2 border-white/80 overflow-hidden" style="background-color: ${user.color}">
-          ${formatAvatarHtml(user.icon || '🌲')}
-        </div>
-        <div class="min-w-0 flex-1">
-          <div class="font-black text-base sm:text-lg text-white truncate leading-tight">${user.name} ${isMe ? '<span class="text-xs text-emerald-400 font-bold ml-1">(Moi)</span>' : ''}</div>
-          <div class="flex items-center gap-1.5 mt-1 flex-wrap text-xs">
-            <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold border border-slate-700 text-[11px] truncate">${user.role}</span>
-            ${!isMe ? `<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40 text-[11px] truncate">📍 ${distFromMeStr}</span>` : ''}
-            ${progress ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 text-[11px] shrink-0">ETA ${progress.etaShort}</span>` : ''}
-            ${isZoneBlanche ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 text-[11px] truncate">🌲 ${minSinceSeen}m</span>` : ''}
-          </div>
-        </div>
-      </div>
-
-      <!-- Grille 4 Cartes Statistiques Haut Contraste -->
-      <div class="grid grid-cols-2 gap-2 text-xs">
-        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
-          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Vitesse Moy.</span>
-          <span class="text-sm sm:text-base font-black text-white mt-0.5 font-mono truncate">${(user.movingAvgSpeed && user.movingAvgSpeed > 0 ? user.movingAvgSpeed : (user.speed || 0)).toFixed(1)} <span class="text-[10px] font-bold text-slate-400">km/h</span></span>
-        </div>
-        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
-          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Altitude</span>
-          <span class="text-sm sm:text-base font-black text-white mt-0.5 font-mono truncate">${Math.round(user.ele || 0)} <span class="text-[10px] font-bold text-slate-400">m</span></span>
-        </div>
-        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
-          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Batterie</span>
-          <span class="text-sm sm:text-base font-black mt-0.5 font-mono truncate ${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</span>
-        </div>
-        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
-          <div class="flex items-center justify-between">
-            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Écart Trace</span>
-            ${ecartStatusTag ? `<span class="text-[9px] font-black uppercase px-1 py-0.2 rounded shrink-0 ${isFarFromTrack ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">${ecartStatusTag}</span>` : ''}
-          </div>
-          <span class="text-sm sm:text-base font-black ${ecartDisplayColor} mt-0.5 font-mono truncate">${ecartDisplayVal}</span>
-        </div>
-      </div>
-
-      <!-- Distances directes aux autres marcheurs (à vol d'oiseau) -->
-      ${otherGroupMembers.length > 0 ? `
-        <div class="p-2.5 rounded-2xl bg-slate-900/95 border border-slate-800 space-y-1.5 shadow-inner">
-          <div class="text-[11px] font-black text-slate-300 uppercase tracking-wider flex items-center justify-between">
-            <span class="flex items-center gap-1.5">
-              <span class="text-blue-400">📏</span>
-              <span>Distances aux autres marcheurs</span>
-            </span>
-            <span class="text-[9px] text-slate-400 font-semibold">(vol d'oiseau)</span>
-          </div>
-          <div class="space-y-1 max-h-[130px] overflow-y-auto pr-0.5 custom-scrollbar">
-            ${otherGroupMembers.map(p => {
-              const d = calculateDistance(user.lat, user.lon, p.lat, p.lon);
-              const dStr = d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(2)} km`;
-              const isPMe = p.id === state.myUser.id;
-              return `
-                <div class="flex items-center justify-between py-1 px-2 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs">
-                  <div class="flex items-center gap-2 truncate max-w-[170px]">
-                    <span class="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" style="background-color: ${p.color || '#10b981'};"></span>
-                    <span class="font-bold text-slate-200 truncate flex items-center gap-1"><span class="w-4 h-4 inline-flex items-center justify-center shrink-0 overflow-hidden">${formatAvatarHtml(p.icon || '🥾')}</span> <span>${p.name}</span> ${isPMe ? '<span class="text-[10px] text-emerald-400 font-bold">(Moi)</span>' : ''}</span>
-                  </div>
-                  <span class="font-mono font-black text-blue-400 text-xs shrink-0">${dStr}</span>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      ` : ''}
-
-      <!-- Progression & ETA de Trace -->
-      ${progress ? `
-        <div class="p-3 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2 shadow-inner">
-          <div class="flex items-center justify-between">
-            <span class="font-black text-sm text-slate-200 flex items-center gap-2 truncate max-w-[170px]">
-              <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${progress.trackColor};"></span>
-              <span class="truncate">${progress.trackName}</span>
-            </span>
-            <span class="font-mono font-black text-emerald-400 text-sm">${progress.progressPct}%</span>
-          </div>
-          <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-            <div class="h-full rounded-full transition-all duration-300" style="width: ${progress.progressPct}%; background-color: ${progress.trackColor};"></div>
-          </div>
-          <div class="flex items-center justify-between text-xs text-slate-300 pt-0.5">
-            <span class="font-bold">Reste ${progress.remainingDist.toFixed(1)} km <span class="text-slate-400">(+${progress.remainingEleGain}m D+)</span></span>
-          </div>
-          ${isFarFromTrack ? `
-            <div class="bg-amber-500/15 border border-amber-500/35 rounded-xl px-2.5 py-1.5 text-xs text-amber-200 flex items-center justify-between">
-              <span class="font-bold">⚠️ Hors circuit (${ecartDisplayVal})</span>
-              <span class="text-[11px] text-amber-300 font-mono">Départ à ${(progress.distToStart || progress.distanceToTrack).toFixed(1)} km</span>
-            </div>
-          ` : ''}
-          <div class="bg-amber-500/15 border border-amber-500/35 rounded-xl px-2.5 py-1.5 flex items-center justify-between">
-            <span class="text-xs font-bold text-amber-200">Arrivée estimée :</span>
-            <span class="text-sm font-black text-amber-300 font-mono">${progress.etaString}</span>
-          </div>
-        </div>
-      ` : ''}
-
-      ${user.isSos ? `
-        <div class="p-3 rounded-2xl bg-red-600/30 border-2 border-red-500 text-red-200 text-sm font-black flex items-center gap-2.5 shadow-lg animate-pulse">
-          <i data-lucide="alert-triangle" class="w-6 h-6 text-red-400 shrink-0"></i>
-          <span>🚨 ALERTE SOS SIGNALÉE !</span>
-        </div>
-      ` : ''}
-
-      <div class="text-[11px] text-slate-400 pt-2 border-t border-slate-800/80 flex items-center justify-between font-semibold">
-        <span>${isZoneBlanche ? '🌲 Zone blanche (dernière pos.)' : '🟢 Signal GPS direct'}</span>
-        <span class="${isZoneBlanche ? 'text-amber-300 font-bold' : 'text-slate-200'}">${new Date(user.lastSeen).toLocaleTimeString()} ${isZoneBlanche ? `(il y a ${minSinceSeen} min)` : ''}</span>
-      </div>
-
-      ${(!isMe && state.isOrganizer) ? `
-        <div class="pt-2 border-t border-slate-700/80">
-          <button onclick="deleteParticipant('${user.id}')" class="w-full py-2.5 px-3 rounded-xl bg-red-600/20 hover:bg-red-600/35 text-red-300 hover:text-white border border-red-500/50 hover:border-red-400 font-black text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow-md" title="Supprimer ce marcheur de la session">
-            <i data-lucide="user-x" class="w-4 h-4 text-red-400"></i>
-            <span>Supprimer ce marcheur</span>
-          </button>
-        </div>
-      ` : ''}
-    </div>
-  `);
 }
 
 function removeUserMarker(userId) {
@@ -2533,6 +2582,17 @@ function deduplicateUsersByName() {
   const genericNormalized = new Set(['randonneur', 'marcheur', 'participant', 'guide', 'guidedetete', 'animateur', '']);
   const myNameNorm = normalizeHikerName(state.myUser.name);
   const byNormName = new Map();
+
+  // Purger les marqueurs orphelins sur la carte Leaflet
+  const activeIds = new Set([state.myUser.id, ...Array.from(state.otherUsers.keys())]);
+  state.userMarkers.forEach((marker, markerId) => {
+    if (!activeIds.has(markerId)) {
+      if (state.map && state.map.hasLayer(marker)) {
+        state.map.removeLayer(marker);
+      }
+      state.userMarkers.delete(markerId);
+    }
+  });
 
   state.otherUsers.forEach((user, id) => {
     // 0. Si pour une raison quelconque mon propre ID s'est retrouvé dans otherUsers, le retirer
@@ -4070,6 +4130,7 @@ function broadcastMyPosition() {
     state.myUser.lastSeen = Date.now();
     createOrUpdateUserMarker(state.myUser);
     renderUsersList();
+    refreshActiveUserPopups();
 
     // Ne pas diffuser aux autres si notre nom est générique / non personnalisé (ex: session PC en consultation)
     const myName = (state.myUser.name || '').trim().toLowerCase();
@@ -4119,10 +4180,13 @@ function handleIncomingMessage(data) {
         if (genericNames.includes(uName) || uName === myNameClean) {
           return;
         }
+        if (!user.lastSeen) user.lastSeen = Date.now();
         state.otherUsers.set(user.id, user);
+        deduplicateUsersByName();
         createOrUpdateUserMarker(user);
         saveOtherUsersToStorage();
         renderUsersList();
+        refreshActiveUserPopups();
         showToast(`👋 ${user.name} a rejoint la rando !`, 'info');
 
         // Répondre IMMÉDIATEMENT au nouvel arrivant avec notre présence si nous sommes nommés
@@ -4150,10 +4214,13 @@ function handleIncomingMessage(data) {
           return;
         }
         if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
+          if (!user.lastSeen) user.lastSeen = Date.now();
           state.otherUsers.set(user.id, user);
+          deduplicateUsersByName();
           createOrUpdateUserMarker(user);
           saveOtherUsersToStorage();
           renderUsersList();
+          refreshActiveUserPopups();
         }
       }
     } else if (data.type === 'sync_tracks') {
@@ -6243,7 +6310,5 @@ window.checkAndPromptUserName = checkAndPromptUserName;
 window.openNamePromptModal = openNamePromptModal;
 window.closeNamePromptModal = closeNamePromptModal;
 window.savePromptUserName = savePromptUserName;
-
-
-
-
+window.generateUserPopupHtml = generateUserPopupHtml;
+window.refreshActiveUserPopups = refreshActiveUserPopups;
