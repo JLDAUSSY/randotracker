@@ -315,14 +315,14 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 25 configuré", lambda: 'versionCode = 25' in gradle_content)
-    run_test("Android Gradle : VersionName 1.3.1 configuré", lambda: 'versionName = "1.3.1"' in gradle_content)
+    run_test("Android Gradle : VersionCode 26 configuré", lambda: 'versionCode = 26' in gradle_content)
+    run_test("Android Gradle : VersionName 1.3.2 configuré", lambda: 'versionName = "1.3.2"' in gradle_content)
 
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.3.1 (25) dans le bridge natif", lambda: '1.3.1 (25)' in main_act_content)
+    run_test("MainActivity : Version 1.3.2 (26) dans le bridge natif", lambda: '1.3.2 (26)' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
 
 # Tests Spécifiques Icône Chat Détourée & Redressée
@@ -462,8 +462,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=66',
-    'http://127.0.0.1:8000/app.js?v=66',
+    'http://127.0.0.1:8000/styles.css?v=67',
+    'http://127.0.0.1:8000/app.js?v=67',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker.apk',
