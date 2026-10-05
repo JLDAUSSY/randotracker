@@ -477,9 +477,12 @@ function loadSavedOtherUsersFromStorage() {
     const maxFreshnessMs = 5 * 3600 * 1000;
     let loadedCount = 0;
 
+    const genericNames = ['guide', 'animateur', 'guide de tête', 'guide de tete', 'randonneur', 'marcheur', 'participant', ''];
+    const myNameClean = (state.myUser.name || '').trim().toLowerCase();
+
     data.users.forEach(u => {
       const uName = (u && u.name ? u.name.trim().toLowerCase() : '');
-      if (u && u.id && u.id !== state.myUser.id && uName !== 'guide' && uName !== 'animateur' && (now - (u.lastSeen || 0) < maxFreshnessMs)) {
+      if (u && u.id && u.id !== state.myUser.id && !genericNames.includes(uName) && uName !== myNameClean && (now - (u.lastSeen || 0) < maxFreshnessMs)) {
         state.otherUsers.set(u.id, u);
         createOrUpdateUserMarker(u);
         loadedCount++;
@@ -2189,8 +2192,64 @@ function updateHoverMapMarker(lat, lon) {
 }
 
 // ============================================================================
-// SUIVI DES RANDONNEURS SUR LA CARTE AVEC PROGRESSION & ETA
+// SUIVI DES RANDONNEURS SUR LA CARTE AVEC DÉCALAGE ANTI-SUPERPOSITION (COLOCALISATION)
 // ============================================================================
+function getUserColocalizationOffset(user) {
+  if (!user || typeof user.lat !== 'number' || typeof user.lon !== 'number') {
+    return { dx: 0, dy: 0 };
+  }
+
+  // Rassembler tous les marcheurs valides actifs présents sur la carte
+  const allUsers = [state.myUser, ...Array.from(state.otherUsers.values())]
+    .filter(u => u && typeof u.lat === 'number' && typeof u.lon === 'number');
+
+  // Trouver ceux qui sont colocalisés (à moins de 6 mètres)
+  const cluster = allUsers.filter(u => {
+    const d = calculateDistance(user.lat, user.lon, u.lat, u.lon);
+    return d < 0.006; // 6 mètres
+  });
+
+  if (cluster.length <= 1) {
+    return { dx: 0, dy: 0 };
+  }
+
+  // Tri stable et déterministe (par id)
+  cluster.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+  const idx = cluster.findIndex(u => u.id === user.id);
+  if (idx === -1) return { dx: 0, dy: 0 };
+
+  const N = cluster.length;
+  if (N === 2) {
+    // 2 marcheurs colocalisés : éventail côte à côte gauche / droite (-24px / +24px)
+    const dx = (idx === 0) ? -24 : 24;
+    return { dx, dy: 0 };
+  }
+
+  // 3 marcheurs ou plus : rosace circulaire équilibrée (rayon 28px)
+  const radius = 28;
+  const angle = (2 * Math.PI * idx) / N - (Math.PI / 2);
+  const dx = Math.round(Math.cos(angle) * radius);
+  const dy = Math.round(Math.sin(angle) * radius);
+  return { dx, dy };
+}
+
+function refreshColocalizedMarkers(lat, lon) {
+  if (typeof lat !== 'number' || typeof lon !== 'number') return;
+  const allUsers = [state.myUser, ...Array.from(state.otherUsers.values())];
+  allUsers.forEach(u => {
+    if (u && typeof u.lat === 'number' && typeof u.lon === 'number') {
+      const d = calculateDistance(lat, lon, u.lat, u.lon);
+      if (d < 0.006) {
+        const off = getUserColocalizationOffset(u);
+        const pin = document.getElementById(`marker-${u.id}`);
+        if (pin) {
+          pin.style.transform = (off.dx !== 0 || off.dy !== 0) ? `translate(${off.dx}px, ${off.dy}px)` : '';
+        }
+      }
+    }
+  });
+}
+
 function createOrUpdateUserMarker(user) {
   let marker = state.userMarkers.get(user.id);
   const isMe = user.id === state.myUser.id;
@@ -2220,8 +2279,11 @@ function createOrUpdateUserMarker(user) {
     displayName = isMe ? 'Moi' : 'Randonneur';
   }
 
+  const offset = getUserColocalizationOffset(user);
+  const transformStyle = (offset.dx !== 0 || offset.dy !== 0) ? `transform: translate(${offset.dx}px, ${offset.dy}px);` : '';
+
   const html = `
-    <div class="user-marker-pin" id="marker-${user.id}">
+    <div class="user-marker-pin" id="marker-${user.id}" style="${transformStyle}">
       <div class="user-avatar-bubble ${liveClass} ${sosClass}" style="background-color: ${user.color || '#059669'}; ${isZoneBlanche ? 'opacity: 0.85; filter: saturate(0.8);' : ''}">
         <span>${user.icon || '🥾'}</span>
       </div>
@@ -2249,6 +2311,9 @@ function createOrUpdateUserMarker(user) {
     marker.setLatLng([user.lat, user.lon]);
     marker.setIcon(customIcon);
   }
+
+  // Actualiser instantanément la disposition des autres marcheurs colocalisés proches
+  setTimeout(() => refreshColocalizedMarkers(user.lat, user.lon), 50);
 
   const distFromMe = isMe ? 0 : calculateDistance(state.myUser.lat, state.myUser.lon, user.lat, user.lon);
   const distFromMeStr = distFromMe < 1 ? `${Math.round(distFromMe * 1000)} m` : `${distFromMe.toFixed(1)} km`;
@@ -2463,8 +2528,11 @@ function deduplicateUsersByName() {
       return;
     }
 
-    // RÈGLE D'OR : Les noms génériques par défaut (Randonneur) ne sont pas dédupliqués s'ils viennent de téléphones distincts
+    // Purger immédiatement tout profil générique ou non nommé
     if (!userName || genericNames.has(userName)) {
+      console.log(`[Deduplication] Élimination du profil générique/non nommé '${user.name}' (${id})`);
+      removeUserMarker(id);
+      state.otherUsers.delete(id);
       return;
     }
 
@@ -3987,6 +4055,13 @@ function broadcastMyPosition() {
     createOrUpdateUserMarker(state.myUser);
     renderUsersList();
 
+    // Ne pas diffuser aux autres si notre nom est générique / non personnalisé (ex: session PC en consultation)
+    const myName = (state.myUser.name || '').trim().toLowerCase();
+    const genericNames = ['guide', 'animateur', 'guide de tête', 'guide de tete', 'randonneur', 'marcheur', 'participant', ''];
+    if (genericNames.includes(myName)) {
+      return;
+    }
+
     publishMessage({
       type: 'update_position',
       user: state.myUser
@@ -4002,12 +4077,17 @@ function handleIncomingMessage(data) {
     if (data.senderId === state.myUser.id) return; // Ignore nos propres messages
     if (data.room && data.room !== state.roomCode) return;
 
+    const myNameClean = (state.myUser.name || '').trim().toLowerCase();
+    const genericNames = ['guide', 'animateur', 'guide de tête', 'guide de tete', 'randonneur', 'marcheur', 'participant', ''];
+
     if (data.type === 'request_presence') {
-      // Un participant demande la liste des présents : répondre immédiatement
-      publishMessage({
-        type: 'respond_presence',
-        user: state.myUser
-      });
+      // Un participant demande la liste des présents : répondre immédiatement si nous sommes nommés
+      if (!genericNames.includes(myNameClean)) {
+        publishMessage({
+          type: 'respond_presence',
+          user: state.myUser
+        });
+      }
       // Si nous avons des traces, les transmettre
       if (state.tracks.length > 0) {
         publishMessage({
@@ -4020,8 +4100,7 @@ function handleIncomingMessage(data) {
       const user = data.user;
       if (user && user.id !== state.myUser.id) {
         const uName = (user.name || '').trim().toLowerCase();
-        if (uName === 'guide' || uName === 'animateur' || uName === 'guide de tête' || uName === 'guide de tete') {
-          console.log(`[Presence] Message ignoré pour nom obsolète '${user.name}' (${user.id})`);
+        if (genericNames.includes(uName) || uName === myNameClean) {
           return;
         }
         state.otherUsers.set(user.id, user);
@@ -4030,11 +4109,13 @@ function handleIncomingMessage(data) {
         renderUsersList();
         showToast(`👋 ${user.name} a rejoint la rando !`, 'info');
 
-        // Répondre IMMÉDIATEMENT au nouvel arrivant avec notre présence
-        publishMessage({
-          type: 'respond_presence',
-          user: state.myUser
-        });
+        // Répondre IMMÉDIATEMENT au nouvel arrivant avec notre présence si nous sommes nommés
+        if (!genericNames.includes(myNameClean)) {
+          publishMessage({
+            type: 'respond_presence',
+            user: state.myUser
+          });
+        }
 
         // Si nous avons des traces GPX chargées, nous les envoyons au nouvel arrivant
         if (state.tracks.length > 0) {
@@ -4049,7 +4130,7 @@ function handleIncomingMessage(data) {
       const user = data.user;
       if (user && user.id !== state.myUser.id) {
         const uName = (user.name || '').trim().toLowerCase();
-        if (uName === 'guide' || uName === 'animateur' || uName === 'guide de tête' || uName === 'guide de tete') {
+        if (genericNames.includes(uName) || uName === myNameClean) {
           return;
         }
         if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
