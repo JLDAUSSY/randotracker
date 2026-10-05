@@ -470,6 +470,7 @@ urls_to_test = [
     'http://127.0.0.1:8000/app.js?v=69',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
+    'http://127.0.0.1:8000/ads.txt',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'

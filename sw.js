@@ -13,6 +13,7 @@ const STATIC_ASSETS = [
   './cat_icon.png?v=69',
   './cat_pink_icon.png',
   './cat_pink_icon.png?v=69',
+  './ads.txt',
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-192.png',
