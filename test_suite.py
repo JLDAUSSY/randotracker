@@ -315,21 +315,25 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 27 configuré", lambda: 'versionCode = 27' in gradle_content)
-    run_test("Android Gradle : VersionName 1.3.3 configuré", lambda: 'versionName = "1.3.3"' in gradle_content)
+    run_test("Android Gradle : VersionCode 28 configuré", lambda: 'versionCode = 28' in gradle_content)
+    run_test("Android Gradle : VersionName 1.3.4 configuré", lambda: 'versionName = "1.3.4"' in gradle_content)
 
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.3.3 (27) dans le bridge natif", lambda: '1.3.3 (27)' in main_act_content)
+    run_test("MainActivity : Version 1.3.4 (28) dans le bridge natif", lambda: '1.3.4 (28)' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
 
-# Tests Spécifiques Icône Chat Détourée & Redressée
+# Tests Spécifiques Icônes Chat Détourées (Jaune & Rose)
 cat_icon_path = os.path.join(PROJECT_DIR, 'cat_icon.png')
-run_test("Fichier icone chat généré et présent à la racine (cat_icon.png)", lambda: os.path.exists(cat_icon_path) and os.path.getsize(cat_icon_path) > 20000)
-run_test("Avatar Chat présent dans la modale Profil (#avatar-color-picker)", lambda: bool(soup.find(lambda tag: tag.name == 'button' and tag.get('data-icon') == '🐱' and tag.get('title') == 'Chat')))
-run_test("Avatar Chat présent dans la modale Prénom (#prompt-avatar-list)", lambda: bool(soup.find(lambda tag: tag.name == 'button' and tag.get('data-icon') == '🐱' and 'prompt-avatar-btn' in tag.get('class', []))))
+cat_pink_icon_path = os.path.join(PROJECT_DIR, 'cat_pink_icon.png')
+run_test("Fichier icone chat jaune généré et présent à la racine (cat_icon.png)", lambda: os.path.exists(cat_icon_path) and os.path.getsize(cat_icon_path) > 20000)
+run_test("Fichier icone chat rose généré et présent à la racine (cat_pink_icon.png)", lambda: os.path.exists(cat_pink_icon_path) and os.path.getsize(cat_pink_icon_path) > 20000)
+run_test("Avatar Chat Jaune présent dans la modale Profil (#avatar-color-picker)", lambda: bool(soup.find(lambda tag: tag.name == 'button' and tag.get('data-icon') == '🐱')))
+run_test("Avatar Chat Rose présent dans la modale Profil (#avatar-color-picker)", lambda: bool(soup.find(lambda tag: tag.name == 'button' and tag.get('data-icon') == '🐱_pink')))
+run_test("Avatar Chat Jaune présent dans la modale Prénom (#prompt-avatar-list)", lambda: bool(soup.find(lambda tag: tag.name == 'button' and tag.get('data-icon') == '🐱' and 'prompt-avatar-btn' in tag.get('class', []))))
+run_test("Avatar Chat Rose présent dans la modale Prénom (#prompt-avatar-list)", lambda: bool(soup.find(lambda tag: tag.name == 'button' and tag.get('data-icon') == '🐱_pink' and 'prompt-avatar-btn' in tag.get('class', []))))
 run_test("Fonction JavaScript formatAvatarHtml définie dans app.js", lambda: 'function formatAvatarHtml' in js_text)
 
 # Tests de Masquage Strict CSS des Modales & Mode Poche
@@ -462,9 +466,10 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=68',
-    'http://127.0.0.1:8000/app.js?v=68',
+    'http://127.0.0.1:8000/styles.css?v=69',
+    'http://127.0.0.1:8000/app.js?v=69',
     'http://127.0.0.1:8000/cat_icon.png',
+    'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'

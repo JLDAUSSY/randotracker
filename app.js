@@ -750,8 +750,11 @@ function loadUserProfile() {
 
 function formatAvatarHtml(icon, extraClass = '') {
   if (!icon) return '<span>🥾</span>';
+  if (icon === '🐱_pink' || icon === 'cat_pink' || icon === 'chat_rose' || (typeof icon === 'string' && icon.includes('cat_pink_icon'))) {
+    return `<img src="cat_pink_icon.png?v=69" alt="Chat Rose" class="w-full h-full object-cover rounded-full pointer-events-none select-none ${extraClass}" />`;
+  }
   if (icon === '🐱' || icon === 'cat' || icon === 'chat' || (typeof icon === 'string' && icon.includes('cat_icon'))) {
-    return `<img src="cat_icon.png?v=68" alt="Chat" class="w-full h-full object-cover rounded-full pointer-events-none select-none ${extraClass}" />`;
+    return `<img src="cat_icon.png?v=69" alt="Chat Jaune" class="w-full h-full object-cover rounded-full pointer-events-none select-none ${extraClass}" />`;
   }
   return `<span>${icon}</span>`;
 }
@@ -799,7 +802,10 @@ function updateProfileUI() {
   }
 
   document.querySelectorAll('.avatar-opt').forEach(btn => {
-    const isSelected = btn.getAttribute('data-icon') === state.myUser.icon;
+    const btnIcon = btn.getAttribute('data-icon');
+    const isSelected = btnIcon === state.myUser.icon || 
+      (btnIcon === '🐱' && (state.myUser.icon === '🐱' || state.myUser.icon === 'cat' || state.myUser.icon === 'chat' || (typeof state.myUser.icon === 'string' && state.myUser.icon.includes('cat_icon.png')))) ||
+      (btnIcon === '🐱_pink' && (state.myUser.icon === '🐱_pink' || state.myUser.icon === 'cat_pink' || (typeof state.myUser.icon === 'string' && state.myUser.icon.includes('cat_pink_icon'))));
     if (isSelected) {
       btn.classList.add('border-white', 'scale-110');
       btn.classList.remove('border-transparent');
@@ -5401,11 +5407,17 @@ function setupEventListeners() {
   document.querySelectorAll('.prompt-avatar-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.prompt-avatar-btn').forEach(b => {
-        b.classList.remove('border-emerald-400', 'scale-110', 'bg-emerald-600/30', 'border-purple-500', 'bg-purple-600/30');
-        b.classList.add('border-transparent', 'bg-slate-800');
+        b.classList.remove('border-emerald-400', 'scale-110', 'bg-emerald-600/30', 'border-purple-500', 'bg-purple-600/30', 'ring-2', 'ring-emerald-400');
+        b.classList.add('border-transparent');
+        if (!b.classList.contains('overflow-hidden')) {
+          b.classList.add('bg-slate-800');
+        }
       });
       btn.classList.remove('border-transparent', 'bg-slate-800');
-      btn.classList.add('border-emerald-400', 'scale-110', 'bg-emerald-600/30');
+      btn.classList.add('border-emerald-400', 'scale-110', 'ring-2', 'ring-emerald-400');
+      if (!btn.classList.contains('overflow-hidden')) {
+        btn.classList.add('bg-emerald-600/30');
+      }
       selectedPromptIcon = btn.getAttribute('data-icon') || '🐺';
       selectedPromptColor = btn.getAttribute('data-color') || '#9333ea';
     });
