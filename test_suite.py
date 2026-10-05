@@ -315,14 +315,14 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 20 configuré", lambda: 'versionCode = 20' in gradle_content)
-    run_test("Android Gradle : VersionName 1.2.6 configuré", lambda: 'versionName = "1.2.6"' in gradle_content)
+    run_test("Android Gradle : VersionCode 21 configuré", lambda: 'versionCode = 21' in gradle_content)
+    run_test("Android Gradle : VersionName 1.2.7 configuré", lambda: 'versionName = "1.2.7"' in gradle_content)
 
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.2.6 (20) dans le bridge natif", lambda: '1.2.6 (20)' in main_act_content)
+    run_test("MainActivity : Version 1.2.7 (21) dans le bridge natif", lambda: '1.2.7 (21)' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
 
 # Tests de Masquage Strict CSS des Modales & Mode Poche
@@ -433,8 +433,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=61',
-    'http://127.0.0.1:8000/app.js?v=61',
+    'http://127.0.0.1:8000/styles.css?v=62',
+    'http://127.0.0.1:8000/app.js?v=62',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'

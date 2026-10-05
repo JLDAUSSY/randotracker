@@ -7,6 +7,33 @@
  */
 
 // ============================================================================
+// ASSAINISSEMENT IMMÉDIAT DU STOCKAGE LOCAL (ÉRADICATION GHOSTS GUIDE & ANIMATEUR)
+// ============================================================================
+(function sanitizeLegacyStorage() {
+  try {
+    const savedName = (localStorage.getItem('rando_user_name') || '').trim().toLowerCase();
+    if (savedName === 'guide' || savedName === 'animateur' || savedName === 'guide de tête' || savedName === 'guide de tete') {
+      localStorage.removeItem('rando_user_name');
+    }
+    const savedRole = (localStorage.getItem('rando_user_role') || '').trim().toLowerCase();
+    if (savedRole === 'guide' || savedRole === 'animateur' || savedRole === 'guide de tête' || savedRole === 'guide de tete') {
+      localStorage.setItem('rando_user_role', 'Randonneur');
+    }
+    const otherUsersStr = localStorage.getItem('rando_saved_other_users');
+    if (otherUsersStr) {
+      const parsed = JSON.parse(otherUsersStr);
+      if (parsed && Array.isArray(parsed.users)) {
+        parsed.users = parsed.users.filter(u => {
+          const n = (u && u.name ? u.name.trim().toLowerCase() : '');
+          return n !== 'guide' && n !== 'animateur' && n !== 'guide de tête' && n !== 'guide de tete';
+        });
+        localStorage.setItem('rando_saved_other_users', JSON.stringify(parsed));
+      }
+    }
+  } catch (e) {}
+})();
+
+// ============================================================================
 // CONFIGURATION & CONSTANTES
 // ============================================================================
 const MAX_TRACKS = 5;
@@ -131,9 +158,9 @@ const state = {
   myUser: {
     id: getOrCreateUserId(),
     name: 'Randonneur',
-    role: 'Guide de tête',
-    icon: '🌲',
-    color: '#059669',
+    role: 'Randonneur',
+    icon: '🥾',
+    color: '#10b981',
     assignedTrackId: 'auto', // 'auto' ou l'ID d'une trace GPX
     lat: 45.8920,
     lon: 6.1550,
@@ -603,7 +630,7 @@ function openGuestTrackView() {
     fitAllTracks();
     openElevationDrawer(state.tracks[0].id);
   } else {
-    showToast('En attente de la transmission des traces du guide...', 'info');
+    showToast('En attente de la transmission des traces de la rando...', 'info');
   }
 }
 
@@ -667,8 +694,9 @@ function loadUserProfile() {
   const savedTrack = localStorage.getItem('rando_user_track');
   const savedDuration = localStorage.getItem('rando_share_duration');
 
-  // Purger les anciens libellés par défaut "Animateur" et "Guide"
-  if (savedName === 'Animateur' || savedName === 'Guide') {
+  // Purger les anciens libellés par défaut "Animateur", "Guide", "Guide de tête"
+  const cleanSavedName = (savedName || '').trim().toLowerCase();
+  if (cleanSavedName === 'animateur' || cleanSavedName === 'guide' || cleanSavedName === 'guide de tête' || cleanSavedName === 'guide de tete') {
     savedName = '';
     localStorage.removeItem('rando_user_name');
   }
@@ -679,22 +707,26 @@ function loadUserProfile() {
     state.myUser.name = 'Randonneur';
   }
 
-  if (savedRole && savedRole.trim() !== '') {
+  const cleanSavedRole = (savedRole || '').trim().toLowerCase();
+  if (cleanSavedRole === 'animateur' || cleanSavedRole === 'guide' || cleanSavedRole === 'guide de tête' || cleanSavedRole === 'guide de tete') {
+    state.myUser.role = 'Randonneur';
+    localStorage.setItem('rando_user_role', 'Randonneur');
+  } else if (savedRole && savedRole.trim() !== '') {
     state.myUser.role = savedRole;
   } else {
-    state.myUser.role = isGuest ? 'Randonneur' : 'Guide de tête';
-    localStorage.setItem('rando_user_role', state.myUser.role);
+    state.myUser.role = 'Randonneur';
+    localStorage.setItem('rando_user_role', 'Randonneur');
   }
 
   if (savedIcon) {
     state.myUser.icon = savedIcon;
-  } else if (isGuest) {
+  } else {
     state.myUser.icon = '🥾';
   }
 
   if (savedColor) {
     state.myUser.color = savedColor;
-  } else if (isGuest) {
+  } else {
     state.myUser.color = '#10b981';
   }
   
@@ -1577,7 +1609,7 @@ function renderTracksModalContent() {
         <div>
           <div class="font-black text-white text-base">Aucun parcours GPX chargé</div>
           <div class="text-xs text-slate-400 mt-1 font-semibold">
-            ${state.isOrganizer ? 'Chargez 1 à 5 fichiers GPX pour vos différents groupes de marcheurs.' : 'En attente de la transmission des parcours par le guide...'}
+            ${state.isOrganizer ? 'Chargez 1 à 5 fichiers GPX pour vos différents groupes de marcheurs.' : 'En attente de la transmission des parcours de la randonnée...'}
           </div>
         </div>
         ${state.isOrganizer ? `
@@ -2397,7 +2429,7 @@ function deduplicateUsersByName() {
     const userName = (user.name || '').trim().toLowerCase();
 
     // 0bis. Purger immédiatement tout fantôme ou intrus résiduel nommé "Guide" ou "Animateur"
-    if (userName === 'guide' || userName === 'animateur') {
+    if (userName === 'guide' || userName === 'animateur' || userName === 'guide de tête' || userName === 'guide de tete') {
       console.log(`[Deduplication] Élimination du randonneur intrus/fantôme '${user.name}' (${id})`);
       removeUserMarker(id);
       state.otherUsers.delete(id);
@@ -3698,7 +3730,7 @@ function openNamePromptModal() {
   const input = document.getElementById('input-prompt-user-name');
   if (input) {
     const current = (state.myUser.name || '').trim();
-    input.value = (!['animateur', 'randonneur', 'participant', 'marcheur'].includes(current.toLowerCase())) ? current : '';
+    input.value = (!['animateur', 'randonneur', 'participant', 'marcheur', 'guide', 'guide de tête', 'guide de tete'].includes(current.toLowerCase())) ? current : '';
     setTimeout(() => input.focus(), 300);
   }
   if (modal) {
@@ -3960,7 +3992,7 @@ function handleIncomingMessage(data) {
       const user = data.user;
       if (user && user.id !== state.myUser.id) {
         const uName = (user.name || '').trim().toLowerCase();
-        if (uName === 'guide' || uName === 'animateur') {
+        if (uName === 'guide' || uName === 'animateur' || uName === 'guide de tête' || uName === 'guide de tete') {
           console.log(`[Presence] Message ignoré pour nom obsolète '${user.name}' (${user.id})`);
           return;
         }
@@ -3989,7 +4021,7 @@ function handleIncomingMessage(data) {
       const user = data.user;
       if (user && user.id !== state.myUser.id) {
         const uName = (user.name || '').trim().toLowerCase();
-        if (uName === 'guide' || uName === 'animateur') {
+        if (uName === 'guide' || uName === 'animateur' || uName === 'guide de tête' || uName === 'guide de tete') {
           return;
         }
         if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
