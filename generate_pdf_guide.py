@@ -401,7 +401,7 @@ html_content = f"""<!DOCTYPE html>
   <div class="cover-header">
     <div class="cover-title-row">
       <div>
-        <span class="cover-badge">MODE D'EMPLOI OFFICIEL • VERSION v42</span>
+        <span class="cover-badge">MODE D'EMPLOI OFFICIEL • VERSION v1.3.5 (2026)</span>
         <h1>RandoTracker</h1>
         <div class="cover-subtitle">
           Plateforme collaborative de suivi en direct pour Clubs de Randonnée, Multi-Groupes de Niveaux & Sécurité Outdoor.
@@ -418,7 +418,7 @@ html_content = f"""<!DOCTYPE html>
   <div class="meta-box">
     <div class="meta-item">
       <div class="meta-label">Type d'Application</div>
-      <div class="meta-val">Web PWA (Zéro installation)</div>
+      <div class="meta-val">Web PWA & Android (Play Store / APK)</div>
     </div>
     <div class="meta-item">
       <div class="meta-label">Multi-Traces GPX</div>
@@ -486,19 +486,19 @@ html_content = f"""<!DOCTYPE html>
   <!-- ================================================================= -->
   <div class="page-break"></div>
 
-  <h2>🗺️ 2. Cartographie IGN Topo, Multi-Traces & Profil Altimétrique</h2>
+  <h2>🗺️ 2. Cartographie Internationale Topo, Multi-Traces & Profil Altimétrique</h2>
   <p>
     RandoTracker intègre nativement les meilleurs fonds cartographiques outdoor ainsi qu'un outil d'analyse du relief complet et interactif conçu pour la sécurité en montagne :
   </p>
 
   <div class="grid-2">
     <div class="card">
-      <div class="card-title">🏔️ Fonds Officiels IGN & Calque Fortes Pentes</div>
+      <div class="card-title">🏔️ Fonds Officiels IGN, UK, Suisse & Calque Pentes</div>
       <ul class="steps-list" style="font-size: 9.8px;">
         <li><b>IGN France Plan v2 Topo</b> : Sentiers balisés GR/PR, courbes de niveau, toponymes et refuges avec rendu Rétina haute netteté.</li>
         <li><b>IGN España MTN Topo 1:25k</b> : Idéal pour les randonnées pyrénéennes et transfrontalières.</li>
-        <li><b>Calque Fortes Pentes IGN (>30°)</b> : Surimpression colorée de sécurité indispensable pour anticiper les passages escarpés et évaluer le risque de glissade ou d'avalanche.</li>
-        <li><b>OpenTopoMap, Satellite HD & OSM</b> : Disponibles en 1 clic.</li>
+        <li><b>UK Ordnance / Topo (Trails) & Swisstopo (Suisse Alpin)</b> : Cartes topographiques officielles pour la Grande-Bretagne et la Suisse avec détection automatique selon vos coordonnées GPS.</li>
+        <li><b>Calque Fortes Pentes IGN (>30°)</b> : Surimpression de sécurité indispensable pour anticiper les passages escarpés et le risque d'avalanche.</li>
       </ul>
     </div>
 
@@ -574,7 +574,7 @@ html_content = f"""<!DOCTYPE html>
 
   <h2>👥 3. Embarquement au Parking, Mon Profil & Suivi du Groupe</h2>
   <p>
-    RandoTracker simplifie radicalement l'accueil des participants au parking de départ : aucun compte requis, aucun téléchargement sur un store, connexion en 3 secondes chrono !
+    RandoTracker simplifie radicalement l'accueil des participants au parking de départ : aucun compte requis, aucun mot de passe, connexion en 3 secondes chrono !
   </p>
 
   <div class="figure-grid-3">
@@ -603,7 +603,7 @@ html_content = f"""<!DOCTYPE html>
       <div class="card-title">📲 1. Embarquement Instantané au Parking</div>
       <ul class="steps-list" style="font-size: 9.8px;">
         <li>L'animateur ouvre la fenêtre <b>« Inviter »</b> affichant le QR Code sécurisé du salon.</li>
-        <li>Chaque marcheur pointe l'appareil photo de son smartphone : l'application s'ouvre directement sans aucun téléchargement sur un store.</li>
+        <li>Chaque marcheur pointe l'appareil photo de son smartphone (ou utilise le scanner intégré) : l'application rejoint le salon en 1 clic.</li>
         <li>Option de partage direct par lien sécurisé via WhatsApp, SMS ou email.</li>
       </ul>
     </div>
@@ -611,24 +611,24 @@ html_content = f"""<!DOCTYPE html>
     <div class="card">
       <div class="card-title">🥾 2. Configuration Personnalisée du Profil</div>
       <ul class="steps-list" style="font-size: 9.8px;">
-        <li><b>Prénom & Avatar</b> : Choix parmi 12 avatars outdoor haute visibilité.</li>
+        <li><b>Prénom & Avatars Haute Définition</b> : Choix parmi 12 profils outdoor et avatars personnalisés (Chat Jaune, Chat Rose, Loup, Renard, Ours, etc.).</li>
         <li><b>Rôle dans la randonnée</b> : Animateur 👑, Co-animateur 🥈, Serre-file 🛡️, Randonneur 🥾, Secouriste 🩺, Photographe 📸.</li>
         <li><b>Trace suivie & ETA</b> : Rattachement au parcours choisi pour le calcul de fin de rando.</li>
-        <li><b>Durée limite de partage</b> : Arrêt auto programmable (1h à 24h) pour préserver la batterie.</li>
+        <li><b>Mode Poche (🔒) & Suivi Écran Éteint</b> : Protection anti-tactile avec déverrouillage sécurisé par appui maintenu 1.5s.</li>
       </ul>
     </div>
   </div>
 
   <div class="card" style="margin-top: 5px;">
-    <div class="card-title">👥 3. Tiroir de Suivi des Participants & Télémétrie en Temps Réel</div>
+    <div class="card-title">👥 3. Tiroir de Suivi des Participants & Distances Inter-Marcheurs</div>
     <div class="grid-2" style="margin: 0;">
       <ul class="steps-list" style="font-size: 9.8px; margin: 0;">
         <li><b>Tableau de bord complet</b> : Distance parcourue (km), vitesse instantanée (km/h), altitude actuelle (m) et niveau de batterie restant (🔋%).</li>
-        <li><b>Écart à la trace (Cross-Track Distance)</b> : Détection immédiate si un marcheur s'éloigne du chemin balisé (alerte couleur vert <25m, orange 25-75m, rouge >75m).</li>
+        <li><b>Distances inter-marcheurs en 1 clic</b> : Cliquez sur n'importe quel marcheur sur la carte pour afficher immédiatement les distances à vol d'oiseau qui le séparent de chacun des autres coéquipiers.</li>
       </ul>
       <ul class="steps-list" style="font-size: 9.8px; margin: 0;">
+        <li><b>Écart à la trace & Alerte Sonore (>50m)</b> : Détection immédiate avec bips audio si un marcheur quitte le sentier balisé.</li>
         <li><b>ETA dynamique</b> : Heure estimée d'arrivée calculée selon la vitesse réelle et le dénivelé restant sur la trace sélectionnée.</li>
-        <li><b>Outils Organisateur</b> : Bouton <b>« Nouvelle Rando »</b> pour purger la meute et réinitialiser les traces à la fin de la sortie.</li>
       </ul>
     </div>
   </div>
@@ -874,9 +874,9 @@ html_content = f"""<!DOCTYPE html>
     <div class="card">
       <div class="card-title">4️⃣ Conseils Autonomie Batterie & Sérénité</div>
       <ul class="steps-list" style="font-size: 9.3px; padding-left: 14px; margin: 0;">
-        <li><b>Écran verrouillé dans la poche</b> : RandoTracker émet en arrière-plan pour seulement <b>3% à 5% par heure</b> (8 à 10h d'autonomie).</li>
-        <li><b>Surveillance mutuelle</b> : Le serre-file alerte tout marcheur sous les 20%.</li>
-        <li><b>Batterie Android</b> : Sélectionner « Non restreinte » pour le GPS continu.</li>
+        <li><b>Suivi en poche sans écran allumé</b> : Sur l'app Android native, éteignez l'écran directement avec le bouton marche/arrêt physique (Service d'arrière-plan officiel). Sur le Web, activez le <b>Mode Poche (🔒)</b> anti-tactile.</li>
+        <li><b>Consommation minimale (3% à 5% / h)</b> : 8 à 10h d'autonomie en continu.</li>
+        <li><b>Batterie Android</b> : Régler la batterie sur « Non restreinte » pour un GPS ininterrompu.</li>
       </ul>
     </div>
   </div>
