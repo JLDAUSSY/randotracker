@@ -73,7 +73,7 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.1 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.1' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.2 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.2' in soup.find(id='header-app-version').text)
 
 run_test("Presence de la barre inferieure .app-bottom-nav", lambda: soup.find('nav', class_='app-bottom-nav') is not None)
 run_test("Presence de la touche SOS (id=nav-btn-sos)", lambda: soup.find(id='nav-btn-sos') is not None)
@@ -320,10 +320,11 @@ run_test("Mode Poche : Écran noir anti-tactile défini dans le DOM (#pocket-mod
 run_test("Mode Poche : Container déverrouillage présent (#pocket-unlock-container)", lambda: bool(soup.find(id='pocket-unlock-container')))
 run_test("Application Native : Fichier RandoTracker.apk généré et présent à la racine", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) and os.path.getsize(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) > 1000000)
 
-# Tests Intégration Native Android (Permissions Caméra & Version 1.4.1 / 35 / TargetSdk 36)
+# Tests Intégration Native Android (Permissions Caméra & Version 1.4.2 / 36 / TargetSdk 36)
 manifest_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'AndroidManifest.xml')
 gradle_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'build.gradle.kts')
 main_activity_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoMainActivity.java')
+service_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoGpsForegroundService.java')
 
 if os.path.exists(manifest_path):
     with open(manifest_path, 'r', encoding='utf-8') as f:
@@ -334,8 +335,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 35 configuré", lambda: 'versionCode = 35' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.1 configuré", lambda: 'versionName = "1.4.1"' in gradle_content)
+    run_test("Android Gradle : VersionCode 36 configuré", lambda: 'versionCode = 36' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.2 configuré", lambda: 'versionName = "1.4.2"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -343,8 +344,17 @@ if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.1 (35) dans le bridge natif", lambda: '1.4.1 (35)' in main_act_content)
+    run_test("MainActivity : Version 1.4.2 (36) dans le bridge natif", lambda: '1.4.2 (36)' in main_act_content)
+    run_test("MainActivity : Pont Natif showMessageNotification disponible", lambda: 'showMessageNotification' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
+
+if os.path.exists(service_path):
+    with open(service_path, 'r', encoding='utf-8') as f:
+        service_content = f.read()
+    run_test("Foreground Service : Canal Messages rando_messages_channel défini", lambda: 'rando_messages_channel' in service_content)
+    run_test("Foreground Service : Canal Messages en IMPORTANCE_HIGH (réveil montre & lockscreen)", lambda: 'NotificationManager.IMPORTANCE_HIGH' in service_content)
+    run_test("Foreground Service : Méthode showNativeNotification implémentée", lambda: 'public static void showNativeNotification' in service_content)
+    run_test("Foreground Service : Écouteur MQTT messageArrived gérant broadcast_announcement", lambda: 'broadcast_announcement' in service_content and 'messageArrived' in service_content)
 
 # Tests Spécifiques Icônes Chat Détourées (Jaune & Rose)
 cat_icon_path = os.path.join(PROJECT_DIR, 'cat_icon.png')
@@ -487,8 +497,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=76',
-    'http://127.0.0.1:8000/app.js?v=76',
+    'http://127.0.0.1:8000/styles.css?v=77',
+    'http://127.0.0.1:8000/app.js?v=77',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',

@@ -43,6 +43,7 @@ import java.util.Locale;
 public class RandoGpsForegroundService extends Service implements MqttCallback {
     private static final String TAG = "RandoGpsService";
     public static final String CHANNEL_ID = "rando_gps_tracking_channel";
+    public static final String MSG_CHANNEL_ID = "rando_messages_channel";
     public static final int NOTIFICATION_ID = 2026;
     public static final String PREFS_NAME = "RandoTrackerPrefs";
 
@@ -254,23 +255,101 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
     private void createNotificationChannel() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Suivi GPS RandoTracker",
-                    NotificationManager.IMPORTANCE_LOW
-                );
-                channel.setDescription("Maintient le suivi GPS actif dans la poche écran éteint");
-                channel.setShowBadge(false);
-                channel.enableVibration(false);
-                channel.enableLights(false);
-
                 NotificationManager manager = getSystemService(NotificationManager.class);
                 if (manager != null) {
-                    manager.createNotificationChannel(channel);
+                    // 1. Canal silencieux dédié au suivi GPS en tâche de fond (basse priorité)
+                    NotificationChannel gpsChannel = new NotificationChannel(
+                        CHANNEL_ID,
+                        "Suivi GPS RandoTracker",
+                        NotificationManager.IMPORTANCE_LOW
+                    );
+                    gpsChannel.setDescription("Maintient le suivi GPS actif dans la poche écran éteint");
+                    gpsChannel.setShowBadge(false);
+                    gpsChannel.enableVibration(false);
+                    gpsChannel.enableLights(false);
+                    manager.createNotificationChannel(gpsChannel);
+
+                    // 2. Canal d'alerte haute priorité dédié aux Messages et Annonces de groupe (réveil montre & écran)
+                    NotificationChannel msgChannel = new NotificationChannel(
+                        MSG_CHANNEL_ID,
+                        "Messages et Alertes RandoTracker",
+                        NotificationManager.IMPORTANCE_HIGH
+                    );
+                    msgChannel.setDescription("Alerte immédiate pour les messages du salon, annonces et secours");
+                    msgChannel.setShowBadge(true);
+                    msgChannel.enableVibration(true);
+                    msgChannel.setVibrationPattern(new long[]{0, 300, 150, 300, 150, 300});
+                    msgChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                    manager.createNotificationChannel(msgChannel);
                 }
             }
         } catch (Throwable t) {
             Log.e(TAG, "Erreur createNotificationChannel", t);
+        }
+    }
+
+    public static void showNativeNotification(Context context, String title, String body, String type, String author) {
+        try {
+            if (context == null) return;
+            NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager == null) return;
+
+            // S'assurer que les canaux existent
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel msgChannel = manager.getNotificationChannel(MSG_CHANNEL_ID);
+                if (msgChannel == null) {
+                    msgChannel = new NotificationChannel(
+                        MSG_CHANNEL_ID,
+                        "Messages et Alertes RandoTracker",
+                        NotificationManager.IMPORTANCE_HIGH
+                    );
+                    msgChannel.setDescription("Alerte immédiate pour les messages du salon, annonces et secours");
+                    msgChannel.setShowBadge(true);
+                    msgChannel.enableVibration(true);
+                    msgChannel.setVibrationPattern(new long[]{0, 300, 150, 300, 150, 300});
+                    msgChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                    manager.createNotificationChannel(msgChannel);
+                }
+            }
+
+            Intent intent = new Intent(context, RandoMainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            intent.putExtra("open_announcement", true);
+            intent.putExtra("announcement_title", title);
+            intent.putExtra("announcement_body", body);
+            intent.putExtra("announcement_type", type);
+            intent.putExtra("announcement_author", author);
+
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                flags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+            int reqCode = (int) (System.currentTimeMillis() % 10000);
+            PendingIntent pendingIntent = PendingIntent.getActivity(context, reqCode, intent, flags);
+
+            boolean isEmergency = "emergency".equalsIgnoreCase(type) || "emergency_alert".equalsIgnoreCase(type);
+            long[] vibPattern = isEmergency 
+                ? new long[]{0, 500, 200, 500, 200, 500, 200, 1000} 
+                : new long[]{0, 300, 150, 300, 150, 300};
+
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, MSG_CHANNEL_ID)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(isEmergency ? NotificationCompat.CATEGORY_ALARM : NotificationCompat.CATEGORY_MESSAGE)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setVibrate(vibPattern)
+                .setDefaults(NotificationCompat.DEFAULT_SOUND | NotificationCompat.DEFAULT_LIGHTS);
+
+            int notifId = (int) (System.currentTimeMillis() % 100000);
+            manager.notify(notifId, builder.build());
+            Log.d(TAG, "Notification native postee: " + title + " - " + body);
+        } catch (Throwable t) {
+            Log.e(TAG, "Erreur showNativeNotification", t);
         }
     }
 
@@ -690,7 +769,37 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
     }
 
     @Override
-    public void messageArrived(String topic, MqttMessage message) {}
+    public void messageArrived(String topic, MqttMessage message) {
+        try {
+            if (message == null || message.getPayload() == null) return;
+            String payloadStr = new String(message.getPayload(), "UTF-8");
+            JSONObject json = new JSONObject(payloadStr);
+            String type = json.optString("type", "");
+            String senderId = json.optString("senderId", "");
+
+            // Ne pas s'auto-notifier
+            if (senderId != null && !senderId.isEmpty() && senderId.equals(userId)) {
+                return;
+            }
+
+            if ("broadcast_announcement".equals(type)) {
+                String author = json.optString("author", "Marcheur");
+                String role = json.optString("role", "Randonneur");
+                String text = json.optString("text", "");
+                if (!text.isEmpty()) {
+                    String title = "💬 Message de " + author + " (" + role + ")";
+                    showNativeNotification(this, title, text, "announcement", author);
+                }
+            } else if ("emergency_alert".equals(type) || "emergency".equals(type)) {
+                String author = json.optString("author", json.optString("senderName", "Secours"));
+                String text = json.optString("text", "Alerte secours déclenchée !");
+                String title = "🚨 ALERTE SECOURS : " + author;
+                showNativeNotification(this, title, text, "emergency", author);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "Erreur parsing message MQTT entrant", t);
+        }
+    }
 
     @Override
     public void deliveryComplete(IMqttDeliveryToken token) {}

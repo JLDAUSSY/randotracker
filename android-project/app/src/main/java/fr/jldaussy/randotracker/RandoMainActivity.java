@@ -366,7 +366,13 @@ public class RandoMainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.4.1 (35)";
+            return "1.4.2 (36)";
+        }
+
+        @JavascriptInterface
+        public void showMessageNotification(String title, String body, String type, String author) {
+            Log.d(TAG, "Bridge JS -> showMessageNotification: " + title + " - " + body);
+            RandoGpsForegroundService.showNativeNotification(context, title, body, type, author);
         }
 
         @JavascriptInterface

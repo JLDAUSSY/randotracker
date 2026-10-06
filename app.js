@@ -5273,6 +5273,21 @@ function sendGpsNotification(customTitle, customBody, extraData) {
     localStorage.setItem('rando_last_announcement', JSON.stringify(dataPayload));
   } catch(e) {}
 
+  // 1. Déclenchement via le pont natif Android (pour affichage instantané dans Android et réveil des montres Bluetooth)
+  if (window.AndroidBridge && typeof window.AndroidBridge.showMessageNotification === 'function') {
+    try {
+      window.AndroidBridge.showMessageNotification(
+        title, 
+        body, 
+        dataPayload.type || 'announcement', 
+        dataPayload.author || (customTitle || 'RandoTracker')
+      );
+    } catch (errBridge) {
+      console.warn('[NativeBridge Notification Error]', errBridge);
+    }
+  }
+
+  // 2. Déclenchement Web Notification standard (pour le mode PWA navigateur Chrome)
   const notifOptions = {
     body: body,
     icon: iconUrl,
@@ -5326,6 +5341,16 @@ function sendGpsNotification(customTitle, customBody, extraData) {
 async function testWatchNotification() {
   // 1. Toujours jouer l'alerte sonore et la vibration haptique en premier
   playAnnouncementAlert();
+
+  // 2. Si nous sommes dans l'application native Android, déclencher directement la notification système native
+  if (window.AndroidBridge && typeof window.AndroidBridge.showMessageNotification === 'function') {
+    sendGpsNotification('📢 Test RandoTracker', 'Vibration et notification reçues avec succès sur votre montre et téléphone !', {
+      type: 'announcement',
+      author: 'Test RandoTracker'
+    });
+    showToast('🔔 Notification envoyée au téléphone et à la montre !', 'success');
+    return;
+  }
 
   if (!('Notification' in window)) {
     showToast('⚠️ Notifications système non supportées sur ce navigateur.', 'warning');
