@@ -97,16 +97,16 @@ run_test("Presence de la fenetre plein ecran Groupe (#users-panel)", lambda: sou
 run_test("Presence du bouton Broadcast dans Groupe (#btn-broadcast-all)", lambda: soup.find(id='btn-broadcast-all') is not None)
 run_test("Presence du bouton Inviter QR dans Groupe (#drawer-invite-btn)", lambda: soup.find(id='drawer-invite-btn') is not None)
 run_test("Presence de la fenetre plein ecran Secours (#emergency-modal)", lambda: soup.find(id='emergency-modal') is not None)
+run_test("Secours : Barre d'onglets pays présente (#emergency-country-tabs)", lambda: soup.find(id='emergency-country-tabs') is not None)
+run_test("Secours : Onglet France 🇫🇷 present", lambda: bool(soup.find(lambda t: t.get('data-country') == 'FR')))
+run_test("Secours : Onglet Royaume-Uni 🇬🇧 present", lambda: bool(soup.find(lambda t: t.get('data-country') == 'UK')))
+run_test("Secours : Onglet Suisse 🇨🇭 present", lambda: bool(soup.find(lambda t: t.get('data-country') == 'CH')))
+run_test("Secours : Onglet Espagne 🇪🇸 present", lambda: bool(soup.find(lambda t: t.get('data-country') == 'ES')))
+run_test("Secours : Onglet Europe 🇪🇺 present", lambda: bool(soup.find(lambda t: t.get('data-country') == 'OTHER')))
 run_test("Secours 50/50 : Moitié haute GPS épinglée (#emergency-gps-top-half)", lambda: soup.find(id='emergency-gps-top-half') is not None)
 run_test("Secours 50/50 : Guide vocal de dictée (#emergency-dictation-preview)", lambda: soup.find(id='emergency-dictation-preview') is not None)
-run_test("Secours 50/50 : Moitié basse 3 boutons (#emergency-actions-bottom-half)", lambda: soup.find(id='emergency-actions-bottom-half') is not None)
-run_test("Secours 3 Boutons : Liste des 3 services (#emergency-numbers-list)", lambda: soup.find(id='emergency-numbers-list') is not None)
-run_test("Secours 3 Boutons : Bouton 15 SAMU present", lambda: 'makeEmergencyCall(\'15\')' in html_text or 'makeEmergencyCall("15")' in html_text)
-run_test("Secours 3 Boutons : Bouton 112 Pompiers present", lambda: 'makeEmergencyCall(\'112\')' in html_text or 'makeEmergencyCall("112")' in html_text)
-run_test("Secours 3 Boutons : Bouton 114 SMS present", lambda: 'sendEmergencySms(\'114\')' in html_text or 'sendEmergencySms("114")' in html_text)
-run_test("Secours Drapeaux : Drapeau francais 🇫🇷 en face du 15", lambda: '🇫🇷' in html_text and '15' in html_text)
-run_test("Secours Drapeaux : Drapeau europeen 🇪🇺 en face du 112", lambda: '🇪🇺' in html_text and '112' in html_text)
-run_test("Secours Drapeaux : Drapeau francais 🇫🇷 en face du 114", lambda: '🇫🇷' in html_text and '114' in html_text)
+run_test("Secours 50/50 : Moitié basse actions (#emergency-actions-bottom-half)", lambda: soup.find(id='emergency-actions-bottom-half') is not None)
+run_test("Secours : Liste des services (#emergency-numbers-list)", lambda: soup.find(id='emergency-numbers-list') is not None)
 run_test("Presence de l'interrupteur calque de pentes montagne (#toggle-slopes-layer)", lambda: soup.find(id='toggle-slopes-layer') is not None)
 
 # Profil Altimétrique Zoomable & Plein Écran
@@ -209,7 +209,8 @@ required_functions = [
     'openQrScanner', 'closeQrScanner', 'onQrCodeScanned', 'joinRoomDirectly',
     'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName',
     'generateUserPopupHtml', 'refreshActiveUserPopups',
-    'initOrdnanceSurveyLayer', 'saveOrdnanceSurveyApiKey', 'updateOsApiKeyUI'
+    'initOrdnanceSurveyLayer', 'saveOrdnanceSurveyApiKey', 'updateOsApiKeyUI',
+    'selectEmergencyCountry'
 ]
 
 for fn in required_functions:
@@ -218,6 +219,7 @@ for fn in required_functions:
 exports_to_test = [
     'toggleEmergencyModal', 'openEmergencyModal', 'closeEmergencyModal',
     'renderEmergencyActionsPad', 'initiateEmergencyCall', 'makeEmergencyCall', 'sendEmergencySms',
+    'selectEmergencyCountry',
     'sendGpsNotification', 'closeProfileModal', 'openProfileModal',
     'onNavGpsClick', 'onNavTracesClick', 'toggleUsersDrawer', 'closeAllDrawers',
     'openTracksModal', 'openInviteModal', 'openAnnouncementModal',
@@ -237,7 +239,8 @@ exports_to_test = [
     'openQrScanner', 'closeQrScanner', 'onQrCodeScanned', 'joinRoomDirectly',
     'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName',
     'generateUserPopupHtml', 'refreshActiveUserPopups',
-    'initOrdnanceSurveyLayer', 'saveOrdnanceSurveyApiKey', 'updateOsApiKeyUI'
+    'initOrdnanceSurveyLayer', 'saveOrdnanceSurveyApiKey', 'updateOsApiKeyUI',
+    'selectEmergencyCountry'
 ]
 
 for fn in exports_to_test:
@@ -321,14 +324,14 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 32 configuré", lambda: 'versionCode = 32' in gradle_content)
-    run_test("Android Gradle : VersionName 1.3.8 configuré", lambda: 'versionName = "1.3.8"' in gradle_content)
+    run_test("Android Gradle : VersionCode 33 configuré", lambda: 'versionCode = 33' in gradle_content)
+    run_test("Android Gradle : VersionName 1.3.9 configuré", lambda: 'versionName = "1.3.9"' in gradle_content)
 
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.3.8 (32) dans le bridge natif", lambda: '1.3.8 (32)' in main_act_content)
+    run_test("MainActivity : Version 1.3.9 (33) dans le bridge natif", lambda: '1.3.9 (33)' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
 
 # Tests Spécifiques Icônes Chat Détourées (Jaune & Rose)
@@ -472,8 +475,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=73',
-    'http://127.0.0.1:8000/app.js?v=73',
+    'http://127.0.0.1:8000/styles.css?v=74',
+    'http://127.0.0.1:8000/app.js?v=74',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',

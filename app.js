@@ -1244,17 +1244,25 @@ function initOrdnanceSurveyLayer() {
   }
 
   if (osKey) {
-    // Flux officiel Ordnance Survey Maps API (ZXY Web Mercator Outdoor 3857)
+    // Flux officiel Ordnance Survey Maps API (ZXY Web Mercator Outdoor 3857) avec secours OpenTopoMap transparent
     state.layers.uk_topo = L.tileLayer(
       `https://api.os.uk/maps/raster/v1/zxy/Outdoor_3857/{z}/{x}/{y}.png?key=${encodeURIComponent(osKey)}`,
       {
         maxZoom: 20,
-        attribution: '&copy; <a href="https://www.ordnancesurvey.co.uk/" target="_blank">Ordnance Survey</a> (OS Maps Outdoor)',
+        attribution: '&copy; <a href="https://www.ordnancesurvey.co.uk/" target="_blank">Ordnance Survey</a> (OS Maps Outdoor) & OpenTopoMap UK',
         updateWhenIdle: true,
         updateInterval: 150,
         keepBuffer: 1
       }
     );
+
+    // Repli automatique dalle par dalle si la clé n'est pas activée sur le projet OS Data Hub
+    state.layers.uk_topo.on('tileerror', function(error) {
+      if (error && error.tile && error.coords) {
+        const c = error.coords;
+        error.tile.src = `https://a.tile.opentopomap.org/${c.z}/${c.x}/${c.y}.png`;
+      }
+    });
   } else {
     // Flux topographique OpenTopoMap UK (Secours gratuit sans clé)
     state.layers.uk_topo = L.tileLayer(
@@ -1293,7 +1301,7 @@ function updateOsApiKeyUI() {
   const badge = document.getElementById('os-key-status-badge');
   const customKey = (localStorage.getItem('rando_os_api_key') || '').trim();
   const effectiveKey = customKey || DEFAULT_OS_API_KEY;
-  if (input) input.value = customKey;
+  if (input) input.value = effectiveKey;
   if (badge) {
     if (effectiveKey) {
       badge.textContent = '🟢 Clé OS Active (OS Maps Outdoor)';
@@ -4676,7 +4684,8 @@ function updateEmergencyModalGpsData() {
   const lon = state.myUser.lon || 6.1550;
   const ele = state.myUser.ele || 0;
   const acc = state.myUser.accuracy || 10;
-  const country = detectCountry(lat, lon);
+  const autoCountry = detectCountry(lat, lon);
+  const country = state.selectedEmergencyCountry || autoCountry;
   const latDir = lat >= 0 ? 'N' : 'S';
   const lonDir = lon >= 0 ? 'E' : 'O';
   const ddStr = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
@@ -4712,11 +4721,17 @@ function updateEmergencyModalGpsData() {
     if (country === 'FR') {
       countryTag.textContent = '🇫🇷 France';
       countryTag.className = 'text-[9px] font-black px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+    } else if (country === 'UK') {
+      countryTag.textContent = '🇬🇧 Royaume-Uni (UK)';
+      countryTag.className = 'text-[9px] font-black px-2 py-0.2 rounded-full bg-red-500/20 text-red-300 border border-red-500/40';
+    } else if (country === 'CH') {
+      countryTag.textContent = '🇨🇭 Suisse';
+      countryTag.className = 'text-[9px] font-black px-2 py-0.2 rounded-full bg-red-500/20 text-red-300 border border-red-500/40';
     } else if (country === 'ES') {
       countryTag.textContent = '🇪🇸 Espagne';
       countryTag.className = 'text-[9px] font-black px-2 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40';
     } else {
-      countryTag.textContent = '🏔️ International';
+      countryTag.textContent = '🇪🇺 Europe / Inter';
       countryTag.className = 'text-[9px] font-black px-2 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40';
     }
   }
@@ -4738,6 +4753,11 @@ function updateEmergencyModalGpsData() {
   }
 
   lucide.createIcons();
+}
+
+function selectEmergencyCountry(countryCode) {
+  state.selectedEmergencyCountry = countryCode;
+  updateEmergencyModalGpsData();
 }
 
 function switchEmergencyTab(tab) {
@@ -4813,19 +4833,215 @@ function renderEmergencyActionsPad() {
 
   const lat = state.myUser.lat || 45.8920;
   const lon = state.myUser.lon || 6.1550;
-  const country = detectCountry(lat, lon);
+  const autoCountry = detectCountry(lat, lon);
+  const country = state.selectedEmergencyCountry || autoCountry;
 
-  if (country === 'FR') {
+  // Mise à jour visuelle des onglets pays
+  document.querySelectorAll('.emergency-country-tab-btn').forEach(btn => {
+    const isThis = btn.getAttribute('data-country') === country;
+    if (isThis) {
+      btn.className = 'emergency-country-tab-btn px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-black text-xs border border-emerald-400 flex items-center gap-1 shrink-0 transition active:scale-95 shadow-md';
+    } else {
+      btn.className = 'emergency-country-tab-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs border border-slate-700 flex items-center gap-1 shrink-0 transition active:scale-95 hover:bg-slate-750';
+    }
+  });
+
+  if (country === 'UK') {
+    numList.innerHTML = `
+      <!-- 1. 🔴 BOUTON 999 MOUNTAIN RESCUE & POLICE (Royaume-Uni 🇬🇧) -->
+      <button type="button" onclick="makeEmergencyCall('999')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
+        <span class="emergency-btn-badge">999</span>
+        <div class="emergency-flag-container" title="United Kingdom">
+          <span class="text-2xl">🇬🇧</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>🚨 999 Mountain Rescue</span>
+          </div>
+          <div class="emergency-btn-sub text-red-100 opacity-90 truncate">Police, Mountain Rescue, Ambulance, Coastguard</div>
+        </div>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+
+      <!-- 2. 🔴 BOUTON 112 EUROPE & UK -->
+      <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
+        <span class="emergency-btn-badge">112</span>
+        <div class="emergency-flag-container" title="UK & Europe">
+          <span class="text-2xl">🇬🇧</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>📞 112 UK & Europe Emergency</span>
+          </div>
+          <div class="emergency-btn-sub text-red-100 opacity-90 truncate">Standard mobile emergency service UK</div>
+        </div>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+
+      <!-- 3. 🟣 BOUTON SMS 999 D'URGENCE AVEC GPS -->
+      <button type="button" onclick="sendEmergencySms('999')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 text-white border-purple-400/40">
+        <span class="emergency-btn-badge">999</span>
+        <div class="emergency-flag-container" title="UK emergencySMS">
+          <span class="text-2xl">🇬🇧</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>💬 SMS 999 d'Urgence UK</span>
+            <span class="text-xs bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-300/50 font-mono">avec GPS</span>
+          </div>
+          <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">emergencySMS UK : texte de détresse avec coordonnées GPS</div>
+        </div>
+        <i data-lucide="message-square" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+
+      <!-- 4. 🟢 BOUTON 111 NHS MEDICAL NON-VITAL -->
+      <button type="button" onclick="makeEmergencyCall('111')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 text-white border-emerald-400/40">
+        <span class="emergency-btn-badge">111</span>
+        <div class="emergency-flag-container" title="NHS UK">
+          <span class="text-2xl">🩺</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>📞 111 NHS Medical Advice</span>
+          </div>
+          <div class="emergency-btn-sub text-emerald-100 opacity-90 truncate">Urgences médicales non vitales / Conseils de santé</div>
+        </div>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+    `;
+  } else if (country === 'CH') {
+    numList.innerHTML = `
+      <!-- 1. 🔴 BOUTON 1414 REGA SECOURS AERIEN & MONTAGNE (Suisse 🇨🇭) -->
+      <button type="button" onclick="makeEmergencyCall('1414')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
+        <span class="emergency-btn-badge">1414</span>
+        <div class="emergency-flag-container" title="Rega Suisse">
+          <span class="text-2xl">🇨🇭</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>🚁 1414 REGA Secours Montagne</span>
+          </div>
+          <div class="emergency-btn-sub text-red-100 opacity-90 truncate">Garde aérienne suisse / Sauvetage hélicoptère alpin</div>
+        </div>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+
+      <!-- 2. 🟢 BOUTON 144 URGENCES MEDICALES SUISSE -->
+      <button type="button" onclick="makeEmergencyCall('144')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 text-white border-emerald-400/40">
+        <span class="emergency-btn-badge">144</span>
+        <div class="emergency-flag-container" title="Suisse Ambulance">
+          <span class="text-2xl">🇨🇭</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>📞 144 Urgences Médicales</span>
+          </div>
+          <div class="emergency-btn-sub text-emerald-100 opacity-90 truncate">Ambulances et détresse vitale Suisse</div>
+        </div>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+
+      <!-- 3. 🔴 BOUTON 112 POLICE & GENERAL -->
+      <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
+        <span class="emergency-btn-badge">112</span>
+        <div class="emergency-flag-container" title="Suisse">
+          <span class="text-2xl">🇨🇭</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>📞 112 Urgences Générales</span>
+          </div>
+          <div class="emergency-btn-sub text-red-100 opacity-90 truncate">Centrale d'alarme et police Suisse</div>
+        </div>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+
+      <!-- 4. 🟣 BOUTON SMS URGENCE AVEC GPS -->
+      <button type="button" onclick="sendEmergencySms('')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 text-white border-purple-400/40">
+        <span class="emergency-btn-badge">SMS</span>
+        <div class="emergency-flag-container" title="Suisse">
+          <span class="text-2xl">🇨🇭</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>💬 SMS d'Urgence Suisse</span>
+            <span class="text-xs bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-300/50 font-mono">avec GPS</span>
+          </div>
+          <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Message d'alerte avec coordonnées GPS précises</div>
+        </div>
+        <i data-lucide="message-square" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+    `;
+  } else if (country === 'ES') {
+    numList.innerHTML = `
+      <!-- 1. 🔴 BOUTON 112 EMERGENCIAS (Europe 🇪🇺 & España 🇪🇸) -->
+      <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
+        <span class="emergency-btn-badge">112</span>
+        <div class="emergency-flag-container" title="España">
+          <span class="text-2xl">🇪🇸</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>📞 112 Emergencias España</span>
+          </div>
+          <div class="emergency-btn-sub text-red-100 opacity-90 truncate">Bomberos, Guardia Civil, Rescate GREIM</div>
+        </div>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+
+      <!-- 2. 🛡️ BOUTON 062 GUARDIA CIVIL / GREIM RESCATE -->
+      <button type="button" onclick="makeEmergencyCall('062')" class="emergency-big-btn bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 hover:from-emerald-600 text-white border-emerald-400/40">
+        <span class="emergency-btn-badge">062</span>
+        <div class="emergency-flag-container" title="Guardia Civil GREIM">
+          <span class="text-2xl">🇪🇸</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>🛡️ 062 Guardia Civil GREIM</span>
+          </div>
+          <div class="emergency-btn-sub text-emerald-100 opacity-90 truncate">Secours en montagne direct / Rescate en montaña</div>
+        </div>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+
+      <!-- 3. 🟢 BOUTON 061 URGENCIAS SANITARIAS -->
+      <button type="button" onclick="makeEmergencyCall('061')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 text-white border-emerald-400/40">
+        <span class="emergency-btn-badge">061</span>
+        <div class="emergency-flag-container" title="España">
+          <span class="text-2xl">🇪🇸</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>📞 061 Urgencias Sanitarias</span>
+          </div>
+          <div class="emergency-btn-sub text-emerald-100 opacity-90 truncate">Ambulancia y atención médica urgente</div>
+        </div>
+        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+
+      <!-- 4. 🟣 BOUTON 112 SMS CON GPS -->
+      <button type="button" onclick="sendEmergencySms('112')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 text-white border-purple-400/40">
+        <span class="emergency-btn-badge">SMS</span>
+        <div class="emergency-flag-container" title="España">
+          <span class="text-2xl">🇪🇸</span>
+        </div>
+        <div class="text-left flex-1 min-w-0">
+          <div class="emergency-btn-title flex items-center gap-2">
+            <span>💬 SMS de Emergencia</span>
+            <span class="text-xs bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-300/50 font-mono">con GPS</span>
+          </div>
+          <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Mensaje de auxilio con coordenadas GPS</div>
+        </div>
+        <i data-lucide="message-square" class="w-7 h-7 text-white shrink-0"></i>
+      </button>
+    `;
+  } else if (country === 'FR') {
     numList.innerHTML = `
       <!-- 1. 🟢 BOUTON 15 SAMU (France 🇫🇷) -->
       <button type="button" onclick="makeEmergencyCall('15')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-400/40">
         <span class="emergency-btn-badge">15</span>
         <div class="emergency-flag-container" title="France">
-          <svg class="emergency-flag-svg" viewBox="0 0 900 600" width="44" height="30">
-            <rect width="300" height="600" fill="#002654"/>
-            <rect x="300" width="300" height="600" fill="#ffffff"/>
-            <rect x="600" width="300" height="600" fill="#ce1126"/>
-          </svg>
+          <span class="text-2xl">🇫🇷</span>
         </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
@@ -4837,27 +5053,11 @@ function renderEmergencyActionsPad() {
         <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
       </button>
 
-      <!-- 2. 🔴 BOUTON 112 POMPIERS & SECOURS MONTAGNE (Europe 🇪🇺) -->
+      <!-- 2. 🔴 BOUTON 112 POMPIERS & SECOURS MONTAGNE (Europe 🇪🇺 & France) -->
       <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white border-red-400/40">
         <span class="emergency-btn-badge">112</span>
-        <div class="emergency-flag-container" title="Union Européenne">
-          <svg class="emergency-flag-svg" viewBox="0 0 810 540" width="44" height="30">
-            <rect width="810" height="540" fill="#003399"/>
-            <g fill="#ffcc00" transform="translate(405,270) scale(18)">
-              <g id="eu-star-js"><polygon points="0,-1 0.588,0.809 -0.951,-0.309 0.951,-0.309 -0.588,0.809" transform="translate(0,-9)"/></g>
-              <use href="#eu-star-js" transform="rotate(30)"/>
-              <use href="#eu-star-js" transform="rotate(60)"/>
-              <use href="#eu-star-js" transform="rotate(90)"/>
-              <use href="#eu-star-js" transform="rotate(120)"/>
-              <use href="#eu-star-js" transform="rotate(150)"/>
-              <use href="#eu-star-js" transform="rotate(180)"/>
-              <use href="#eu-star-js" transform="rotate(210)"/>
-              <use href="#eu-star-js" transform="rotate(240)"/>
-              <use href="#eu-star-js" transform="rotate(270)"/>
-              <use href="#eu-star-js" transform="rotate(300)"/>
-              <use href="#eu-star-js" transform="rotate(330)"/>
-            </g>
-          </svg>
+        <div class="emergency-flag-container" title="France & Europe">
+          <span class="text-2xl">🇫🇷</span>
         </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
@@ -4872,89 +5072,14 @@ function renderEmergencyActionsPad() {
       <button type="button" onclick="sendEmergencySms('114')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 hover:to-purple-500 text-white border-purple-400/40">
         <span class="emergency-btn-badge">114</span>
         <div class="emergency-flag-container" title="France (Relais SMS National)">
-          <svg class="emergency-flag-svg" viewBox="0 0 900 600" width="44" height="30">
-            <rect width="300" height="600" fill="#002654"/>
-            <rect x="300" width="300" height="600" fill="#ffffff"/>
-            <rect x="600" width="300" height="600" fill="#ce1126"/>
-          </svg>
+          <span class="text-2xl">🇫🇷</span>
         </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
-            <span>💬 SMS d'Urgence</span>
+            <span>💬 SMS d'Urgence National</span>
             <span class="text-xs bg-purple-900/80 px-2 py-0.5 rounded-full border border-purple-300/50 font-mono">avec GPS</span>
           </div>
           <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Zone blanche voix / Sourd / Muet / Blessé silencieux</div>
-        </div>
-        <i data-lucide="message-square" class="w-7 h-7 text-white shrink-0"></i>
-      </button>
-    `;
-  } else if (country === 'ES') {
-    numList.innerHTML = `
-      <!-- 1. 🔴 BOUTON 112 EMERGENCIAS (Europe 🇪🇺 & España 🇪🇸) -->
-      <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
-        <span class="emergency-btn-badge">112</span>
-        <div class="emergency-flag-container" title="Unión Europea">
-          <svg class="emergency-flag-svg" viewBox="0 0 810 540" width="44" height="30">
-            <rect width="810" height="540" fill="#003399"/>
-            <g fill="#ffcc00" transform="translate(405,270) scale(18)">
-              <g id="eu-star-es"><polygon points="0,-1 0.588,0.809 -0.951,-0.309 0.951,-0.309 -0.588,0.809" transform="translate(0,-9)"/></g>
-              <use href="#eu-star-es" transform="rotate(30)"/>
-              <use href="#eu-star-es" transform="rotate(60)"/>
-              <use href="#eu-star-es" transform="rotate(90)"/>
-              <use href="#eu-star-es" transform="rotate(120)"/>
-              <use href="#eu-star-es" transform="rotate(150)"/>
-              <use href="#eu-star-es" transform="rotate(180)"/>
-              <use href="#eu-star-es" transform="rotate(210)"/>
-              <use href="#eu-star-es" transform="rotate(240)"/>
-              <use href="#eu-star-es" transform="rotate(270)"/>
-              <use href="#eu-star-es" transform="rotate(300)"/>
-              <use href="#eu-star-es" transform="rotate(330)"/>
-            </g>
-          </svg>
-        </div>
-        <div class="text-left flex-1 min-w-0">
-          <div class="emergency-btn-title flex items-center gap-2">
-            <span>📞 112 Emergencias España</span>
-          </div>
-          <div class="emergency-btn-sub text-red-100 opacity-90 truncate">Bomberos, Guardia Civil, Rescate GREIM</div>
-        </div>
-        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
-      </button>
-
-      <!-- 2. 🟢 BOUTON 061 URGENCIAS -->
-      <button type="button" onclick="makeEmergencyCall('061')" class="emergency-big-btn bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 text-white border-emerald-400/40">
-        <span class="emergency-btn-badge">061</span>
-        <div class="emergency-flag-container" title="España">
-          <svg class="emergency-flag-svg" viewBox="0 0 750 500" width="44" height="30">
-            <rect width="750" height="125" fill="#AA151B"/>
-            <rect y="125" width="750" height="250" fill="#F1BF00"/>
-            <rect y="375" width="750" height="125" fill="#AA151B"/>
-          </svg>
-        </div>
-        <div class="text-left flex-1 min-w-0">
-          <div class="emergency-btn-title flex items-center gap-2">
-            <span>📞 061 Urgencias Sanitarias</span>
-          </div>
-          <div class="emergency-btn-sub text-emerald-100 opacity-90 truncate">Ambulancia y atención médica urgente</div>
-        </div>
-        <i data-lucide="phone-forwarded" class="w-7 h-7 text-white shrink-0"></i>
-      </button>
-
-      <!-- 3. 🟣 BOUTON 112 SMS CON GPS -->
-      <button type="button" onclick="sendEmergencySms('112')" class="emergency-big-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-purple-700 hover:from-indigo-500 text-white border-purple-400/40">
-        <span class="emergency-btn-badge">SMS</span>
-        <div class="emergency-flag-container" title="España">
-          <svg class="emergency-flag-svg" viewBox="0 0 750 500" width="44" height="30">
-            <rect width="750" height="125" fill="#AA151B"/>
-            <rect y="125" width="750" height="250" fill="#F1BF00"/>
-            <rect y="375" width="750" height="125" fill="#AA151B"/>
-          </svg>
-        </div>
-        <div class="text-left flex-1 min-w-0">
-          <div class="emergency-btn-title flex items-center gap-2">
-            <span>💬 SMS de Emergencia</span>
-          </div>
-          <div class="emergency-btn-sub text-purple-100 opacity-90 truncate">Mensaje de auxilio con coordenadas GPS</div>
         </div>
         <i data-lucide="message-square" class="w-7 h-7 text-white shrink-0"></i>
       </button>
@@ -4965,23 +5090,7 @@ function renderEmergencyActionsPad() {
       <button type="button" onclick="makeEmergencyCall('112')" class="emergency-big-btn bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 text-white border-red-400/40">
         <span class="emergency-btn-badge">112</span>
         <div class="emergency-flag-container" title="Europe & International">
-          <svg class="emergency-flag-svg" viewBox="0 0 810 540" width="44" height="30">
-            <rect width="810" height="540" fill="#003399"/>
-            <g fill="#ffcc00" transform="translate(405,270) scale(18)">
-              <g id="eu-star-int"><polygon points="0,-1 0.588,0.809 -0.951,-0.309 0.951,-0.309 -0.588,0.809" transform="translate(0,-9)"/></g>
-              <use href="#eu-star-int" transform="rotate(30)"/>
-              <use href="#eu-star-int" transform="rotate(60)"/>
-              <use href="#eu-star-int" transform="rotate(90)"/>
-              <use href="#eu-star-int" transform="rotate(120)"/>
-              <use href="#eu-star-int" transform="rotate(150)"/>
-              <use href="#eu-star-int" transform="rotate(180)"/>
-              <use href="#eu-star-int" transform="rotate(210)"/>
-              <use href="#eu-star-int" transform="rotate(240)"/>
-              <use href="#eu-star-int" transform="rotate(270)"/>
-              <use href="#eu-star-int" transform="rotate(300)"/>
-              <use href="#eu-star-int" transform="rotate(330)"/>
-            </g>
-          </svg>
+          <span class="text-2xl">🇪🇺</span>
         </div>
         <div class="text-left flex-1 min-w-0">
           <div class="emergency-btn-title flex items-center gap-2">
@@ -6379,3 +6488,4 @@ window.refreshActiveUserPopups = refreshActiveUserPopups;
 window.initOrdnanceSurveyLayer = initOrdnanceSurveyLayer;
 window.saveOrdnanceSurveyApiKey = saveOrdnanceSurveyApiKey;
 window.updateOsApiKeyUI = updateOsApiKeyUI;
+window.selectEmergencyCountry = selectEmergencyCountry;

@@ -53,8 +53,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v73 -->
-  <link rel="stylesheet" href="styles.css?v=73" />
+  <!-- Custom Styles with Cache-Busting v74 -->
+  <link rel="stylesheet" href="styles.css?v=74" />
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -73,14 +73,14 @@
   <header class="app-header bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-2 sm:px-4 flex items-center justify-between z-30 shadow-2xl shrink-0 gap-1 sm:gap-2">
     <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
     <div id="brand-header-btn" class="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer select-none group active:scale-95 transition shrink-0" title="Jean-Luc DAUSSY 2026">
-      <img src="logo.png?v=73" alt="Logo RandoTracker" class="app-header-logo rounded-xl shadow-lg border border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+      <img src="logo.png?v=74" alt="Logo RandoTracker" class="app-header-logo rounded-xl shadow-lg border border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
       <div class="flex flex-col justify-center">
         <span class="app-header-title font-black tracking-tight text-white group-hover:text-emerald-300 transition leading-none whitespace-nowrap">RandoTracker</span>
         <div class="flex items-center gap-1.5 mt-0.5 leading-none">
           <span class="text-[9px] sm:text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider transition flex items-center gap-0.5">
             <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
           </span>
-          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.3.8</span>
+          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.3.9</span>
         </div>
       </div>
     </div>
@@ -594,10 +594,10 @@
                 <span>🔑 Clé OS Data Hub :</span>
                 <a href="https://osdatahub.os.uk/" target="_blank" class="text-blue-400 hover:text-blue-300 underline font-semibold text-[11px]" title="Obtenir une clé gratuite sur osdatahub.os.uk">(Obtenir)</a>
               </span>
-              <span id="os-key-status-badge" class="text-[10px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/40">🌐 Mode Libre OpenTopo (Sans clé)</span>
+              <span id="os-key-status-badge" class="text-[10px] font-black text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/40">🟢 Clé OS Active (OS Maps Outdoor)</span>
             </div>
             <div class="flex items-center gap-2">
-              <input type="text" id="os-api-key-input" placeholder="Coller votre clé OS Data Hub..." class="flex-1 px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder-slate-500" />
+              <input type="text" id="os-api-key-input" value="E5c4VX6vG0L4FANTJzfnlocpeW8em8Km" placeholder="Coller votre clé OS Data Hub..." class="flex-1 px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-emerald-400 focus:outline-none placeholder-slate-500" />
               <button type="button" onclick="saveOrdnanceSurveyApiKey(document.getElementById('os-api-key-input').value)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-lg transition active:scale-95 shadow">
                 OK
               </button>
@@ -1145,11 +1145,30 @@
       </div>
 
       <!-- ============================================================= -->
-      <!-- MOITIÉ BASSE (50%) : 3 BOUTONS DIRECTS GÉANTS (15, 112, 114) -->
+      <!-- MOITIÉ BASSE (50%) : BOUTONS DIRECTS D'URGENCE PAR PAYS -->
       <!-- ============================================================= -->
       <div id="emergency-actions-bottom-half">
         
-        <!-- 3 GRANDS BOUTONS DIRECTS (REMPLIS PAR renderEmergencyActionsPad) -->
+        <!-- SÉLECTEUR DE PAYS D'URGENCE (FR, UK, CH, ES, INTER) -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 mb-2 no-scrollbar shrink-0" id="emergency-country-tabs">
+          <button type="button" onclick="selectEmergencyCountry('FR')" data-country="FR" class="emergency-country-tab-btn px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-black text-xs border border-emerald-400 flex items-center gap-1 shrink-0 transition active:scale-95 shadow">
+            <span>🇫🇷</span> <span>France</span>
+          </button>
+          <button type="button" onclick="selectEmergencyCountry('UK')" data-country="UK" class="emergency-country-tab-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs border border-slate-700 flex items-center gap-1 shrink-0 transition active:scale-95 hover:bg-slate-750">
+            <span>🇬🇧</span> <span>UK (999)</span>
+          </button>
+          <button type="button" onclick="selectEmergencyCountry('CH')" data-country="CH" class="emergency-country-tab-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs border border-slate-700 flex items-center gap-1 shrink-0 transition active:scale-95 hover:bg-slate-750">
+            <span>🇨🇭</span> <span>Suisse (Rega)</span>
+          </button>
+          <button type="button" onclick="selectEmergencyCountry('ES')" data-country="ES" class="emergency-country-tab-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs border border-slate-700 flex items-center gap-1 shrink-0 transition active:scale-95 hover:bg-slate-750">
+            <span>🇪🇸</span> <span>Espagne (112)</span>
+          </button>
+          <button type="button" onclick="selectEmergencyCountry('OTHER')" data-country="OTHER" class="emergency-country-tab-btn px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs border border-slate-700 flex items-center gap-1 shrink-0 transition active:scale-95 hover:bg-slate-750">
+            <span>🇪🇺</span> <span>Europe (112)</span>
+          </button>
+        </div>
+
+        <!-- GRANDS BOUTONS DIRECTS (REMPLIS DYNAMIQUEMENT PAR renderEmergencyActionsPad) -->
         <div class="flex flex-col gap-2.5 w-full" id="emergency-numbers-list">
           
           <!-- 1. 🟢 BOUTON 15 SAMU (France 🇫🇷) -->
@@ -1553,7 +1572,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v73 -->
-  <script src="app.js?v=73"></script>
+  <!-- Main Application Script with Cache-Busting v74 -->
+  <script src="app.js?v=74"></script>
 </body>
 </html>
