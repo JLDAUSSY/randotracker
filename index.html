@@ -53,8 +53,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v79 -->
-  <link rel="stylesheet" href="styles.css?v=79" />
+  <!-- Custom Styles with Cache-Busting v82 -->
+  <link rel="stylesheet" href="styles.css?v=82" />
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -80,7 +80,7 @@
           <span class="text-[9px] sm:text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider transition flex items-center gap-0.5">
             <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
           </span>
-          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.4.4</span>
+          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.4.7</span>
         </div>
       </div>
     </div>
@@ -136,15 +136,15 @@
       </button>
     </div>
 
-    <!-- BOUTON FLOTTANT MODE POCHE (ÉCRAN NOIR & ANTI-VEILLE) -->
-    <button id="btn-enter-pocket-mode" onclick="enterPocketMode()" class="absolute bottom-4 left-3 z-20 px-3.5 py-2.5 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 font-black text-xs sm:text-sm flex items-center gap-2 border-2 border-slate-750 hover:border-emerald-500 shadow-2xl backdrop-blur-md transition active:scale-95 cursor-pointer" title="Verrouiller l'écran et économiser la batterie en poche">
+    <!-- BOUTON FLOTTANT MODE POCHE (SÉCURISÉ / CACHÉ PAR DÉFAUT) -->
+    <button id="btn-enter-pocket-mode" onclick="enterPocketMode()" class="hidden absolute bottom-4 left-3 z-20 px-3.5 py-2.5 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 font-black text-xs sm:text-sm flex items-center gap-2 border-2 border-slate-750 hover:border-emerald-500 shadow-2xl backdrop-blur-md transition active:scale-95 cursor-pointer" style="display: none;" title="Verrouiller l'écran et économiser la batterie en poche">
       <span class="text-base">🔒</span>
       <span>Mode Poche</span>
     </button>
   </main>
 
   <!-- VOILE D'ARRIÈRE-PLAN POUR TIROIRS (FERMETURE EN 1 CLIC) -->
-  <div id="drawer-backdrop" class="hidden fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm transition-opacity" onclick="closeAllDrawers(); closeEmergencyModal();"></div>
+  <div id="drawer-backdrop" class="hidden fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-sm transition-opacity" style="display: none;" onclick="closeAllDrawers(); closeEmergencyModal();"></div>
 
   <!-- ================================================================= -->
   <!-- FENÊTRE PLEIN ÉCRAN : LISTE DES PARTICIPANTS / GROUPE             -->
@@ -444,7 +444,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : GESTIONNAIRE DES TRACES GPX (Jusqu'à 5 traces)            -->
   <!-- ================================================================= -->
-  <div id="tracks-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+  <div id="tracks-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4" style="display: none;">
     <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl flex flex-col gap-4 max-h-[92vh] overflow-hidden">
       
       <!-- En-tête Modale Traces -->
@@ -458,7 +458,7 @@
             <p class="text-xs font-bold text-slate-400" id="tracks-modal-count-label">0 parcours chargé (max 5)</p>
           </div>
         </div>
-        <button onclick="closeTracksModal()" class="modal-close-btn" title="Fermer">
+        <button id="close-tracks-modal-btn" onclick="closeTracksModal()" class="modal-close-btn" title="Fermer">
           <i data-lucide="x" class="w-7 h-7 text-white stroke-[3]"></i>
         </button>
       </div>
@@ -499,7 +499,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : INVITATION DES PARTICIPANTS (QR Code & Partage WhatsApp) -->
   <!-- ================================================================= -->
-  <div id="invite-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="invite-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
     <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
       <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4">
         <h3 class="font-black text-xl text-white flex items-center gap-3">
@@ -546,7 +546,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : SÉLECTEUR DE FOND DE CARTE -->
   <!-- ================================================================= -->
-  <div id="layer-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="layer-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
     <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
       <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4">
         <h3 class="font-black text-xl text-white flex items-center gap-3">
@@ -648,7 +648,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : CODE DE SALON -->
   <!-- ================================================================= -->
-  <div id="room-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="room-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
     <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
       <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4">
         <h3 class="font-black text-xl text-white flex items-center gap-3">
@@ -695,7 +695,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : USER PROFILE EDIT -->
   <!-- ================================================================= -->
-  <div id="profile-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="profile-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
     <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4">
         <h3 class="font-black text-xl text-white flex items-center gap-3">
@@ -902,7 +902,7 @@
   <!-- ================================================================= -->
   <!-- MODAL FLOTTANTE : JEAN-LUC DAUSSY 2026 -->
   <!-- ================================================================= -->
-  <div id="about-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+  <div id="about-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4" style="display: none;">
     <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl p-6 sm:p-7 w-full max-w-sm shadow-2xl space-y-4 text-center relative max-h-[92vh] overflow-y-auto">
       <button id="close-about-modal-btn" class="modal-close-btn absolute top-4 right-4" title="Fermer">
         <i data-lucide="x" class="w-7 h-7 text-white stroke-[3]"></i>
@@ -944,14 +944,14 @@
   <!-- ================================================================= -->
   <!-- MODAL : COMPOSITION DE MESSAGE À TOUT LE GROUPE (ACCESSIBLE À TOUS) -->
   <!-- ================================================================= -->
-  <div id="announcement-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="announcement-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
     <div class="bg-slate-900 border-2 border-amber-500/80 rounded-3xl w-full max-w-lg p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b-2 border-slate-800 pb-4">
         <h3 class="font-black text-xl text-white flex items-center gap-3">
           <span class="text-2xl">📢</span>
           Message à Tout le Groupe
         </h3>
-        <button onclick="closeAnnouncementModal()" class="modal-close-btn" title="Fermer">
+        <button id="close-announcement-modal-btn" onclick="closeAnnouncementModal()" class="modal-close-btn" title="Fermer">
           <i data-lucide="x" class="w-7 h-7 text-white stroke-[3]"></i>
         </button>
       </div>
@@ -1026,7 +1026,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : RÉCEPTION D'UN MESSAGE DIFFUSÉ (TOUS LES MARCHEURS) -->
   <!-- ================================================================= -->
-  <div id="received-announcement-modal" class="hidden fixed inset-0 z-55 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="received-announcement-modal" class="hidden fixed inset-0 z-55 bg-black/85 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
     <div class="bg-gradient-to-b from-amber-500 to-amber-600 text-slate-950 border-4 border-white rounded-3xl w-full max-w-md p-6 sm:p-7 shadow-2xl flex flex-col gap-4 text-center">
       <div class="flex justify-center">
         <div id="rx-announcement-icon-bubble" class="w-20 h-20 rounded-3xl bg-slate-950 text-amber-400 border-2 border-white/40 flex items-center justify-center text-4xl shadow-2xl animate-bounce">
@@ -1060,7 +1060,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : SECOURS & APPELS D'URGENCE (PARTITIONNÉE 50/50 HAUTE VISIBILITÉ) -->
   <!-- ================================================================= -->
-  <div id="emergency-modal" class="hidden">
+  <div id="emergency-modal" class="hidden" style="display: none;">
     <div class="emergency-modal-inner">
       
       <!-- ============================================================= -->
@@ -1083,7 +1083,7 @@
               </div>
             </div>
           </div>
-          <button onclick="closeEmergencyModal()" class="modal-close-btn" title="Fermer la fenêtre d'urgence">
+          <button id="close-emergency-modal-btn" onclick="closeEmergencyModal()" class="modal-close-btn" title="Fermer la fenêtre d'urgence">
             <i data-lucide="x" class="w-7 h-7 text-white stroke-[3]"></i>
           </button>
         </div>
@@ -1241,7 +1241,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : GUIDE DE DÉMARRAGE RAPIDE (GPS & BATTERIE DANS LA POCHE) -->
   <!-- ================================================================= -->
-  <div id="onboarding-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="onboarding-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
     <div class="bg-slate-900 border-2 border-emerald-500 rounded-3xl w-full max-w-lg p-5 sm:p-7 shadow-2xl flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
       
       <!-- En-tête du Guide -->
@@ -1255,7 +1255,7 @@
             <p class="text-xs font-bold text-emerald-400">Pour un fonctionnement continu dans la poche</p>
           </div>
         </div>
-        <button onclick="closeOnboardingModal()" class="modal-close-btn" title="Fermer">
+        <button id="close-onboarding-modal-btn" onclick="closeOnboardingModal()" class="modal-close-btn" title="Fermer">
           <i data-lucide="x" class="w-7 h-7 text-white stroke-[3]"></i>
         </button>
       </div>
@@ -1360,7 +1360,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : PUBLICITÉ D'OUVERTURE QUOTIDIENNE ADMOB & PARTENAIRE (1x/jour) -->
   <!-- ================================================================= -->
-  <div id="app-open-ad-modal" class="hidden fixed inset-0 z-[2500] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" onclick="if(event.target===this) closeAppOpenAd()">
+  <div id="app-open-ad-modal" class="hidden fixed inset-0 z-[2500] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" style="display: none;" onclick="if(event.target===this) closeAppOpenAd()">
     <div class="app-open-ad-card">
       <div class="ad-sponsor-badge" id="app-open-ad-badge">
         <span>✨</span>
@@ -1415,7 +1415,7 @@
   <!-- ================================================================= -->
   <!-- ÉCRAN NOIR MODE POCHE (ANTI-VEILLE & ANTI-FAUX CONTACTS)         -->
   <!-- ================================================================= -->
-  <div id="pocket-mode-overlay" class="hidden">
+  <div id="pocket-mode-overlay" class="hidden" style="display: none;">
     <!-- Haut : Statut & Sécurité -->
     <div class="flex flex-col items-center gap-1 pt-4 text-center">
       <div class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/60 text-emerald-400 text-xs font-black shadow-lg">
@@ -1479,7 +1479,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : SCANNER DE QR CODE EN DIRECT (CAMÉRA) -->
   <!-- ================================================================= -->
-  <div id="qr-scan-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6">
+  <div id="qr-scan-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-between p-4 sm:p-6" style="display: none;">
     <div class="w-full max-w-md flex items-center justify-between z-10">
       <div class="flex items-center gap-2.5 text-white font-black text-lg">
         <i data-lucide="camera" class="w-6 h-6 text-emerald-400"></i>
@@ -1511,7 +1511,7 @@
   <!-- ================================================================= -->
   <!-- MODAL : SAISIE RAPIDE DU PRÉNOM (ACCUEIL NOUVEAU MARCHEUR) -->
   <!-- ================================================================= -->
-  <div id="name-prompt-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4">
+  <div id="name-prompt-modal" class="hidden fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
     <div class="bg-slate-900 border-2 border-emerald-500/60 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
       <div class="flex items-center gap-3 border-b-2 border-slate-800 pb-3">
         <span class="text-3xl">👋</span>
@@ -1553,7 +1553,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v79 -->
-  <script src="app.js?v=79"></script>
+  <!-- Main Application Script with Cache-Busting v82 -->
+  <script src="app.js?v=82"></script>
 </body>
 </html>

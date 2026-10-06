@@ -681,7 +681,9 @@ main {
   width: 100% !important;
   height: 100% !important;
   min-height: 100% !important;
-  background-color: #020617 !important;
+  background-color: #0f172a !important;
+  background-image: radial-gradient(circle at 50% 50%, #1e293b 1.5px, transparent 1.5px) !important;
+  background-size: 24px 24px !important;
 }
 
 .leaflet-tile {
@@ -690,13 +692,15 @@ main {
 }
 
 /* 4. VOILE DE FOND (Z-INDEX 920) */
-#drawer-backdrop {
+#drawer-backdrop:not(.hidden) {
   position: fixed !important;
   inset: 0 !important;
   z-index: 920 !important;
   background-color: rgba(2, 6, 23, 0.7) !important;
   backdrop-filter: blur(6px) !important;
   -webkit-backdrop-filter: blur(6px) !important;
+  display: block !important;
+  pointer-events: auto !important;
 }
 
 /* 5. FENÊTRE PLEIN ÉCRAN GROUPE / PARTICIPANTS (Z-INDEX 950) */
@@ -736,7 +740,7 @@ main {
 }
 
 /* 6. FENÊTRE PLEIN ÉCRAN SECOURS & URGENCE (Z-INDEX 950 - PARTITION RIGIDE 50/50) */
-#emergency-modal {
+#emergency-modal:not(.hidden) {
   position: fixed !important;
   top: calc(var(--header-height, 64px) + env(safe-area-inset-top, 0px)) !important;
   bottom: var(--bottom-nav-height, 88px) !important;
@@ -755,10 +759,15 @@ main {
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
+  pointer-events: auto !important;
 }
 
 #emergency-modal.hidden {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -9999 !important;
 }
 
 .emergency-modal-inner {
@@ -964,7 +973,7 @@ main {
 }
 
 /* 7. TIROIR PROFIL ALTIMÉTRIQUE (Z-INDEX 2500 - STRICTEMENT CALÉ AU-DESSUS DE LA BARRE BASSE & ZOOMABLE) */
-#elevation-drawer {
+#elevation-drawer:not(.hidden) {
   position: fixed !important;
   bottom: calc(var(--bottom-nav-height, 88px) + 12px) !important;
   left: 10px !important;
@@ -982,10 +991,15 @@ main {
   max-height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px) - 24px) !important;
   overflow: hidden !important;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease !important;
+  pointer-events: auto !important;
 }
 
 #elevation-drawer.hidden {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -9999 !important;
 }
 
 /* Mode Agrandie / Plein Écran pour la Boîte de Profil Altimétrique */
@@ -1019,18 +1033,18 @@ main {
 }
 
 /* 8. TOUTES LES SOUS-MODALES & POPUPS DIALOGUES (Z-INDEX 3000 - PREMIER PLAN ABSOLU) */
-#invite-modal,
-#announcement-modal,
-#received-announcement-modal,
-#tracks-modal,
-#layer-modal,
-#room-modal,
-#profile-modal,
-#about-modal,
-#onboarding-modal,
-#qr-scan-modal,
-#name-prompt-modal,
-#app-open-ad-modal {
+#invite-modal:not(.hidden),
+#announcement-modal:not(.hidden),
+#received-announcement-modal:not(.hidden),
+#tracks-modal:not(.hidden),
+#layer-modal:not(.hidden),
+#room-modal:not(.hidden),
+#profile-modal:not(.hidden),
+#about-modal:not(.hidden),
+#onboarding-modal:not(.hidden),
+#qr-scan-modal:not(.hidden),
+#name-prompt-modal:not(.hidden),
+#app-open-ad-modal:not(.hidden) {
   position: fixed !important;
   inset: 0 !important;
   z-index: 3000 !important;
@@ -1041,6 +1055,7 @@ main {
   align-items: center !important;
   justify-content: center !important;
   padding: 16px !important;
+  pointer-events: auto !important;
 }
 
 #invite-modal.hidden,
@@ -1059,8 +1074,15 @@ main {
 #drawer-backdrop.hidden,
 #emergency-modal.hidden,
 #elevation-drawer.hidden,
-.hidden {
+#btn-enter-pocket-mode.hidden,
+#active-announcement-banner.hidden,
+.hidden,
+[hidden] {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -9999 !important;
 }
 
 #invite-modal > div,
@@ -1417,36 +1439,44 @@ main {
   bottom: calc(var(--bottom-nav-height, 88px) + 14px) !important;
   left: 14px !important;
   z-index: 1000 !important;
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  pointer-events: auto !important;
+}
+
+#btn-enter-pocket-mode.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* ========================================================================== */
 /* MODE POCHE ANTI-VEILLE & ÉCO-ÉNERGIE (POUR SUIVI EN POCHE DANS LE NAVIGATEUR) */
 /* ========================================================================== */
-#pocket-mode-overlay {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+#pocket-mode-overlay:not(.hidden) {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
   background-color: #000000 !important;
   z-index: 5000 !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  padding: calc(var(--sat) + 20px) 20px calc(var(--sab) + 24px) 20px;
-  box-sizing: border-box;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: none;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: calc(var(--sat) + 20px) 20px calc(var(--sab) + 24px) 20px !important;
+  box-sizing: border-box !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  touch-action: none !important;
+  pointer-events: auto !important;
 }
 
 #pocket-mode-overlay.hidden {
   display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  z-index: -9999 !important;
 }
 
 .pocket-clock-text {
@@ -1539,7 +1569,7 @@ main {
 /* ========================================================================== */
 /* SCANNER QR CODE & MODALE SAISIE PRÉNOM */
 /* ========================================================================== */
-#qr-scan-modal {
+#qr-scan-modal:not(.hidden) {
   z-index: 3500 !important;
 }
 
@@ -1568,7 +1598,7 @@ main {
   100% { top: 4%; }
 }
 
-#name-prompt-modal {
+#name-prompt-modal:not(.hidden) {
   z-index: 3600 !important;
 }
 

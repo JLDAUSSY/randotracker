@@ -7,6 +7,20 @@
  */
 
 // ============================================================================
+// GARDIEN GLOBAL ANTI-CRASH & PROTECTION ÉCRAN NOIR
+// ============================================================================
+window.addEventListener('error', function(e) {
+  console.warn('[RandoTracker Global Guard] Error caught:', e.message, e.filename, e.lineno);
+  try {
+    if (typeof ensureBarsVisible === 'function') ensureBarsVisible();
+  } catch (err) {}
+});
+
+window.addEventListener('unhandledrejection', function(e) {
+  console.warn('[RandoTracker Global Guard] Unhandled rejection caught:', e.reason);
+});
+
+// ============================================================================
 // ASSAINISSEMENT IMMÉDIAT DU STOCKAGE LOCAL (ÉRADICATION GHOSTS GUIDE & ANIMATEUR)
 // ============================================================================
 (function sanitizeLegacyStorage() {
@@ -901,43 +915,11 @@ function renderProfileAdBanner() {
 }
 
 function checkAndDisplayAppOpenAd() {
-  try {
-    // Si nous sommes dans l'application native Android, ne jamais bloquer l'écran avec une pub web
-    if (window.IS_NATIVE_ANDROID_APP || (window.AndroidBridge && typeof window.AndroidBridge.isNativeApp === 'function')) {
-      return;
-    }
-
-    const today = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
-    const lastAdDate = localStorage.getItem('randotracker_last_app_open_ad_date');
-
-    if (lastAdDate === today) {
-      // Déjà affiché aujourd'hui : inhibition conforme
-      return;
-    }
-
-    const modal = document.getElementById('app-open-ad-modal');
-    if (modal) {
-      // Temporisation douce pour laisser l'interface et la carte s'initialiser
-      setTimeout(() => {
-        const onboarding = document.getElementById('onboarding-modal');
-        if (onboarding && !onboarding.classList.contains('hidden')) {
-          return;
-        }
-        modal.classList.remove('hidden');
-        localStorage.setItem('randotracker_last_app_open_ad_date', today);
-
-        // Chargement officiel AdMob / AdSense
-        try {
-          (window.adsbygoogle = window.adsbygoogle || []).push({});
-        } catch (adErr) {
-          console.log('[AdMob] In-browser load fallback:', adErr);
-          const fallbackCard = document.getElementById('admob-fallback-card');
-          if (fallbackCard) fallbackCard.classList.remove('hidden');
-        }
-      }, 1200);
-    }
-  } catch (e) {
-    console.warn('[AdMob/Monetization] checkAndDisplayAppOpenAd:', e);
+  // Entièrement désactivé : Ne jamais afficher d'interstitiel bloquant au démarrage
+  const modal = document.getElementById('app-open-ad-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
   }
 }
 
@@ -945,6 +927,7 @@ function closeAppOpenAd() {
   const modal = document.getElementById('app-open-ad-modal');
   if (modal) {
     modal.classList.add('hidden');
+    modal.style.display = 'none';
   }
 }
 
@@ -1000,9 +983,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=58')
+    navigator.serviceWorker.register('./sw.js?v=82')
       .then((reg) => {
-        console.log('[PWA] Service Worker v58 actif:', reg.scope);
+        console.log('[PWA] Service Worker v82 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -3642,6 +3625,7 @@ function enterPocketMode() {
 
   // 3. Afficher l'écran noir ultra-économe
   overlay.classList.remove('hidden');
+  overlay.style.display = 'flex';
   pushModalState('pocket-mode-overlay');
 
   // 4. Mettre à jour l'horloge et la télémétrie en direct
@@ -3719,12 +3703,14 @@ function exitPocketMode() {
   const overlay = document.getElementById('pocket-mode-overlay');
   if (overlay) {
     overlay.classList.add('hidden');
+    overlay.style.display = 'none';
   }
   if (pocketModeInterval) {
     clearInterval(pocketModeInterval);
     pocketModeInterval = null;
   }
   showToast('🔓 Écran déverrouillé', 'info');
+  ensureBarsVisible();
 }
 
 function updatePocketModeTelemetry() {
@@ -4027,13 +4013,7 @@ function joinRoomDirectly(newRoomCode) {
 }
 
 function checkAndPromptUserName() {
-  const name = (state.myUser.name || '').trim();
-  const genericNames = ['animateur', 'randonneur', 'participant', 'marcheur', 'guide', 'guide de tête', 'guide de tete', ''];
-  const hasPrompted = sessionStorage.getItem('rando_prompted_name_this_session');
-  if (!hasPrompted && (!name || genericNames.includes(name.toLowerCase()))) {
-    sessionStorage.setItem('rando_prompted_name_this_session', '1');
-    setTimeout(openNamePromptModal, 500);
-  }
+  // Mode non-bloquant : Ne jamais ouvrir automatiquement de modale bloquante au démarrage
 }
 
 function openNamePromptModal() {
@@ -4046,13 +4026,17 @@ function openNamePromptModal() {
   }
   if (modal) {
     modal.classList.remove('hidden');
+    modal.style.display = 'flex';
     pushModalState('name-prompt-modal');
   }
 }
 
 function closeNamePromptModal() {
   const modal = document.getElementById('name-prompt-modal');
-  if (modal) modal.classList.add('hidden');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
 }
 
 function savePromptUserName() {
@@ -4839,15 +4823,15 @@ function updateEmergencyModalGpsData() {
   const country = state.selectedEmergencyCountry || autoCountry;
 
   // 1. Affichage Degrés Décimaux (DD)
+  let ddStr = 'Recherche du signal GPS...';
   const decimalEl = document.getElementById('emergency-gps-decimal');
-  if (decimalEl) {
-    if (hasGps) {
-      const latDir = lat >= 0 ? 'N' : 'S';
-      const lonDir = lon >= 0 ? 'E' : 'O';
-      decimalEl.textContent = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
-    } else {
-      decimalEl.textContent = `📡 Recherche du signal GPS...`;
-    }
+  if (hasGps) {
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const lonDir = lon >= 0 ? 'E' : 'O';
+    ddStr = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+    if (decimalEl) decimalEl.textContent = ddStr;
+  } else {
+    if (decimalEl) decimalEl.textContent = `📡 Recherche du signal GPS...`;
   }
 
   // 2. Affichage Degrés Minutes Secondes (DMS)
@@ -4875,7 +4859,7 @@ function updateEmergencyModalGpsData() {
   const dictateCoords = document.getElementById('dictate-coords');
   const dictateAlt = document.getElementById('dictate-alt');
   if (dictateCoords) dictateCoords.textContent = ddStr;
-  if (dictateAlt) dictateAlt.textContent = `${Math.round(ele)} m`;
+  if (dictateAlt) dictateAlt.textContent = hasGps ? `${Math.round(ele)} m` : '-- m';
 
   // 5. Tag Pays
   const countryTag = document.getElementById('emergency-country-tag');
@@ -6031,18 +6015,14 @@ function adjustElevationDrawerZoom(delta) {
 // GUIDE DE DÉMARRAGE RAPIDE / ONBOARDING (GPS ET BATTERIE SANS RESTRICTION)
 // ============================================================================
 function checkOnboardingStatus() {
-  const hasAccepted = localStorage.getItem('rando_onboarding_accepted');
-  if (!hasAccepted) {
-    setTimeout(() => {
-      openOnboardingModal();
-    }, 500);
-  }
+  // Mode non-bloquant : Ne jamais ouvrir de modale bloquante au démarrage
 }
 
 function openOnboardingModal() {
   const modal = document.getElementById('onboarding-modal');
   if (modal) {
     modal.classList.remove('hidden');
+    modal.style.display = 'flex';
     pushModalState('onboarding-modal');
     if (window.lucide && lucide.createIcons) {
       lucide.createIcons();
@@ -6052,7 +6032,10 @@ function openOnboardingModal() {
 
 function closeOnboardingModal() {
   const modal = document.getElementById('onboarding-modal');
-  if (modal) modal.classList.add('hidden');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
 }
 
 function acceptOnboarding() {
@@ -6155,28 +6138,6 @@ function initPixelSanctuaryGuardians() {
   setInterval(() => {
     ensureBarsVisible();
   }, 2000);
-}
-
-  // C. Fermeture de clavier virtuel (Inputs et Textareas)
-  document.addEventListener('focusout', (e) => {
-    if (e.target.matches('input, textarea, select')) {
-      setTimeout(() => {
-        ensureBarsVisible();
-        if (state.map) state.map.invalidateSize();
-      }, 100);
-    }
-  });
-
-  // D. Reconnexion WakeLock si retour au premier plan
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      ensureBarsVisible();
-      if (state.map) setTimeout(() => state.map.invalidateSize(), 100);
-      if (state.isTrackingGps) {
-        requestWakeLock();
-      }
-    }
-  });
 }
 
 // ============================================================================
@@ -6287,8 +6248,16 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
 
   // --- TOUCH TACTILE (SMARTPHONE / TABLETTE) ---
   const onTouchStart = (e) => {
-    // Sanctuarisation : empêcher toute fuite de l'événement vers la carte en dessous
-    e.stopPropagation();
+    // Si l'élément est masqué, ignorer totalement
+    if (containerEl.classList.contains('hidden') || containerEl.style.display === 'none') {
+      return;
+    }
+
+    // Ne jamais bloquer les clics sur les boutons / liens / champs
+    const isInteractive = e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, .popup-zoom-btn, details, summary, i, svg, [onclick]');
+    if (isInteractive) {
+      return;
+    }
 
     // 1 doigt : Vérifier Double-Tap ou Début de Déplacement (Drag)
     if (e.touches.length === 1) {
@@ -6299,24 +6268,25 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
         applyTransform(true);
         showZoomBadge(1.0);
         lastTapTime = 0;
+        e.stopPropagation();
         return;
       }
       lastTapTime = now;
 
       // Si le doigt est posé sur la poignée de déplacement (header / bar)
-      const isInteractive = e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, .popup-zoom-btn, details, summary, i, svg, [onclick]');
       const onHandle = handle.contains(e.target);
-      if (onHandle && !isInteractive) {
+      if (onHandle) {
         isDragging = true;
         handle.style.cursor = 'grabbing';
         dragStartX = e.touches[0].clientX - curX;
         dragStartY = e.touches[0].clientY - curY;
         if (state.map && state.map.dragging) state.map.dragging.disable();
+        e.stopPropagation();
       }
     }
 
-    // 2 doigts : Démarrer le Pinch-to-Zoom
-    if (e.touches.length === 2) {
+    // 2 doigts : Démarrer le Pinch-to-Zoom sur la carte
+    if (e.touches.length === 2 && (card.contains(e.target) || handle.contains(e.target))) {
       isDragging = false;
       isPinching = true;
       if (e.cancelable) e.preventDefault();
@@ -6326,15 +6296,15 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
         if (state.map.touchZoom) state.map.touchZoom.disable();
         if (state.map.dragging) state.map.dragging.disable();
       }
+      e.stopPropagation();
     }
   };
 
   const onTouchMove = (e) => {
-    e.stopPropagation();
-
     // Gestion Zoom 2 doigts
     if (isPinching && e.touches.length === 2) {
       if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
       const dist = getDistance(e.touches[0], e.touches[1]);
       if (pinchStartDist > 0) {
         const factor = dist / pinchStartDist;
@@ -6348,6 +6318,7 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
     // Gestion Déplacement 1 doigt sur la poignée
     if (isDragging && e.touches.length === 1) {
       if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
       curX = e.touches[0].clientX - dragStartX;
       curY = e.touches[0].clientY - dragStartY;
       applyTransform(false);
@@ -6355,25 +6326,32 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
   };
 
   const onTouchEnd = (e) => {
-    e.stopPropagation();
-
-    if (isPinching && e.touches.length < 2) {
-      isPinching = false;
-      pinchStartDist = 0;
-      if (state.map && state.map.touchZoom) state.map.touchZoom.enable();
+    if (isPinching) {
+      e.stopPropagation();
+      if (e.touches.length < 2) {
+        isPinching = false;
+        pinchStartDist = 0;
+        if (state.map && state.map.touchZoom) state.map.touchZoom.enable();
+      }
     }
 
-    if (isDragging && e.touches.length === 0) {
-      isDragging = false;
-      handle.style.cursor = 'grab';
-      if (state.map && state.map.dragging) state.map.dragging.enable();
+    if (isDragging) {
+      e.stopPropagation();
+      if (e.touches.length === 0) {
+        isDragging = false;
+        handle.style.cursor = 'grab';
+        if (state.map && state.map.dragging) state.map.dragging.enable();
+      }
     }
   };
 
-  containerEl.addEventListener('touchstart', onTouchStart, { passive: false });
-  containerEl.addEventListener('touchmove', onTouchMove, { passive: false });
-  containerEl.addEventListener('touchend', onTouchEnd, { passive: false });
-  containerEl.addEventListener('touchcancel', onTouchEnd, { passive: false });
+  handle.addEventListener('touchstart', onTouchStart, { passive: false });
+  if (card !== handle) {
+    card.addEventListener('touchstart', onTouchStart, { passive: false });
+  }
+  window.addEventListener('touchmove', onTouchMove, { passive: false });
+  window.addEventListener('touchend', onTouchEnd, { passive: false });
+  window.addEventListener('touchcancel', onTouchEnd, { passive: false });
 }
 
 function makePopupDraggable(popupEl) {
@@ -6473,24 +6451,14 @@ function bootApp() {
     checkPendingNotification();
   } catch(e) { console.error('[Init SW/Notif]', e); }
 
-  // VÉRIFICATION DU GUIDE ONBOARDING (1er démarrage) OU DÉMARRAGE DIRECT GPS
+  // DÉMARRAGE DIRECT GPS SANS MODALE BLOQUANTE
   try {
-    const hasAcceptedOnboarding = localStorage.getItem('rando_onboarding_accepted');
-    if (!hasAcceptedOnboarding) {
-      checkOnboardingStatus();
-    } else if (navigator.geolocation) {
+    if (navigator.geolocation) {
       console.log('[GPS] Démarrage automatique de la géolocalisation...');
       startGpsWatch(true);
     }
-
-    // Affichage publicitaire quotidien AdMob & Partenaire (1x/jour max)
     checkAndDisplayAppOpenAd();
-  } catch(e) { console.error('[Init Onboarding/GPS]', e); }
-
-  // DEMANDE DU PRÉNOM SI NON RENSEIGNÉ OU GÉNÉRIQUE (PC / NOUVEAU SMARTPHONE)
-  try {
-    checkAndPromptUserName();
-  } catch(e) { console.error('[Init PromptUserName]', e); }
+  } catch(e) { console.error('[Init GPS]', e); }
 }
 
 function checkPendingNotification() {
@@ -6571,7 +6539,7 @@ function isAnyModalOrDrawerOpen() {
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
     'emergency-modal', 'onboarding-modal', 'app-open-ad-modal',
-    'qr-scan-modal', 'name-prompt-modal'
+    'qr-scan-modal', 'name-prompt-modal', 'pocket-mode-overlay'
   ];
   for (const id of modals) {
     const el = document.getElementById(id);
@@ -6590,15 +6558,19 @@ function closeAllModalsAndDrawers() {
   closeAppOpenAd();
   closeQrScanner();
   closeNamePromptModal();
+  exitPocketMode();
   const modals = [
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
     'elevation-drawer', 'onboarding-modal', 'app-open-ad-modal',
-    'qr-scan-modal', 'name-prompt-modal'
+    'qr-scan-modal', 'name-prompt-modal', 'pocket-mode-overlay'
   ];
   modals.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.classList.add('hidden');
+    if (el) {
+      el.classList.add('hidden');
+      el.style.display = 'none';
+    }
   });
   if (state.map) {
     setTimeout(() => state.map.invalidateSize(), 120);
@@ -6738,3 +6710,4 @@ window.initOrdnanceSurveyLayer = initOrdnanceSurveyLayer;
 window.saveOrdnanceSurveyApiKey = saveOrdnanceSurveyApiKey;
 window.updateOsApiKeyUI = updateOsApiKeyUI;
 window.selectEmergencyCountry = selectEmergencyCountry;
+window.state = state;

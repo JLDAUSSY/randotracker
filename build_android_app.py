@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Constructeur et compilateur de l'Android App Bundle (.aab) pour RandoTracker
-Génère le projet Android TWA complet, la clé de signature (keystore),
-les icônes de toutes résolutions et compile l'AAB pour le Google Play Store.
+Constructeur et compilateur de l'Android App Bundle (.aab) et APK pour RandoTracker V1.4.5 (39)
+Génère le projet Android complet avec pont natif, scanner QR caméra, service d'arrière-plan haute priorité,
+support des notifications montre & lockscreen et compilation Play Store / Release.
 """
 
 import os
@@ -112,6 +112,7 @@ with open(os.path.join(project_dir, "build.gradle.kts"), "w", encoding="utf-8") 
 gradle_properties = """org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
 android.useAndroidX=true
 android.nonTransitiveRClass=true
+android.suppressUnsupportedCompileSdk=36
 """
 with open(os.path.join(project_dir, "gradle.properties"), "w", encoding="utf-8") as f:
     f.write(gradle_properties)
@@ -130,8 +131,8 @@ android {{
         applicationId = "fr.jldaussy.randotracker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.1.0"
+        versionCode = 41
+        versionName = "1.4.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -179,6 +180,7 @@ dependencies {{
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.5.0")
     implementation("androidx.browser:browser:1.8.0")
+    implementation("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5")
 }}
 """
 with open(os.path.join(app_dir, "build.gradle.kts"), "w", encoding="utf-8") as f:
@@ -218,26 +220,52 @@ styles_xml = """<resources>
 with open(os.path.join(res_dir, "values", "styles.xml"), "w", encoding="utf-8") as f:
     f.write(styles_xml)
 
-# 7. Code Source Java Natif pour le Suivi GPS en Arrière-Plan (Poche / Écran Éteint)
+# 7. Code Source Java Natif pour le Suivi GPS en Arrière-Plan & Pont Natif
 main_activity_java = """package fr.jldaussy.randotracker;
 
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
+import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.google.androidbrowserhelper.trusted.LauncherActivity;
 
 public class RandoMainActivity extends LauncherActivity {
     private static final int PERMISSION_REQ_CODE = 2026;
+    private WebView webView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         checkAndRequestPermissions();
         startGpsService();
+        handleIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIntent(intent);
+    }
+
+    private void handleIntent(Intent intent) {
+        if (intent == null) return;
+        Uri data = intent.getData();
+        if (data != null) {
+            String room = data.getQueryParameter("room");
+            if (room != null && !room.isEmpty()) {
+                if (webView != null) {
+                    webView.evaluateJavascript("if(window.joinRoomDirectly) window.joinRoomDirectly('" + room + "');", null);
+                }
+            }
+        }
     }
 
     private void checkAndRequestPermissions() {
@@ -247,12 +275,14 @@ public class RandoMainActivity extends LauncherActivity {
                 permissions = new String[]{
                     Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.POST_NOTIFICATIONS
+                    Manifest.permission.POST_NOTIFICATIONS,
+                    Manifest.permission.CAMERA
                 };
             } else {
                 permissions = new String[]{
                     Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.CAMERA
                 };
             }
 
@@ -284,10 +314,31 @@ public class RandoMainActivity extends LauncherActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQ_CODE) {
             startGpsService();
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (webView != null) {
+            webView.evaluateJavascript("if(typeof handleNativeBackPress === 'function') { handleNativeBackPress(); } else { history.back(); }", null);
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    public class AndroidBridge {
+        @JavascriptInterface
+        public String getVersionName() {
+            return "1.4.7 (41)";
+        }
+
+        @JavascriptInterface
+        public void showMessageNotification(String title, String body, String type, String sender) {
+            RandoGpsForegroundService.showNativeNotification(getApplicationContext(), title, body, type, sender);
         }
     }
 }
@@ -308,45 +359,79 @@ import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PowerManager;
 import androidx.core.app.NotificationCompat;
+import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
+import org.eclipse.paho.client.mqttv3.MqttCallback;
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 public class RandoGpsForegroundService extends Service {
     public static final String CHANNEL_ID = "rando_gps_tracking_channel";
+    public static final String MESSAGE_CHANNEL_ID = "rando_messages_alerts_v3";
     public static final int NOTIFICATION_ID = 2026;
+    public static final int MSG_NOTIFICATION_ID = 2027;
     
     private LocationManager locationManager;
     private PowerManager.WakeLock wakeLock;
     private LocationListener locationListener;
+    private MqttClient mqttClient;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        createNotificationChannel();
+        createNotificationChannels();
         startForegroundTracking();
         acquirePartialWakeLock();
         initNativeLocationListener();
+        initMqttListener();
     }
 
-    private void createNotificationChannel() {
+    private void createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager == null) return;
+
+            // 1. Canal GPS basse priorité (suivi passif continu)
+            NotificationChannel trackingChannel = new NotificationChannel(
                 CHANNEL_ID,
                 "Suivi GPS RandoTracker",
                 NotificationManager.IMPORTANCE_LOW
             );
-            channel.setDescription("Maintient le suivi GPS actif dans la poche écran éteint");
-            channel.setShowBadge(false);
-            channel.enableVibration(false);
-            channel.enableLights(false);
+            trackingChannel.setDescription("Maintient le suivi GPS actif dans la poche écran éteint");
+            trackingChannel.setShowBadge(false);
+            trackingChannel.enableVibration(false);
+            trackingChannel.enableLights(false);
+            manager.createNotificationChannel(trackingChannel);
 
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
+            // 2. Canal Messages & Alertes Haute Priorité (Réveil montre Garmin/WearOS & écran verrouillé)
+            NotificationChannel msgChannel = new NotificationChannel(
+                MESSAGE_CHANNEL_ID,
+                "Messages & Alertes Groupe",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            msgChannel.setDescription("Notifications prioritaires pour réveil de l'écran et des montres connectées");
+            msgChannel.setShowBadge(true);
+            msgChannel.enableVibration(true);
+            msgChannel.setVibrationPattern(new long[]{0, 350, 150, 350, 150, 350});
+            msgChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+
+            Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            AudioAttributes audioAttr = new AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                .build();
+            msgChannel.setSound(defaultSoundUri, audioAttr);
+
+            manager.createNotificationChannel(msgChannel);
         }
     }
 
@@ -378,6 +463,36 @@ public class RandoGpsForegroundService extends Service {
         }
     }
 
+    public static void showNativeNotification(Context context, String title, String body, String type, String sender) {
+        if (context == null) return;
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null) return;
+
+        Intent fullScreenIntent = new Intent(context, RandoMainActivity.class);
+        fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(context, (int) System.currentTimeMillis(), fullScreenIntent, flags);
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, MESSAGE_CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setContentIntent(fullScreenPendingIntent)
+            .setFullScreenIntent(fullScreenPendingIntent, true)
+            .setVibrate(new long[]{0, 350, 150, 350, 150, 350});
+
+        manager.notify(MSG_NOTIFICATION_ID, builder.build());
+    }
+
     private void acquirePartialWakeLock() {
         try {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
@@ -406,14 +521,48 @@ public class RandoGpsForegroundService extends Service {
         };
 
         try {
+            // GNSS Duty-Cycling 3.5s dans Foreground Service
+            // Heartbeat adaptatif 45s à l'arrêt dans Foreground Service
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 0.0f, locationListener);
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3500L, 0.0f, locationListener);
             }
             if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 3000L, 0.0f, locationListener);
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 45000L, 0.0f, locationListener);
             }
         } catch (SecurityException se) {
             se.printStackTrace();
+        }
+    }
+
+    private void initMqttListener() {
+        try {
+            String broker = "tcp://broker.hivemq.com:1883";
+            String clientId = "RandoTracker_Native_" + System.currentTimeMillis();
+            mqttClient = new MqttClient(broker, clientId, new MemoryPersistence());
+            MqttConnectOptions connOpts = new MqttConnectOptions();
+            connOpts.setCleanSession(true);
+            connOpts.setAutomaticReconnect(true);
+
+            mqttClient.setCallback(new MqttCallback() {
+                @Override
+                public void connectionLost(Throwable cause) {}
+
+                @Override
+                public void messageArrived(String topic, MqttMessage message) throws Exception {
+                    if (topic != null && topic.contains("broadcast_announcement")) {
+                        String payload = new String(message.getPayload());
+                        showNativeNotification(getApplicationContext(), "📢 Message RandoTracker", payload, "announcement", "Groupe");
+                    }
+                }
+
+                @Override
+                public void deliveryComplete(IMqttDeliveryToken token) {}
+            });
+
+            mqttClient.connect(connOpts);
+            mqttClient.subscribe("randotracker/+/broadcast_announcement", 1);
+        } catch (Exception e) {
+            // MQTT optionnel pour bridge
         }
     }
 
@@ -431,6 +580,9 @@ public class RandoGpsForegroundService extends Service {
         if (wakeLock != null && wakeLock.isHeld()) {
             try { wakeLock.release(); } catch (Exception e) {}
         }
+        if (mqttClient != null) {
+            try { mqttClient.disconnect(); } catch (Exception e) {}
+        }
     }
 
     @Override
@@ -442,7 +594,7 @@ public class RandoGpsForegroundService extends Service {
 with open(os.path.join(app_dir, "src", "main", "java", "fr", "jldaussy", "randotracker", "RandoGpsForegroundService.java"), "w", encoding="utf-8") as f:
     f.write(service_java)
 
-# 8. Manifeste Android Officiel avec Service Foreground Location & Permissions
+# 8. Manifeste Android Officiel avec Service Foreground Location, Permissions & Caméra
 android_manifest = """<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
@@ -454,6 +606,10 @@ android_manifest = """<?xml version="1.0" encoding="utf-8"?>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -511,4 +667,3 @@ with open(os.path.join(app_dir, "src", "main", "AndroidManifest.xml"), "w", enco
     f.write(android_manifest)
 
 print("Projet Android généré avec succès dans :", project_dir)
-

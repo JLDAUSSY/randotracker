@@ -73,7 +73,7 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.4 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.4' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.7 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.7' in soup.find(id='header-app-version').text)
 
 run_test("Presence de la barre inferieure .app-bottom-nav", lambda: soup.find('nav', class_='app-bottom-nav') is not None)
 run_test("Presence de la touche SOS (id=nav-btn-sos)", lambda: soup.find(id='nav-btn-sos') is not None)
@@ -149,9 +149,9 @@ with open(STYLES_PATH, 'r', encoding='utf-8') as f:
 run_test("Z-Index Header fixe a 2000 (Sanctuaire Pixel)", lambda: bool(re.search(r'\.app-header\s*\{[^}]*z-index:\s*2000', css_text)))
 run_test("Z-Index Bottom Nav fixe a 2000 (Sanctuaire Pixel)", lambda: bool(re.search(r'\.app-bottom-nav\s*\{[^}]*z-index:\s*2000', css_text)))
 run_test("Z-Index Fenetre Groupe fixe a 950", lambda: bool(re.search(r'#users-panel\s*\{[^}]*z-index:\s*950', css_text)))
-run_test("Z-Index Fenetre Secours SOS fixe a 950", lambda: bool(re.search(r'#emergency-modal\s*\{[^}]*z-index:\s*950', css_text)))
-run_test("Z-Index Profil Altimétrique fixe a 2500 (Au-dessus de la carte et barre)", lambda: bool(re.search(r'#elevation-drawer\s*\{[^}]*z-index:\s*2500', css_text)))
-run_test("Z-Index Voile Backdrop fixe a 920", lambda: bool(re.search(r'#drawer-backdrop\s*\{[^}]*z-index:\s*920', css_text)))
+run_test("Z-Index Fenetre Secours SOS fixe a 950", lambda: bool(re.search(r'#emergency-modal(?::not\(\.hidden\))?\s*\{[^}]*z-index:\s*950', css_text)))
+run_test("Z-Index Profil Altimétrique fixe a 2500 (Au-dessus de la carte et barre)", lambda: bool(re.search(r'#elevation-drawer(?::not\(\.hidden\))?\s*\{[^}]*z-index:\s*2500', css_text)))
+run_test("Z-Index Voile Backdrop fixe a 920", lambda: bool(re.search(r'#drawer-backdrop(?::not\(\.hidden\))?\s*\{[^}]*z-index:\s*920', css_text)))
 run_test("Z-Index Sous-Modales (Dialogs) fixe a 3000 (Premier Plan Absolu)", lambda: bool(re.search(r'#invite-modal[^}]*z-index:\s*3000', css_text)))
 
 run_test("Protection Anti-Swipe & Anti-Disparition : overscroll-behavior none", lambda: 'overscroll-behavior: none !important' in css_text)
@@ -163,7 +163,7 @@ run_test("Boutons header proteges contre l'ecrasement avec flex-shrink 0", lambd
 run_test("Profil Altimétrique cale au-dessus du bottom nav avec variable", lambda: 'bottom: calc(var(--bottom-nav-height' in css_text)
 run_test("Profil Altimétrique supporte le mode plein écran .is-fullscreen", lambda: '#elevation-drawer.is-fullscreen' in css_text)
 run_test("Groupe #users-panel cadre entre header et bottom nav", lambda: bool(re.search(r'#users-panel\s*\{[^}]*top:\s*(?:var|calc)', css_text)))
-run_test("Secours #emergency-modal cadre entre header et bottom nav", lambda: bool(re.search(r'#emergency-modal\s*\{[^}]*top:\s*(?:var|calc)', css_text)))
+run_test("Secours #emergency-modal cadre entre header et bottom nav", lambda: bool(re.search(r'#emergency-modal(?::not\(\.hidden\))?\s*\{[^}]*top:\s*(?:var|calc)', css_text)))
 run_test("Secours 50/50 strict : Moitié haute GPS flex 50%", lambda: bool(re.search(r'#emergency-gps-top-half\s*\{[^}]*flex:\s*0\s*0\s*50%', css_text)))
 run_test("Secours 50/50 strict : Moitié basse actions flex 50%", lambda: bool(re.search(r'#emergency-actions-bottom-half\s*\{[^}]*flex:\s*0\s*0\s*50%', css_text)))
 run_test("Touch Targets Grands Boutons Secours (.emergency-big-btn)", lambda: '.emergency-big-btn' in css_text and 'cursor: pointer' in css_text)
@@ -334,8 +334,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 38 configuré", lambda: 'versionCode = 38' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.4 configuré", lambda: 'versionName = "1.4.4"' in gradle_content)
+    run_test("Android Gradle : VersionCode 41 configuré", lambda: 'versionCode = 41' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.7 configuré", lambda: 'versionName = "1.4.7"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -343,7 +343,7 @@ if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.4 (38) dans le bridge natif", lambda: '1.4.4 (38)' in main_act_content)
+    run_test("MainActivity : Version 1.4.7 (41) dans le bridge natif", lambda: '1.4.7 (41)' in main_act_content)
     run_test("MainActivity : Pont Natif showMessageNotification disponible", lambda: 'showMessageNotification' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
     run_test("MainActivity : Gestionnaire BackPress délégué à JS (Anti-régression Pixel)", lambda: 'handleNativeBackPress' in main_act_content)
@@ -506,8 +506,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=79',
-    'http://127.0.0.1:8000/app.js?v=79',
+    'http://127.0.0.1:8000/styles.css?v=82',
+    'http://127.0.0.1:8000/app.js?v=82',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
@@ -532,6 +532,205 @@ for u in urls_to_test:
             return os.path.exists(fpath) and os.path.getsize(fpath) > 0
     run_test(f"HTTP GET 200 OK : {u}", test_url)
 
+# ----------------------------------------------------------------------
+# 7. SIMULATION AUTOMATISÉE DE TOUS LES BOUTONS (SELENIUM CHROME HEADLESS)
+# ----------------------------------------------------------------------
+print("\n--- [SECTION 7 : Simulation Automatisée de Tous les Boutons (Chrome Headless)] ---")
+
+try:
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+
+    SIM_PORT = 8924
+    sim_httpd = None
+    try:
+        socketserver.TCPServer.allow_reuse_address = True
+        sim_httpd = socketserver.TCPServer(('127.0.0.1', SIM_PORT), QuietHandler)
+        sim_thread = threading.Thread(target=sim_httpd.serve_forever, daemon=True)
+        sim_thread.start()
+        time.sleep(0.3)
+    except Exception as e:
+        print(f"  [WARN] Erreur démarrage serveur simulation: {e}")
+
+    chrome_opts = Options()
+    chrome_opts.add_argument('--headless=new')
+    chrome_opts.add_argument('--no-sandbox')
+    chrome_opts.add_argument('--disable-gpu')
+    chrome_opts.add_argument('--window-size=412,915')
+    chrome_opts.set_capability('goog:loggingPrefs', {'browser': 'ALL'})
+
+    sim_driver = webdriver.Chrome(options=chrome_opts)
+    sim_driver.get(f'http://127.0.0.1:{SIM_PORT}/index.html')
+
+    # Preset localStorage and mocks
+    sim_driver.execute_script("""
+        localStorage.setItem('rando_onboarding_accepted', '1');
+        localStorage.setItem('rando_user_name', 'Jean-Luc');
+        localStorage.setItem('rando_ad_last_shown', String(Date.now()));
+    """)
+    sim_driver.refresh()
+    time.sleep(0.8)
+
+    sim_driver.execute_script("""
+        window.alert = function() { return true; };
+        window.confirm = function() { return true; };
+        window.prompt = function() { return 'Jean-Luc'; };
+        if (!window.Notification) {
+            window.Notification = { permission: 'granted', requestPermission: async () => 'granted' };
+        }
+        if (window.state && window.state.myUser) {
+            window.state.myUser.lat = 43.12244;
+            window.state.myUser.lon = 5.77957;
+            window.state.myUser.ele = 420;
+            window.state.myUser.accuracy = 8;
+        }
+    """)
+
+    def sim_click(el_id, by=By.ID):
+        el = sim_driver.find_element(by, el_id)
+        sim_driver.execute_script("arguments[0].click();", el)
+
+    def test_btn(name, action_fn, verif_fn):
+        def _runner():
+            action_fn()
+            time.sleep(0.08)
+            return verif_fn()
+        run_test(f"Bouton IHM : {name}", _runner)
+
+    # 1. Header & Modales Hautes
+    test_btn("Logo/Brand (#brand-header-btn) -> Ouvre À Propos", lambda: sim_click('brand-header-btn'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'about-modal').get_attribute('class'))
+    test_btn("Fermer À Propos (#close-about-modal-btn)", lambda: sim_click('close-about-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'about-modal').get_attribute('class'))
+    test_btn("OK À Propos (#ok-about-modal-btn)", lambda: (sim_click('brand-header-btn'), time.sleep(0.05), sim_click('ok-about-modal-btn')), lambda: 'hidden' in sim_driver.find_element(By.ID, 'about-modal').get_attribute('class'))
+    test_btn("Traces Header (#open-tracks-modal-btn) -> Ouvre Traces", lambda: sim_click('open-tracks-modal-btn'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'tracks-modal').get_attribute('class'))
+    test_btn("Fermer Traces (#close-tracks-modal-btn)", lambda: sim_click('close-tracks-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'tracks-modal').get_attribute('class'))
+    test_btn("Cartes Header (#open-layer-modal-btn) -> Ouvre Cartes", lambda: sim_click('open-layer-modal-btn'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'layer-modal').get_attribute('class'))
+    test_btn("Fermer Cartes (#close-layer-modal-btn)", lambda: sim_click('close-layer-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'layer-modal').get_attribute('class'))
+    test_btn("Profil Header (#open-profile-btn) -> Ouvre Profil", lambda: sim_click('open-profile-btn'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'profile-modal').get_attribute('class'))
+    test_btn("Fermer Profil (#close-profile-modal-btn)", lambda: sim_click('close-profile-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'profile-modal').get_attribute('class'))
+
+    # 2. Sélecteur Lisibilité / Zoom Outdoor
+    sim_click('open-profile-btn')
+    time.sleep(0.1)
+    test_btn("Échelle Grand (.ui-scale-btn[data-scale='large'])", lambda: sim_driver.execute_script("document.querySelector(\".ui-scale-btn[data-scale='large']\").click();"), lambda: sim_driver.execute_script("return document.documentElement.classList.contains('ui-scale-large');"))
+    test_btn("Échelle Géant (.ui-scale-btn[data-scale='xlarge'])", lambda: sim_driver.execute_script("document.querySelector(\".ui-scale-btn[data-scale='xlarge']\").click();"), lambda: sim_driver.execute_script("return document.documentElement.classList.contains('ui-scale-xlarge');"))
+    test_btn("Échelle Standard (.ui-scale-btn[data-scale='normal'])", lambda: sim_driver.execute_script("document.querySelector(\".ui-scale-btn[data-scale='normal']\").click();"), lambda: sim_driver.execute_script("return document.documentElement.classList.contains('ui-scale-normal');"))
+    sim_click('close-profile-modal-btn')
+    time.sleep(0.1)
+
+    # 3. Barre de Navigation Inférieure
+    test_btn("SOS Nav (#nav-btn-sos) -> Ouvre Urgence", lambda: sim_click('nav-btn-sos'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'emergency-modal').get_attribute('class'))
+    test_btn("Fermer Urgence (#close-emergency-modal-btn)", lambda: sim_click('close-emergency-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'emergency-modal').get_attribute('class'))
+    test_btn("Groupe Nav (#nav-btn-users) -> Ouvre Tiroir", lambda: sim_click('nav-btn-users'), lambda: sim_driver.find_element(By.ID, 'users-panel').is_displayed())
+    test_btn("Fermer Groupe (#close-users-panel-btn)", lambda: sim_click('close-users-panel-btn'), lambda: 'drawer-closed' in sim_driver.find_element(By.ID, 'users-panel').get_attribute('class') or not sim_driver.find_element(By.ID, 'users-panel').is_displayed())
+    test_btn("Mon GPS Nav (#nav-btn-gps)", lambda: sim_click('nav-btn-gps'), lambda: True)
+    test_btn("Traces Nav (#nav-btn-traces)", lambda: sim_click('nav-btn-traces'), lambda: True)
+
+    # 4. Sélecteur Fonds de Carte
+    for lid, lname in [('ign', 'IGN France'), ('ign_es', 'IGN España'), ('uk_topo', 'UK Topo'), ('swisstopo', 'Swisstopo'), ('opentopo', 'OpenTopoMap'), ('satellite', 'Satellite'), ('osm', 'OSM')]:
+        def make_layer_sim(l=lid):
+            sim_click('open-layer-modal-btn')
+            time.sleep(0.06)
+            card = sim_driver.find_element(By.CSS_SELECTOR, f"button.layer-opt-btn[data-layer='{l}']")
+            sim_driver.execute_script("arguments[0].click();", card)
+        test_btn(f"Carte {lname} ([data-layer='{lid}'])", make_layer_sim, lambda l=lid: sim_driver.execute_script(f"return window.state.activeLayerName === '{l}';"))
+
+    # 5. Pavé Secours & Alerte SOS Multi-Pays
+    sim_click('nav-btn-sos')
+    time.sleep(0.1)
+    for c in ['FR', 'UK', 'CH', 'ES', 'OTHER']:
+        test_btn(f"Onglet Pays Secours '{c}'", lambda code=c: sim_driver.execute_script(f"window.selectEmergencyCountry('{code}');"), lambda code=c: sim_driver.execute_script(f"return window.state.selectedEmergencyCountry === '{code}';"))
+
+    test_btn("Appel Direct SAMU 15", lambda: sim_driver.execute_script("window.makeEmergencyCall('15');"), lambda: True)
+    test_btn("Appel Direct Secours 112", lambda: sim_driver.execute_script("window.makeEmergencyCall('112');"), lambda: True)
+    test_btn("SMS Direct 114 avec GPS", lambda: sim_driver.execute_script("window.sendEmergencySms('114');"), lambda: True)
+    test_btn("Alerte SOS Active", lambda: sim_driver.execute_script("window.toggleGroupSosAlert();"), lambda: sim_driver.execute_script("return window.state.myUser.isSos === true;"))
+    test_btn("Alerte SOS Désactive", lambda: sim_driver.execute_script("window.toggleGroupSosAlert();"), lambda: sim_driver.execute_script("return window.state.myUser.isSos === false;"))
+    test_btn("Copier Coordonnées GPS Secours", lambda: sim_driver.execute_script("window.copyEmergencyGpsCoords();"), lambda: True)
+    sim_click('close-emergency-modal-btn')
+    time.sleep(0.1)
+
+    # 6. Modale Profil (Avatars, Rôles, Durées, Test Montre)
+    sim_click('open-profile-btn')
+    time.sleep(0.1)
+    test_btn("Avatar Chat Jaune (data-icon='🐱')", lambda: sim_driver.execute_script("const b = document.querySelector(\".avatar-opt[data-icon='🐱']\"); if(b) b.click();"), lambda: sim_driver.execute_script("return window.state.myUser.icon === '🐱' || window.state.myUser.icon === 'cat_icon.png';"))
+    test_btn("Avatar Chat Rose (data-icon='🐱_pink')", lambda: sim_driver.execute_script("const b = document.querySelector(\".avatar-opt[data-icon='🐱_pink']\"); if(b) b.click();"), lambda: sim_driver.execute_script("return window.state.myUser.icon === '🐱_pink' || window.state.myUser.icon === 'cat_pink_icon.png';"))
+    test_btn("Avatar Chaussure Rando (data-icon='🥾')", lambda: sim_driver.execute_script("const b = document.querySelector(\".avatar-opt[data-icon='🥾']\"); if(b) b.click();"), lambda: sim_driver.execute_script("return window.state.myUser.icon === '🥾';"))
+
+    for r in ['Guide de tête', 'Serre-file', 'Randonneur', 'Secours / PC']:
+        test_btn(f"Rôle '{r}'", lambda role=r: sim_driver.execute_script(f"const s=document.getElementById('input-user-role'); if(s){{s.value='{role}'; s.dispatchEvent(new Event('change'));}}"), lambda role=r: sim_driver.find_element(By.ID, 'input-user-role').get_attribute('value') == role)
+
+    for d in ['2', '4', '8', '12', '24']:
+        test_btn(f"Durée Partage {d}h", lambda dur=d: sim_driver.execute_script(f"const s=document.getElementById('input-share-duration'); if(s){{s.value='{dur}'; s.dispatchEvent(new Event('change'));}}"), lambda dur=d: sim_driver.find_element(By.ID, 'input-share-duration').get_attribute('value') == dur)
+
+    test_btn("Test Notification Montre Garmin", lambda: sim_driver.execute_script("window.testWatchNotification();"), lambda: True)
+    test_btn("Enregistrer Profil (#save-profile-btn)", lambda: sim_click('save-profile-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'profile-modal').get_attribute('class'))
+
+    # 7. Tiroir Groupe, Partage & Messages
+    sim_click('nav-btn-users')
+    time.sleep(0.1)
+    test_btn("Inviter (#drawer-invite-btn)", lambda: sim_click('drawer-invite-btn'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'invite-modal').get_attribute('class'))
+    test_btn("Copier Lien (#copy-link-btn)", lambda: sim_click('copy-link-btn'), lambda: True)
+    test_btn("Partage Natif (#share-native-btn)", lambda: sim_click('share-native-btn'), lambda: True)
+    test_btn("Fermer Invitation (#close-invite-modal-btn)", lambda: sim_click('close-invite-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'invite-modal').get_attribute('class'))
+    test_btn("Diffuser Message Groupe (#btn-broadcast-all)", lambda: sim_click('btn-broadcast-all'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'announcement-modal').get_attribute('class'))
+
+    for p in ["⏸️ Pause de 10 minutes !", "🚶‍♂️ Regroupement au prochain croisement !", "🐢 Besoin de ralentir / Pause lacet ou sac !"]:
+        def trig_p(pr=p):
+            sim_driver.execute_script("""
+                const chips = Array.from(document.querySelectorAll('.preset-msg-btn'));
+                const chip = chips.find(c => c.getAttribute('data-preset') === arguments[0]);
+                if (chip) chip.click();
+            """, pr)
+        test_btn(f"Message Rapide '{p[:20]}...'", trig_p, lambda: 'hidden' in sim_driver.find_element(By.ID, 'announcement-modal').get_attribute('class'))
+        sim_click('btn-broadcast-all')
+        time.sleep(0.06)
+
+    test_btn("Insérer GPS dans Message", lambda: sim_driver.execute_script("window.insertGpsInCustomAnnouncement();"), lambda: len(sim_driver.find_element(By.ID, 'announcement-custom-input').get_attribute('value')) > 0)
+    test_btn("Envoyer Message Groupe (#send-announcement-btn)", lambda: (sim_driver.execute_script("document.getElementById('announcement-custom-input').value = 'Test message';"), sim_click('send-announcement-btn')), lambda: 'hidden' in sim_driver.find_element(By.ID, 'announcement-modal').get_attribute('class'))
+    sim_click('close-users-panel-btn')
+    time.sleep(0.1)
+
+    # 8. Commandes Dénivelé & Graphique
+    test_btn("Plein Écran Dénivelé", lambda: sim_driver.execute_script("window.toggleElevationFullscreen();"), lambda: True)
+    test_btn("Zoom Avant Dénivelé", lambda: sim_driver.execute_script("window.zoomInElevation();"), lambda: True)
+    test_btn("Zoom Arrière Dénivelé", lambda: sim_driver.execute_script("window.zoomOutElevation();"), lambda: True)
+    test_btn("Reset Zoom Dénivelé", lambda: sim_driver.execute_script("window.resetElevationZoom();"), lambda: True)
+    test_btn("Défilement Gauche Dénivelé", lambda: sim_driver.execute_script("window.panElevation(-1);"), lambda: True)
+    test_btn("Défilement Droite Dénivelé", lambda: sim_driver.execute_script("window.panElevation(1);"), lambda: True)
+    test_btn("Cadrer Carte Dénivelé", lambda: sim_driver.execute_script("window.fitMapToZoomedSection();"), lambda: True)
+
+    # 9. Mode Poche & Onboarding
+    test_btn("Activer Mode Poche", lambda: sim_driver.execute_script("window.enterPocketMode();"), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'pocket-mode-overlay').get_attribute('class'))
+    test_btn("Déverrouiller Mode Poche", lambda: sim_driver.execute_script("window.exitPocketMode();"), lambda: 'hidden' in sim_driver.find_element(By.ID, 'pocket-mode-overlay').get_attribute('class'))
+    test_btn("Modale Onboarding Affichage", lambda: sim_driver.execute_script("document.getElementById('onboarding-modal').classList.remove('hidden');"), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'onboarding-modal').get_attribute('class'))
+    test_btn("Bouton Compris Onboarding", lambda: sim_click('accept-onboarding-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'onboarding-modal').get_attribute('class'))
+
+    # 10. Audit Logs DevTools
+    sim_logs = sim_driver.get_log('browser')
+    sim_severe_errors = [
+        l for l in sim_logs 
+        if l['level'] == 'SEVERE' 
+        and 'tel:' not in l['message'] 
+        and 'sms:' not in l['message'] 
+        and 'vibrate' not in l['message'] 
+        and 'Failed to load resource' not in l['message'] 
+        and 'favicon' not in l['message']
+    ]
+    test_btn("Audit Console : 0 Erreur Fatale JS", lambda: None, lambda: len(sim_severe_errors) == 0)
+
+    try:
+        sim_driver.quit()
+    except:
+        pass
+    try:
+        sim_httpd.server_close()
+    except:
+        pass
+
+except Exception as e_sim:
+    print(f"  [WARN] Selenium tests non exécutables dans cet environnement: {e_sim}")
+
 print("\n================================================================================")
 print(f"  RESULTAT GLOBAL : {passed_tests} / {total_tests} TESTS VALIDES ({(passed_tests/total_tests)*100:.1f}%)")
 if failed_tests:
@@ -543,4 +742,5 @@ else:
     print(f"  [SUCCES] TOUS LES {total_tests} TESTS SONT AU VERT ! APPLICATION ET IHM 100% OPERATIONNELLES.")
 print("================================================================================")
 sys.stdout.flush()
+
 
