@@ -4,14 +4,14 @@ plugins {
 
 android {
     namespace = "fr.jldaussy.randotracker"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "fr.jldaussy.randotracker"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 34
-        versionName = "1.4.0"
+        targetSdk = 36
+        versionCode = 35
+        versionName = "1.4.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
