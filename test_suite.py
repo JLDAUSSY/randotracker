@@ -73,7 +73,7 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.3 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.3' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.4 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.4' in soup.find(id='header-app-version').text)
 
 run_test("Presence de la barre inferieure .app-bottom-nav", lambda: soup.find('nav', class_='app-bottom-nav') is not None)
 run_test("Presence de la touche SOS (id=nav-btn-sos)", lambda: soup.find(id='nav-btn-sos') is not None)
@@ -334,8 +334,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 37 configuré", lambda: 'versionCode = 37' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.3 configuré", lambda: 'versionName = "1.4.3"' in gradle_content)
+    run_test("Android Gradle : VersionCode 38 configuré", lambda: 'versionCode = 38' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.4 configuré", lambda: 'versionName = "1.4.4"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -343,7 +343,7 @@ if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.3 (37) dans le bridge natif", lambda: '1.4.3 (37)' in main_act_content)
+    run_test("MainActivity : Version 1.4.4 (38) dans le bridge natif", lambda: '1.4.4 (38)' in main_act_content)
     run_test("MainActivity : Pont Natif showMessageNotification disponible", lambda: 'showMessageNotification' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
     run_test("MainActivity : Gestionnaire BackPress délégué à JS (Anti-régression Pixel)", lambda: 'handleNativeBackPress' in main_act_content)
@@ -455,6 +455,15 @@ def compute_moving_eta(dist_km, moving_speed_kmh):
 
 run_test("Calcul ETA coherent basé sur vitesse en déplacement (10km @ 6.5km/h ~ 1.54h)", lambda: abs(compute_moving_eta(10.0, 6.5) - (10.0/6.5)) < 0.01)
 
+# Tests de Non-Régression : Écran Noir, Coordonnées Nulles & Éradication Annecy
+run_test("Non-Régression Écran Noir : calculateDistance avec coordonnées nulles retourne 0", lambda: 'if (lat1 === null' in js_text and 'return 0;' in js_text)
+run_test("Non-Régression Écran Noir : createOrUpdateUserMarker rejette silencieusement les coordonnées nulles", lambda: 'if (!user || user.lat === null' in js_text and 'return;' in js_text)
+run_test("Non-Régression Écran Noir : computeTrackProgress gère les coordonnées nulles sans exception", lambda: 'if (!user || user.lat === null' in js_text and 'return null;' in js_text)
+run_test("Non-Régression Écran Noir : centerOnUser avec toast et guard coordonnées nulles", lambda: 'Position de ${user.name || \'ce marcheur\'} en attente du GPS' in js_text)
+run_test("Non-Régression Écran Noir : locateAnnouncementSender avec recherche fallback auteur", lambda: 'authorName' in js_text and 'state.otherUsers.values()' in js_text)
+run_test("Non-Régression Annecy : initMap initialise au centre de la France (46.603354, 1.888334)", lambda: '46.603354, 1.888334' in js_text)
+run_test("Non-Régression Annecy : sanitizeLegacyStorage purge le cache local Annecy résiduel", lambda: 'Math.abs(savedLat - 45.8960) < 0.02' in js_text)
+
 # ----------------------------------------------------------------------
 # 6. TESTS DE LIVRAISON SERVEUR HTTP (LOCAL) & STATIQUES
 # ----------------------------------------------------------------------
@@ -497,8 +506,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=78',
-    'http://127.0.0.1:8000/app.js?v=78',
+    'http://127.0.0.1:8000/styles.css?v=79',
+    'http://127.0.0.1:8000/app.js?v=79',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',

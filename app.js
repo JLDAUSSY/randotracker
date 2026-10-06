@@ -30,6 +30,15 @@
         localStorage.setItem('rando_saved_other_users', JSON.stringify(parsed));
       }
     }
+    // Nettoyage des coordonnées résiduelles Annecy des anciennes versions
+    const savedLat = parseFloat(localStorage.getItem('rando_last_lat'));
+    const savedLon = parseFloat(localStorage.getItem('rando_last_lon'));
+    if (!isNaN(savedLat) && !isNaN(savedLon)) {
+      if (Math.abs(savedLat - 45.8960) < 0.02 && Math.abs(savedLon - 6.1680) < 0.02) {
+        localStorage.removeItem('rando_last_lat');
+        localStorage.removeItem('rando_last_lon');
+      }
+    }
   } catch (e) {}
 })();
 
@@ -253,6 +262,10 @@ function showToast(msg, type = 'info') {
 // ============================================================================
 function computeTrackProgress(user) {
   if (!state.tracks || state.tracks.length === 0) {
+    return null;
+  }
+  if (!user || user.lat === null || user.lat === undefined || isNaN(user.lat) ||
+      user.lon === null || user.lon === undefined || isNaN(user.lon)) {
     return null;
   }
 
@@ -1013,9 +1026,9 @@ function initPWA() {
 function initMap() {
   const savedLat = parseFloat(localStorage.getItem('rando_last_lat'));
   const savedLon = parseFloat(localStorage.getItem('rando_last_lon'));
-  const hasSavedPos = !isNaN(savedLat) && !isNaN(savedLon);
-  const initialCenter = hasSavedPos ? [savedLat, savedLon] : [45.8960, 6.1680];
-  const initialZoom = hasSavedPos ? 14 : 13;
+  const hasSavedPos = !isNaN(savedLat) && !isNaN(savedLon) && !(Math.abs(savedLat - 45.8960) < 0.02 && Math.abs(savedLon - 6.1680) < 0.02);
+  const initialCenter = hasSavedPos ? [savedLat, savedLon] : [46.603354, 1.888334];
+  const initialZoom = hasSavedPos ? 14 : 6;
 
   state.map = L.map('map', {
     center: initialCenter,
@@ -1405,6 +1418,12 @@ function autoSelectMapLayerForCoords(lat, lon, reason = 'gps') {
 // CALCULS GÉODÉSIQUES & PARSING GPX OPTIMISÉ
 // ============================================================================
 function calculateDistance(lat1, lon1, lat2, lon2) {
+  if (lat1 === null || lat1 === undefined || isNaN(lat1) ||
+      lon1 === null || lon1 === undefined || isNaN(lon1) ||
+      lat2 === null || lat2 === undefined || isNaN(lat2) ||
+      lon2 === null || lon2 === undefined || isNaN(lon2)) {
+    return 0;
+  }
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -1902,10 +1921,10 @@ function fitAllTracks() {
     }
   });
 
-  if (allPoints.length > 0) {
+  if (allPoints.length > 0 && state.map) {
     const bounds = L.latLngBounds(allPoints);
     state.map.fitBounds(bounds, { padding: [50, 50] });
-  } else if (state.isTrackingGps) {
+  } else if (state.isTrackingGps && state.map && state.myUser.lat !== null && state.myUser.lon !== null && !isNaN(state.myUser.lat) && !isNaN(state.myUser.lon)) {
     state.map.setView([state.myUser.lat, state.myUser.lon], 15, { animate: true });
   }
 }
@@ -2379,8 +2398,10 @@ function generateUserPopupHtml(userId) {
     displayName = isMe ? 'Moi' : 'Randonneur';
   }
 
-  const distFromMe = isMe ? 0 : calculateDistance(state.myUser.lat, state.myUser.lon, user.lat, user.lon);
-  const distFromMeStr = distFromMe < 1 ? `${Math.round(distFromMe * 1000)} m` : `${distFromMe.toFixed(1)} km`;
+  const hasMePos = typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat) && !isNaN(state.myUser.lon);
+  const hasUserPos = typeof user.lat === 'number' && typeof user.lon === 'number' && !isNaN(user.lat) && !isNaN(user.lon);
+  const distFromMe = isMe ? 0 : ((hasMePos && hasUserPos) ? calculateDistance(state.myUser.lat, state.myUser.lon, user.lat, user.lon) : null);
+  const distFromMeStr = distFromMe === null ? '--' : (distFromMe < 1 ? `${Math.round(distFromMe * 1000)} m` : `${distFromMe.toFixed(1)} km`);
   const progress = computeTrackProgress(user);
 
   // Récupérer tous les autres membres du groupe pour calculer les distances directes à vol d'oiseau
@@ -2570,6 +2591,11 @@ function refreshActiveUserPopups() {
 }
 
 function createOrUpdateUserMarker(user) {
+  if (!user || user.lat === null || user.lat === undefined || isNaN(user.lat) ||
+      user.lon === null || user.lon === undefined || isNaN(user.lon)) {
+    return;
+  }
+  if (!state.map) return;
   let marker = state.userMarkers.get(user.id);
   const isMe = user.id === state.myUser.id;
   const now = Date.now();
@@ -2818,8 +2844,10 @@ function renderUsersList() {
   }
 
   container.innerHTML = otherUsersList.map(u => {
-    const dist = calculateDistance(state.myUser.lat, state.myUser.lon, u.lat, u.lon);
-    const distStr = dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`;
+    const hasMePos = typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat) && !isNaN(state.myUser.lon);
+    const hasUserPos = typeof u.lat === 'number' && typeof u.lon === 'number' && !isNaN(u.lat) && !isNaN(u.lon);
+    const dist = (hasMePos && hasUserPos) ? calculateDistance(state.myUser.lat, state.myUser.lon, u.lat, u.lon) : null;
+    const distStr = dist === null ? '--' : (dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`);
     const timeSinceMs = now - (u.lastSeen || now);
     const isZoneBlanche = timeSinceMs > 2 * 60 * 1000;
     const minAgo = Math.max(1, Math.round(timeSinceMs / 60000));
@@ -2891,7 +2919,15 @@ function centerOnUser(userId) {
   let user = userId === state.myUser.id ? state.myUser : state.otherUsers.get(userId);
   if (!user) return;
 
-  state.map.setView([user.lat, user.lon], 16, { animate: true });
+  if (user.lat === null || user.lat === undefined || isNaN(user.lat) ||
+      user.lon === null || user.lon === undefined || isNaN(user.lon)) {
+    showToast(`Position de ${user.name || 'ce marcheur'} en attente du GPS...`, 'info');
+    return;
+  }
+
+  if (state.map) {
+    state.map.setView([user.lat, user.lon], 16, { animate: true });
+  }
   const marker = state.userMarkers.get(userId);
   if (marker) marker.openPopup();
   closeAllDrawers();
@@ -4707,12 +4743,33 @@ function closeReceivedAnnouncementModal() {
 }
 
 function locateAnnouncementSender() {
-  if (state.lastAnnouncementCoords && state.lastAnnouncementCoords.lat && state.lastAnnouncementCoords.lon && state.map) {
-    state.map.setView([state.lastAnnouncementCoords.lat, state.lastAnnouncementCoords.lon], 16, { animate: true });
+  let targetLat = null;
+  let targetLon = null;
+  let targetAuthor = 'le marcheur';
+
+  if (state.lastAnnouncementCoords &&
+      typeof state.lastAnnouncementCoords.lat === 'number' && !isNaN(state.lastAnnouncementCoords.lat) &&
+      typeof state.lastAnnouncementCoords.lon === 'number' && !isNaN(state.lastAnnouncementCoords.lon)) {
+    targetLat = state.lastAnnouncementCoords.lat;
+    targetLon = state.lastAnnouncementCoords.lon;
+    targetAuthor = state.lastAnnouncementCoords.author || 'le marcheur';
+  } else if (state.lastAnnouncementCoords && state.lastAnnouncementCoords.author) {
+    // Si l'annonce n'avait pas encore le GPS au moment de l'envoi, chercher sa position live reçue depuis
+    const authorName = (state.lastAnnouncementCoords.author || '').trim().toLowerCase();
+    const user = Array.from(state.otherUsers.values()).find(u => (u.name || '').trim().toLowerCase() === authorName);
+    if (user && typeof user.lat === 'number' && !isNaN(user.lat) && typeof user.lon === 'number' && !isNaN(user.lon)) {
+      targetLat = user.lat;
+      targetLon = user.lon;
+      targetAuthor = user.name;
+    }
+  }
+
+  if (targetLat !== null && targetLon !== null && state.map) {
+    state.map.setView([targetLat, targetLon], 16, { animate: true });
     closeReceivedAnnouncementModal();
-    showToast(`📍 Carte centrée sur ${state.lastAnnouncementCoords.author || 'le marcheur'}`, 'info');
+    showToast(`📍 Carte centrée sur ${targetAuthor}`, 'info');
   } else {
-    showToast('Position GPS non disponible pour ce message', 'warning');
+    showToast('Position GPS non disponible pour ce marcheur pour l\'instant', 'warning');
   }
 }
 
@@ -4936,9 +4993,9 @@ function renderEmergencyActionsPad() {
   const numList = document.getElementById('emergency-numbers-list');
   if (!numList) return;
 
-  const lat = state.myUser.lat || 45.8920;
-  const lon = state.myUser.lon || 6.1550;
-  const autoCountry = detectCountry(lat, lon);
+  const hasGps = state.myUser.lat !== null && state.myUser.lat !== undefined && !isNaN(state.myUser.lat) &&
+                 state.myUser.lon !== null && state.myUser.lon !== undefined && !isNaN(state.myUser.lon);
+  const autoCountry = hasGps ? detectCountry(state.myUser.lat, state.myUser.lon) : 'FR';
   const country = state.selectedEmergencyCountry || autoCountry;
 
   // Mise à jour visuelle des onglets pays
@@ -5482,8 +5539,14 @@ function closeEmergencyModal() {
 }
 
 function copyEmergencyGpsCoords() {
-  const lat = state.myUser.lat || 45.8920;
-  const lon = state.myUser.lon || 6.1550;
+  const hasGps = state.myUser.lat !== null && state.myUser.lat !== undefined && !isNaN(state.myUser.lat) &&
+                 state.myUser.lon !== null && state.myUser.lon !== undefined && !isNaN(state.myUser.lon);
+  if (!hasGps) {
+    showToast("Position GPS en attente de premier signal...", "info");
+    return;
+  }
+  const lat = state.myUser.lat;
+  const lon = state.myUser.lon;
   const ele = state.myUser.ele || 0;
   const acc = state.myUser.accuracy || 10;
   const time = new Date().toLocaleTimeString();
