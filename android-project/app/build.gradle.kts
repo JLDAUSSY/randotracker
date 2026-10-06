@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace = "fr.jldaussy.randotracker"
-    compileSdk = 36
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "fr.jldaussy.randotracker"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 33
         versionName = "1.3.9"
 
