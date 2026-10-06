@@ -1235,8 +1235,10 @@ function setBaseLayer(layerKey) {
 // ============================================================================
 // GESTION DU FOND ORDNANCE SURVEY UK (OFFICIEL OS DATA HUB & SECOURS OPENTOPO)
 // ============================================================================
+const DEFAULT_OS_API_KEY = 'E5c4VX6vG0L4FANTJzfnlocpeW8em8Km';
+
 function initOrdnanceSurveyLayer() {
-  const osKey = (localStorage.getItem('rando_os_api_key') || '').trim();
+  const osKey = (localStorage.getItem('rando_os_api_key') || DEFAULT_OS_API_KEY).trim();
   if (state.layers.uk_topo && state.map && state.map.hasLayer(state.layers.uk_topo)) {
     state.map.removeLayer(state.layers.uk_topo);
   }
@@ -1289,10 +1291,11 @@ function saveOrdnanceSurveyApiKey(key) {
 function updateOsApiKeyUI() {
   const input = document.getElementById('os-api-key-input');
   const badge = document.getElementById('os-key-status-badge');
-  const savedKey = (localStorage.getItem('rando_os_api_key') || '').trim();
-  if (input) input.value = savedKey;
+  const customKey = (localStorage.getItem('rando_os_api_key') || '').trim();
+  const effectiveKey = customKey || DEFAULT_OS_API_KEY;
+  if (input) input.value = customKey;
   if (badge) {
-    if (savedKey) {
+    if (effectiveKey) {
       badge.textContent = '🟢 Clé OS Active (OS Maps Outdoor)';
       badge.className = 'text-[10px] font-black text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/40';
     } else {
