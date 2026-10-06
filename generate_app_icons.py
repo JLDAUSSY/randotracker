@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Générateur d'icônes haute définition Full-Bleed et Maskable pour RandoTracker
-Garantit 100% de remplissage dans les lanceurs d'applications Android (Pixel, Samsung, etc.)
-et conformité stricte PWA Maskable Icon (W3C Web App Manifest).
+Générateur d'icônes haute définition Full-Bleed, Haute Visibilité et Maskable pour RandoTracker
+Conserve fidèlement l'emblème boussole originale tout en optimisant le contraste, la luminosité
+et le remplissage 100% dans les lanceurs d'applications Android (Samsung, Pixel, Xiaomi...).
 """
 
 import os
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
 import numpy as np
 
 def generate_all_icons():
@@ -23,21 +23,28 @@ def generate_all_icons():
     src_img = Image.open(src_path).convert("RGBA")
     
     # 2. Découpe exacte du cadran circulaire (Center=511.5, 513.3, Radius=411.5)
-    # L'anneau extérieur de la boussole touche exactement les 4 bords du canvas 512x512
     xc, yc, r = 511.47, 513.29, 411.5
     crop_box = (xc - r, yc - r, xc + r, yc + r)
-    badge_full = src_img.crop(crop_box).resize((512, 512), Image.Resampling.LANCZOS)
+    badge_full = src_img.crop(crop_box).resize((1024, 1024), Image.Resampling.LANCZOS)
+    
+    # 3. Optimisation de la luminosité, du contraste et de la netteté pour petite taille d'écran
+    rgb = badge_full.convert("RGB")
+    c_boost = ImageEnhance.Contrast(rgb).enhance(1.45)
+    b_boost = ImageEnhance.Brightness(c_boost).enhance(1.32)
+    col_boost = ImageEnhance.Color(b_boost).enhance(1.25)
+    sharp_boost = ImageEnhance.Sharpness(col_boost).enhance(2.2)
+    
+    badge_enhanced_512 = sharp_boost.resize((512, 512), Image.Resampling.LANCZOS).convert("RGBA")
     
     # Masque circulaire pour l'écusson
     circle_mask_512 = Image.new("L", (512, 512), 0)
     draw_mask = ImageDraw.Draw(circle_mask_512)
     draw_mask.ellipse((0, 0, 511, 511), fill=255)
-    
-    badge_circle_512 = badge_full.copy()
+    badge_circle_512 = badge_enhanced_512.copy()
     badge_circle_512.putalpha(circle_mask_512)
     
-    # Fond sombre marine/alpin pour les coins des launchers squircle (#0d273a)
-    bg_color = (13, 39, 58, 255)
+    # Fond vert émeraude profond assorti au cadran (#064e3b)
+    bg_color = (6, 78, 59, 255)
     full_bg_512 = Image.new("RGBA", (512, 512), bg_color)
     icon_512_full_bleed = Image.alpha_composite(full_bg_512, badge_circle_512)
     
@@ -56,9 +63,8 @@ def generate_all_icons():
     logo = icon_512_full_bleed.resize((128, 128), Image.Resampling.LANCZOS)
     logo.save("logo.png", "PNG", optimize=True)
     
-    # C. Icônes PWA Maskable (W3C Standard : Safe zone 80% pour remplir 100% de la pastille Android Chrome)
-    # Dans un masque circulaire WebAPK, la zone visible est un cercle de diamètre ~440px sur 512px
-    maskable_size = 460
+    # C. Icônes PWA Maskable (W3C Standard : Remplissage complet de la pastille Chrome WebAPK)
+    maskable_size = 480
     maskable_offset = (512 - maskable_size) // 2
     maskable_badge = badge_circle_512.resize((maskable_size, maskable_size), Image.Resampling.LANCZOS)
     
@@ -69,7 +75,7 @@ def generate_all_icons():
     maskable_192 = maskable_512.resize((192, 192), Image.Resampling.LANCZOS)
     maskable_192.save("icon-maskable-192.png", "PNG", optimize=True)
     
-    print("[OK] Icônes Web, PWA Maskable et Play Store générées (Full-Bleed 100%).")
+    print("[OK] Icônes Web, PWA Maskable et Play Store générées (Full-Bleed Haute Visibilité).")
     
     # 3. Génération des assets Android Natifs (Projet Android / TWA)
     res_dir = os.path.abspath("android-project/app/src/main/res")
@@ -89,27 +95,28 @@ def generate_all_icons():
         with open(os.path.join(anydpi_dir, "ic_launcher_round.xml"), "w", encoding="utf-8") as f:
             f.write(adaptive_xml)
             
-        # Couleur d'arrière-plan de l'Adaptive Icon (#0d273a)
+        # Couleur d'arrière-plan de l'Adaptive Icon (#064e3b)
         colors_xml_path = os.path.join(res_dir, "values", "colors.xml")
         colors_content = """<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#059669</color>
+    <color name="colorPrimary">#064e3b</color>
     <color name="colorPrimaryDark">#0d273a</color>
+    <color name="colorAccent">#10b981</color>
     <color name="navigationColor">#0d273a</color>
-    <color name="ic_launcher_background">#0d273a</color>
+    <color name="ic_launcher_background">#064e3b</color>
 </resources>
 """
         with open(colors_xml_path, "w", encoding="utf-8") as f:
             f.write(colors_content)
             
         # B. Densités Android mipmap
-        # Total canvas = 108dp, premier plan = 74dp (ratio 74/108 pour remplir 100% de la pastille circulaire)
+        # Total canvas = 108dp, premier plan = 94dp (remplit 100% de la pastille circulaire sans bordure vide)
         densities = {
-            'mipmap-mdpi': {'total': 48, 'fg_total': 108, 'fg_icon': 74},
-            'mipmap-hdpi': {'total': 72, 'fg_total': 162, 'fg_icon': 111},
-            'mipmap-xhdpi': {'total': 96, 'fg_total': 216, 'fg_icon': 148},
-            'mipmap-xxhdpi': {'total': 144, 'fg_total': 324, 'fg_icon': 222},
-            'mipmap-xxxhdpi': {'total': 192, 'fg_total': 432, 'fg_icon': 296}
+            'mipmap-mdpi': {'total': 48, 'fg_total': 108, 'fg_icon': 94},
+            'mipmap-hdpi': {'total': 72, 'fg_total': 162, 'fg_icon': 141},
+            'mipmap-xhdpi': {'total': 96, 'fg_total': 216, 'fg_icon': 188},
+            'mipmap-xxhdpi': {'total': 144, 'fg_total': 324, 'fg_icon': 282},
+            'mipmap-xxxhdpi': {'total': 192, 'fg_total': 432, 'fg_icon': 376}
         }
         
         for folder, d in densities.items():
@@ -128,14 +135,14 @@ def generate_all_icons():
             round_img.putalpha(round_mask)
             round_img.save(os.path.join(folder_path, "ic_launcher_round.png"), "PNG")
             
-            # 3. Adaptive Foreground ic_launcher_foreground.png (108dp canvas avec cadran remplissant le masque)
+            # 3. Adaptive Foreground ic_launcher_foreground.png (94dp pour remplir le masque Android à 100%)
             fg_canvas = Image.new("RGBA", (d['fg_total'], d['fg_total']), (0, 0, 0, 0))
             fg_emb = badge_circle_512.resize((d['fg_icon'], d['fg_icon']), Image.Resampling.LANCZOS)
             fg_offset = (d['fg_total'] - d['fg_icon']) // 2
             fg_canvas.paste(fg_emb, (fg_offset, fg_offset), fg_emb)
             fg_canvas.save(os.path.join(folder_path, "ic_launcher_foreground.png"), "PNG")
             
-        print("[OK] Assets Android Natifs mipmap & anydpi-v26 générés avec succès.")
+        print("[OK] Assets Android Natifs mipmap & anydpi-v26 régénérés avec succès.")
 
 create_full_bleed_icons = generate_all_icons
 
