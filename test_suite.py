@@ -208,7 +208,8 @@ required_functions = [
     'enterPocketMode', 'exitPocketMode', 'startPocketHoldUnlock', 'cancelPocketHoldUnlock', 'updatePocketModeTelemetry',
     'openQrScanner', 'closeQrScanner', 'onQrCodeScanned', 'joinRoomDirectly',
     'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName',
-    'generateUserPopupHtml', 'refreshActiveUserPopups'
+    'generateUserPopupHtml', 'refreshActiveUserPopups',
+    'initOrdnanceSurveyLayer', 'saveOrdnanceSurveyApiKey', 'updateOsApiKeyUI'
 ]
 
 for fn in required_functions:
@@ -235,7 +236,8 @@ exports_to_test = [
     'enterPocketMode', 'exitPocketMode', 'startPocketHoldUnlock', 'cancelPocketHoldUnlock', 'updatePocketModeTelemetry',
     'openQrScanner', 'closeQrScanner', 'onQrCodeScanned', 'joinRoomDirectly',
     'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName',
-    'generateUserPopupHtml', 'refreshActiveUserPopups'
+    'generateUserPopupHtml', 'refreshActiveUserPopups',
+    'initOrdnanceSurveyLayer', 'saveOrdnanceSurveyApiKey', 'updateOsApiKeyUI'
 ]
 
 for fn in exports_to_test:
@@ -289,7 +291,9 @@ run_test("Tag Partenaire Amazon configuré (watermetrics-21)", lambda: "tag: 'wa
 run_test("Styles CSS Pub : .app-open-ad-card & .rando-ad-banner définis", lambda: '.app-open-ad-card' in css_text and '.rando-ad-banner' in css_text)
 
 # Tests Cartographie Internationale (UK Ordnance / Topo & Swisstopo & Auto-sélection)
-run_test("Cartographie UK : Bouton UK Ordnance / Topo Trails dans #layer-modal", lambda: 'data-layer="uk_topo"' in html_text)
+run_test("Cartographie UK : Bouton UK Ordnance / Topo dans #layer-modal", lambda: 'data-layer="uk_topo"' in html_text)
+run_test("Cartographie UK : Champ de saisie Clé OS Data Hub (#os-api-key-input)", lambda: bool(soup.find(id='os-api-key-input')))
+run_test("Cartographie UK : Badge statut Clé OS (#os-key-status-badge)", lambda: bool(soup.find(id='os-key-status-badge')))
 run_test("Cartographie Suisse : Bouton Swisstopo Alpin dans #layer-modal", lambda: 'data-layer="swisstopo"' in html_text)
 run_test("Cartographie : Définition de la couche UK Topo dans state.layers", lambda: 'state.layers.uk_topo' in js_text and 'Ordnance' in js_text)
 run_test("Cartographie : Définition de la couche Swisstopo dans state.layers", lambda: 'state.layers.swisstopo' in js_text and 'wmts.geo.admin.ch' in js_text)
@@ -303,7 +307,7 @@ run_test("Mode Poche : Écran noir anti-tactile défini dans le DOM (#pocket-mod
 run_test("Mode Poche : Container déverrouillage présent (#pocket-unlock-container)", lambda: bool(soup.find(id='pocket-unlock-container')))
 run_test("Application Native : Fichier RandoTracker.apk généré et présent à la racine", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) and os.path.getsize(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) > 1000000)
 
-# Tests Intégration Native Android (Permissions Caméra & Version 1.2.5 / 19)
+# Tests Intégration Native Android (Permissions Caméra & Version 1.3.7 / 31)
 manifest_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'AndroidManifest.xml')
 gradle_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'build.gradle.kts')
 main_activity_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoMainActivity.java')
@@ -317,14 +321,14 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 30 configuré", lambda: 'versionCode = 30' in gradle_content)
-    run_test("Android Gradle : VersionName 1.3.6 configuré", lambda: 'versionName = "1.3.6"' in gradle_content)
+    run_test("Android Gradle : VersionCode 31 configuré", lambda: 'versionCode = 31' in gradle_content)
+    run_test("Android Gradle : VersionName 1.3.7 configuré", lambda: 'versionName = "1.3.7"' in gradle_content)
 
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.3.6 (30) dans le bridge natif", lambda: '1.3.6 (30)' in main_act_content)
+    run_test("MainActivity : Version 1.3.7 (31) dans le bridge natif", lambda: '1.3.7 (31)' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
 
 # Tests Spécifiques Icônes Chat Détourées (Jaune & Rose)
@@ -468,8 +472,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=71',
-    'http://127.0.0.1:8000/app.js?v=71',
+    'http://127.0.0.1:8000/styles.css?v=72',
+    'http://127.0.0.1:8000/app.js?v=72',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',

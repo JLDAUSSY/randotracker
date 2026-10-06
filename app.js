@@ -1051,18 +1051,8 @@ function initMap() {
     }
   );
 
-  // 3. Fond UK Ordnance / Topo (Sentiers & Relief Royaume-Uni) - Optimisé
-  state.layers.uk_topo = L.tileLayer(
-    'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    {
-      maxZoom: 17,
-      attribution: '&copy; <a href="https://www.ordnancesurvey.co.uk/" target="_blank">Ordnance Survey OpenData</a> & OpenTopoMap UK',
-      subdomains: 'abc',
-      updateWhenIdle: true,
-      updateInterval: 150,
-      keepBuffer: 1
-    }
-  );
+  // 3. Fond UK Ordnance Survey / Topo (Sentiers & Relief Royaume-Uni) - Optimisé avec support OS Data Hub
+  initOrdnanceSurveyLayer();
 
   // 4. Fond Swisstopo (Carte Nationale Suisse Alpin Topo) - Optimisé
   state.layers.swisstopo = L.tileLayer(
@@ -1240,6 +1230,76 @@ function setBaseLayer(layerKey) {
       if (check) check.classList.add('hidden');
     }
   });
+}
+
+// ============================================================================
+// GESTION DU FOND ORDNANCE SURVEY UK (OFFICIEL OS DATA HUB & SECOURS OPENTOPO)
+// ============================================================================
+function initOrdnanceSurveyLayer() {
+  const osKey = (localStorage.getItem('rando_os_api_key') || '').trim();
+  if (state.layers.uk_topo && state.map && state.map.hasLayer(state.layers.uk_topo)) {
+    state.map.removeLayer(state.layers.uk_topo);
+  }
+
+  if (osKey) {
+    // Flux officiel Ordnance Survey Maps API (ZXY Web Mercator Outdoor 3857)
+    state.layers.uk_topo = L.tileLayer(
+      `https://api.os.uk/maps/raster/v1/zxy/Outdoor_3857/{z}/{x}/{y}.png?key=${encodeURIComponent(osKey)}`,
+      {
+        maxZoom: 20,
+        attribution: '&copy; <a href="https://www.ordnancesurvey.co.uk/" target="_blank">Ordnance Survey</a> (OS Maps Outdoor)',
+        updateWhenIdle: true,
+        updateInterval: 150,
+        keepBuffer: 1
+      }
+    );
+  } else {
+    // Flux topographique OpenTopoMap UK (Secours gratuit sans clé)
+    state.layers.uk_topo = L.tileLayer(
+      'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+      {
+        maxZoom: 17,
+        attribution: '&copy; <a href="https://www.ordnancesurvey.co.uk/" target="_blank">Ordnance Survey OpenData</a> & OpenTopoMap UK',
+        subdomains: 'abc',
+        updateWhenIdle: true,
+        updateInterval: 150,
+        keepBuffer: 1
+      }
+    );
+  }
+
+  if (state.activeLayerName === 'uk_topo' && state.map) {
+    state.layers.uk_topo.addTo(state.map);
+  }
+}
+
+function saveOrdnanceSurveyApiKey(key) {
+  const cleanKey = (key || '').trim();
+  if (cleanKey) {
+    localStorage.setItem('rando_os_api_key', cleanKey);
+    showToast('🔑 Clé Ordnance Survey enregistrée ! Fond OS Outdoor activé.', 'success');
+  } else {
+    localStorage.removeItem('rando_os_api_key');
+    showToast('Mode libre OpenTopo UK activé (sans clé).', 'info');
+  }
+  initOrdnanceSurveyLayer();
+  updateOsApiKeyUI();
+}
+
+function updateOsApiKeyUI() {
+  const input = document.getElementById('os-api-key-input');
+  const badge = document.getElementById('os-key-status-badge');
+  const savedKey = (localStorage.getItem('rando_os_api_key') || '').trim();
+  if (input) input.value = savedKey;
+  if (badge) {
+    if (savedKey) {
+      badge.textContent = '🟢 Clé OS Active (OS Maps Outdoor)';
+      badge.className = 'text-[10px] font-black text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/40';
+    } else {
+      badge.textContent = '🌐 Mode Libre OpenTopo (Sans clé)';
+      badge.className = 'text-[10px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/40';
+    }
+  }
 }
 
 // ============================================================================
@@ -5391,6 +5451,7 @@ function setupEventListeners() {
   const closeLayerBtn = document.getElementById('close-layer-modal-btn');
 
   if (openLayerBtn) openLayerBtn.addEventListener('click', () => {
+    updateOsApiKeyUI();
     layerModal.classList.remove('hidden');
     pushModalState('layer-modal');
   });
@@ -6312,3 +6373,6 @@ window.closeNamePromptModal = closeNamePromptModal;
 window.savePromptUserName = savePromptUserName;
 window.generateUserPopupHtml = generateUserPopupHtml;
 window.refreshActiveUserPopups = refreshActiveUserPopups;
+window.initOrdnanceSurveyLayer = initOrdnanceSurveyLayer;
+window.saveOrdnanceSurveyApiKey = saveOrdnanceSurveyApiKey;
+window.updateOsApiKeyUI = updateOsApiKeyUI;
