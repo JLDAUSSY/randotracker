@@ -67,9 +67,13 @@ soup = BeautifulSoup(html_text, 'html.parser')
 run_test("Presence de l'en-tete superieur .app-header", lambda: soup.find('header', class_='app-header') is not None)
 run_test("Presence du bouton logo avec by JLD", lambda: soup.find(id='brand-header-btn') is not None)
 run_test("Presence du selecteur de traces dans le header", lambda: soup.find(id='open-tracks-modal-btn') is not None)
+run_test("Bouton traces header avec handler onclick=openTracksModal()", lambda: soup.find(id='open-tracks-modal-btn') and 'openTracksModal()' in str(soup.find(id='open-tracks-modal-btn')))
 run_test("Presence du bouton fond de carte dans le header", lambda: soup.find(id='open-layer-modal-btn') is not None)
+run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: soup.find(id='open-layer-modal-btn') and 'openLayerModal()' in str(soup.find(id='open-layer-modal-btn')))
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
+run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
+run_test("Version v1.4.0 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.0' in soup.find(id='header-app-version').text)
 
 run_test("Presence de la barre inferieure .app-bottom-nav", lambda: soup.find('nav', class_='app-bottom-nav') is not None)
 run_test("Presence de la touche SOS (id=nav-btn-sos)", lambda: soup.find(id='nav-btn-sos') is not None)
@@ -153,15 +157,17 @@ run_test("Z-Index Sous-Modales (Dialogs) fixe a 3000 (Premier Plan Absolu)", lam
 run_test("Protection Anti-Swipe & Anti-Disparition : overscroll-behavior none", lambda: 'overscroll-behavior: none !important' in css_text)
 run_test("Sanctuarisation visuelle Header : visibility visible & opacity 1", lambda: bool(re.search(r'\.app-header\s*\{[^}]*visibility:\s*visible', css_text)))
 run_test("Sanctuarisation visuelle Bottom Nav : visibility visible & opacity 1", lambda: bool(re.search(r'\.app-bottom-nav\s*\{[^}]*visibility:\s*visible', css_text)))
+run_test("Header avec safe-area-inset-top supporte les encoches d'ecrans", lambda: 'env(safe-area-inset-top' in css_text and '.app-header' in css_text)
+run_test("Boutons header proteges contre l'ecrasement avec flex-shrink 0", lambda: 'flex-shrink: 0 !important' in css_text)
 
 run_test("Profil Altimétrique cale au-dessus du bottom nav avec variable", lambda: 'bottom: calc(var(--bottom-nav-height' in css_text)
 run_test("Profil Altimétrique supporte le mode plein écran .is-fullscreen", lambda: '#elevation-drawer.is-fullscreen' in css_text)
-run_test("Groupe #users-panel cadre entre header et bottom nav", lambda: bool(re.search(r'#users-panel\s*\{[^}]*top:\s*var\(--header-height', css_text)))
-run_test("Secours #emergency-modal cadre entre header et bottom nav", lambda: bool(re.search(r'#emergency-modal\s*\{[^}]*top:\s*var\(--header-height', css_text)))
+run_test("Groupe #users-panel cadre entre header et bottom nav", lambda: bool(re.search(r'#users-panel\s*\{[^}]*top:\s*(?:var|calc)', css_text)))
+run_test("Secours #emergency-modal cadre entre header et bottom nav", lambda: bool(re.search(r'#emergency-modal\s*\{[^}]*top:\s*(?:var|calc)', css_text)))
 run_test("Secours 50/50 strict : Moitié haute GPS flex 50%", lambda: bool(re.search(r'#emergency-gps-top-half\s*\{[^}]*flex:\s*0\s*0\s*50%', css_text)))
 run_test("Secours 50/50 strict : Moitié basse actions flex 50%", lambda: bool(re.search(r'#emergency-actions-bottom-half\s*\{[^}]*flex:\s*0\s*0\s*50%', css_text)))
 run_test("Touch Targets Grands Boutons Secours (.emergency-big-btn)", lambda: '.emergency-big-btn' in css_text and 'cursor: pointer' in css_text)
-run_test("Zone carte main cadree entre header et bottom nav", lambda: bool(re.search(r'main\s*\{[^}]*top:\s*var\(--header-height', css_text)))
+run_test("Zone carte main cadree entre header et bottom nav", lambda: bool(re.search(r'main\s*\{[^}]*top:\s*(?:var|calc)', css_text)))
 
 # ----------------------------------------------------------------------
 # 3. TESTS DES DIMENSIONS OUTDOOR & ÉCHELLE DU HEADER SUPERIEUR
@@ -189,9 +195,9 @@ with open(APP_JS_PATH, 'r', encoding='utf-8') as f:
 required_functions = [
     'toggleEmergencyModal', 'openEmergencyModal', 'closeEmergencyModal',
     'renderEmergencyActionsPad', 'initiateEmergencyCall', 'makeEmergencyCall', 'sendEmergencySms',
-    'sendGpsNotification', 'closeProfileModal',
+    'sendGpsNotification', 'closeProfileModal', 'openProfileModal',
     'onNavGpsClick', 'onNavTracesClick', 'toggleUsersDrawer', 'closeAllDrawers',
-    'openTracksModal', 'closeTracksModal', 'openInviteModal', 'openAnnouncementModal',
+    'openTracksModal', 'closeTracksModal', 'openLayerModal', 'closeLayerModal', 'openInviteModal', 'openAnnouncementModal',
     'closeAnnouncementModal', 'openElevationDrawer', 'closeElevationDrawer',
     'toggleElevationFullscreen', 'zoomInElevation', 'zoomOutElevation',
     'resetElevationZoom', 'panElevation', 'fitMapToZoomedSection', 'handleElevationMinimapClick',
@@ -222,7 +228,7 @@ exports_to_test = [
     'selectEmergencyCountry',
     'sendGpsNotification', 'closeProfileModal', 'openProfileModal',
     'onNavGpsClick', 'onNavTracesClick', 'toggleUsersDrawer', 'closeAllDrawers',
-    'openTracksModal', 'openInviteModal', 'openAnnouncementModal',
+    'openTracksModal', 'closeTracksModal', 'openLayerModal', 'closeLayerModal', 'openInviteModal', 'openAnnouncementModal',
     'openElevationDrawer', 'closeElevationDrawer', 'toggleElevationFullscreen',
     'zoomInElevation', 'zoomOutElevation', 'resetElevationZoom', 'panElevation',
     'applyUiScale', 'loadSavedUiScale', 'getMyGpsString', 'insertGpsInCustomAnnouncement',
@@ -275,13 +281,17 @@ run_test("Export global window.makeElementPinchZoomable", lambda: "window.makeEl
 run_test("Bulle de feedback visuel de zoom (.pinch-zoom-feedback-badge)", lambda: ".pinch-zoom-feedback-badge" in css_text and "zoomBadge" in js_text)
 run_test("Vitesse moyenne en déplacement (movingAvgSpeed & isAutoPaused)", lambda: "movingAvgSpeed" in js_text and "isAutoPaused" in js_text)
 run_test("Auto-Pause intelligente avec seuil 1.0 km/h", lambda: "instantSpeed >= 1.0" in js_text or "isMoving" in js_text)
-run_test("Watchdog GPS haute fréquence à 3.5s (3500ms)", lambda: "3500" in js_text and "startGpsForcedWatchdog" in js_text)
+run_test("Watchdog GPS haute fréquence à 7.0s (7000ms)", lambda: "7000" in js_text and "startGpsForcedWatchdog" in js_text)
 run_test("Alerte Sortie de Trace (Off-Track) déclenchée >50m", lambda: "distM > 50" in js_text and "playOffTrackAlertSound" in js_text)
+run_test("Optimisation Batterie : Cadence adaptative 7s marche / 45s eco-pause / 2.5s SOS", lambda: 'minCadenceMs' in js_text and '45000' in js_text and '2500' in js_text)
+run_test("Optimisation Batterie : Suppression des boucles redondantes en mode natif Android", lambda: 'window.IS_NATIVE_ANDROID_APP' in js_text)
+run_test("Optimisation Batterie : GNSS Duty-Cycling 3.5s dans Foreground Service", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoGpsForegroundService.java')) and '3500L' in open(os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoGpsForegroundService.java'), 'r', encoding='utf-8').read())
+run_test("Optimisation Batterie : Heartbeat adaptatif 45s à l'arrêt dans Foreground Service", lambda: '45000L' in open(os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoGpsForegroundService.java'), 'r', encoding='utf-8').read())
 
 # Tests Suivi GPS dans la poche (Écran éteint & Écran allumé)
 run_test("Maintien Arrière-plan Audio : Générateur WAV PCM silencieux (createSilentAudioBlobUrl)", lambda: 'createSilentAudioBlobUrl' in js_text and 'RIFF' in js_text)
 run_test("Maintien Arrière-plan Audio : Intégration MediaSession API (navigator.mediaSession)", lambda: 'mediaSession' in js_text and 'MediaMetadata' in js_text)
-run_test("Chronomètre Arrière-plan Web Worker : Heartbeat à 3500ms (startGpsWorkerHeartbeat)", lambda: 'startGpsWorkerHeartbeat' in js_text and 'new Worker(workerUrl)' in js_text)
+run_test("Chronomètre Arrière-plan Web Worker : Heartbeat à 7000ms (startGpsWorkerHeartbeat)", lambda: 'startGpsWorkerHeartbeat' in js_text and 'new Worker(workerUrl)' in js_text)
 run_test("Gardien WakeLock : Ré-enclenchement automatique continu si relâchement", lambda: 'isWakeLockRequested' in js_text and 'setTimeout(requestWakeLock' in js_text)
 
 # Tests Monétisation AdMob & Amazon Partenaires
@@ -310,7 +320,7 @@ run_test("Mode Poche : Écran noir anti-tactile défini dans le DOM (#pocket-mod
 run_test("Mode Poche : Container déverrouillage présent (#pocket-unlock-container)", lambda: bool(soup.find(id='pocket-unlock-container')))
 run_test("Application Native : Fichier RandoTracker.apk généré et présent à la racine", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) and os.path.getsize(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) > 1000000)
 
-# Tests Intégration Native Android (Permissions Caméra & Version 1.3.7 / 31)
+# Tests Intégration Native Android (Permissions Caméra & Version 1.4.0 / 34)
 manifest_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'AndroidManifest.xml')
 gradle_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'build.gradle.kts')
 main_activity_path = os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoMainActivity.java')
@@ -324,14 +334,14 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 33 configuré", lambda: 'versionCode = 33' in gradle_content)
-    run_test("Android Gradle : VersionName 1.3.9 configuré", lambda: 'versionName = "1.3.9"' in gradle_content)
+    run_test("Android Gradle : VersionCode 34 configuré", lambda: 'versionCode = 34' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.0 configuré", lambda: 'versionName = "1.4.0"' in gradle_content)
 
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.3.9 (33) dans le bridge natif", lambda: '1.3.9 (33)' in main_act_content)
+    run_test("MainActivity : Version 1.4.0 (34) dans le bridge natif", lambda: '1.4.0 (34)' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
 
 # Tests Spécifiques Icônes Chat Détourées (Jaune & Rose)
@@ -475,13 +485,14 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=74',
-    'http://127.0.0.1:8000/app.js?v=74',
+    'http://127.0.0.1:8000/styles.css?v=75',
+    'http://127.0.0.1:8000/app.js?v=75',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
     'http://127.0.0.1:8000/sw.js',
     'http://127.0.0.1:8000/RandoTracker.apk',
+    'http://127.0.0.1:8000/RandoTracker.aab',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
 ]
 

@@ -1648,6 +1648,22 @@ function closeTracksModal() {
   if (modal) modal.classList.add('hidden');
 }
 
+// ============================================================================
+// GESTIONNAIRE DES FONDS DE CARTE (MODALE & SÉLECTEUR HEADER)
+// ============================================================================
+function openLayerModal() {
+  const layerModal = document.getElementById('layer-modal');
+  if (!layerModal) return;
+  if (typeof updateOsApiKeyUI === 'function') updateOsApiKeyUI();
+  layerModal.classList.remove('hidden');
+  pushModalState('layer-modal');
+}
+
+function closeLayerModal() {
+  const layerModal = document.getElementById('layer-modal');
+  if (layerModal) layerModal.classList.add('hidden');
+}
+
 function renderQuickTracksBar() {
   // 1. Mettre à jour le sélecteur de trace compact dans le Header
   const headerDot = document.getElementById('header-track-dot');
@@ -3070,12 +3086,17 @@ function startGpsWatch(useHighAccuracy = true) {
     // Seuil de détection de marche active vs arrêt / pause (1.0 km/h)
     const isMoving = instantSpeed >= 1.0;
 
+    let justResumed = false;
     if (dtSec > 0 && dtSec < 180) {
       const dtMs = dtSec * 1000;
+      const wasPaused = state.myUser.isAutoPaused;
       if (isMoving) {
         state.myUser.isAutoPaused = false;
         state.myUser.movingTimeMs = (state.myUser.movingTimeMs || 0) + dtMs;
         state.myUser.movingDistance = (state.myUser.movingDistance || 0) + stepDist;
+        if (wasPaused) {
+          justResumed = true;
+        }
       } else {
         state.myUser.isAutoPaused = true;
         state.myUser.pausedTimeMs = (state.myUser.pausedTimeMs || 0) + dtMs;
@@ -3145,7 +3166,7 @@ function startGpsWatch(useHighAccuracy = true) {
       }
     }
 
-    broadcastMyPosition();
+    broadcastMyPosition(justResumed);
 
     const emergencyModal = document.getElementById('emergency-modal');
     if (emergencyModal && !emergencyModal.classList.contains('hidden')) {
@@ -3378,6 +3399,11 @@ function unlockAndStartKeepAlive() {
 });
 
 function startBackgroundKeepAlive() {
+  // Dans l'application native Android, le service d'arrière-plan natif (Foreground Service)
+  // possède son propre WakeLock système et gère l'activité sans nécessiter de maintien audio.
+  if (window.IS_NATIVE_ANDROID_APP) {
+    return;
+  }
   unlockAndStartKeepAlive();
 }
 
@@ -3400,13 +3426,20 @@ function stopBackgroundKeepAlive() {
 }
 
 // ============================================================================
-// CHRONOMÈTRE D'ARRIÈRE-PLAN WEB WORKER & DUAL-ENGINE GPS WATCHDOG (3.5s)
+// CHRONOMÈTRE D'ARRIÈRE-PLAN WEB WORKER & DUAL-ENGINE GPS WATCHDOG (CADENCE OPTIMISÉE)
 // ============================================================================
 let gpsHeartbeatWorker = null;
 let gpsForcedInterval = null;
 
 function startGpsWorkerHeartbeat(onSuccessCallback) {
   stopGpsWorkerHeartbeat();
+
+  // Dans l'application native Android, le service natif Foreground Service se charge
+  // du polling matériel et du broadcast MQTT. Pas de boucle redondante en JS.
+  if (window.IS_NATIVE_ANDROID_APP) {
+    return;
+  }
+
   try {
     const workerScript = `
       let timer = null;
@@ -3415,7 +3448,7 @@ function startGpsWorkerHeartbeat(onSuccessCallback) {
           if (timer) clearInterval(timer);
           timer = setInterval(function() {
             self.postMessage('tick');
-          }, 3000);
+          }, 7000);
         } else if (e.data === 'stop') {
           if (timer) clearInterval(timer);
           timer = null;
@@ -3430,8 +3463,8 @@ function startGpsWorkerHeartbeat(onSuccessCallback) {
         const now = Date.now();
         const lastTime = state.lastGpsTimestamp || 0;
 
-        // 1. Forcer l'interrogation matérielle des satellites GPS si aucun point récent (< 3s)
-        if (now - lastTime >= 3000 && navigator.geolocation) {
+        // 1. Interrogation matérielle GPS si aucun point récent (< 7s)
+        if (now - lastTime >= 7000 && navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             onSuccessCallback,
             (err) => { console.warn('[GPS Worker Heartbeat] Refresh matériel passif:', err.code); },
@@ -3445,7 +3478,7 @@ function startGpsWorkerHeartbeat(onSuccessCallback) {
           initMqttSync();
         } else if (state.lastGpsPos) {
           // 3. Maintien d'émission réseau MQTT en arrière-plan vers les autres marcheurs
-          broadcastMyPosition();
+          broadcastMyPosition(false);
         }
 
         // 4. Maintien Audio
@@ -3467,7 +3500,7 @@ function startGpsWorkerHeartbeat(onSuccessCallback) {
     console.warn('[GPS Worker] Fallback standard timer:', e);
   }
 
-  // Fallback thread principal à 3000ms au cas où Web Worker est désactivé
+  // Fallback thread principal à 7000ms au cas où Web Worker est désactivé
   startGpsForcedWatchdog(onSuccessCallback);
 }
 
@@ -3484,11 +3517,13 @@ function stopGpsWorkerHeartbeat() {
 
 function startGpsForcedWatchdog(onSuccessCallback) {
   if (gpsForcedInterval) clearInterval(gpsForcedInterval);
+  if (window.IS_NATIVE_ANDROID_APP) return;
+
   gpsForcedInterval = setInterval(() => {
     if (state.isTrackingGps && navigator.geolocation) {
       const now = Date.now();
       const lastTime = state.lastGpsTimestamp || 0;
-      if (now - lastTime >= 3000) {
+      if (now - lastTime >= 7000) {
         navigator.geolocation.getCurrentPosition(
           onSuccessCallback,
           (e) => { console.warn('[GPS Watchdog] Polling passif:', e.code); },
@@ -3496,7 +3531,7 @@ function startGpsForcedWatchdog(onSuccessCallback) {
         );
       }
     }
-  }, 3000);
+  }, 7000);
 }
 
 function stopGpsForcedWatchdog() {
@@ -4196,12 +4231,22 @@ function publishMessage(payload) {
   }
 }
 
-function broadcastMyPosition() {
+let lastMqttBroadcastTime = 0;
+let pendingBroadcastTimeout = null;
+
+function broadcastMyPosition(forceNow = false) {
   try {
-    state.myUser.lastSeen = Date.now();
+    const now = Date.now();
+    state.myUser.lastSeen = now;
     createOrUpdateUserMarker(state.myUser);
     renderUsersList();
     refreshActiveUserPopups();
+
+    // Si on tourne dans l'application native Android avec le Foreground Service actif,
+    // le service natif gère lui-même l'acquisition matérielle GPS et la publication MQTT.
+    if (window.IS_NATIVE_ANDROID_APP && !forceNow) {
+      return;
+    }
 
     // Ne pas diffuser aux autres si notre nom est générique / non personnalisé (ex: session PC en consultation)
     const myName = (state.myUser.name || '').trim().toLowerCase();
@@ -4209,6 +4254,40 @@ function broadcastMyPosition() {
     if (genericNames.includes(myName)) {
       return;
     }
+
+    // Calcul de la cadence adaptative :
+    // 1. Haute urgence / Alerte (SOS ou >50m sortie de trace) : 2.5 secondes
+    // 2. Pause / Stationnaire (< 0.8 km/h ou auto-pause) : 45 secondes (Eco-Pause)
+    // 3. Déplacement normal à pied : 7.0 secondes (Cadence optimale marcheur ~1.1 m/s)
+    let minCadenceMs = 7000;
+    const isStationary = state.myUser.isAutoPaused || (typeof state.myUser.speed === 'number' && state.myUser.speed < 0.8 && (!state.lastGpsPos || state.myUser.speed <= 0.2));
+    const isUrgent = state.myUser.isSos || state.wasOffTrackAlerted || (state.offTrackCounter && state.offTrackCounter >= 2);
+
+    if (isUrgent) {
+      minCadenceMs = 2500;
+    } else if (isStationary) {
+      minCadenceMs = 45000;
+    } else {
+      minCadenceMs = 7000;
+    }
+
+    const elapsed = now - lastMqttBroadcastTime;
+    if (!forceNow && elapsed < minCadenceMs) {
+      if (!pendingBroadcastTimeout) {
+        pendingBroadcastTimeout = setTimeout(() => {
+          pendingBroadcastTimeout = null;
+          broadcastMyPosition(false);
+        }, minCadenceMs - elapsed);
+      }
+      return;
+    }
+
+    if (pendingBroadcastTimeout) {
+      clearTimeout(pendingBroadcastTimeout);
+      pendingBroadcastTimeout = null;
+    }
+
+    lastMqttBroadcastTime = now;
 
     publishMessage({
       type: 'update_position',
@@ -5388,18 +5467,20 @@ function toggleGroupSosAlert() {
   }
 
   updateEmergencyModalGpsData();
-  broadcastMyPosition();
+  broadcastMyPosition(true);
 }
 
-// Heartbeat périodique (toutes les 5 secondes) pour garantir la présence même à l'arrêt
+// Heartbeat périodique avec cadence adaptative pour garantir la présence
 let heartbeatInterval = null;
 function startHeartbeat() {
   if (heartbeatInterval) clearInterval(heartbeatInterval);
+  if (window.IS_NATIVE_ANDROID_APP) return;
+
   heartbeatInterval = setInterval(() => {
     if (mqttClient && mqttClient.connected) {
-      broadcastMyPosition();
+      broadcastMyPosition(false);
     }
-  }, 5000);
+  }, 7000);
 }
 
 // Gestion du Wake Lock (Évite que l'écran s'éteigne pendant la marche active)
@@ -5414,7 +5495,7 @@ document.addEventListener('visibilitychange', () => {
     if (!mqttClient || !mqttClient.connected) {
       initMqttSync();
     } else {
-      broadcastMyPosition();
+      broadcastMyPosition(true);
       publishMessage({
         type: 'request_presence',
         from: state.myUser.id
@@ -5434,7 +5515,7 @@ window.addEventListener('online', () => {
   if (!mqttClient || !mqttClient.connected) {
     initMqttSync();
   } else {
-    broadcastMyPosition();
+    broadcastMyPosition(true);
     publishMessage({
       type: 'request_presence',
       from: state.myUser.id
@@ -5562,12 +5643,8 @@ function setupEventListeners() {
   const openLayerBtn = document.getElementById('open-layer-modal-btn');
   const closeLayerBtn = document.getElementById('close-layer-modal-btn');
 
-  if (openLayerBtn) openLayerBtn.addEventListener('click', () => {
-    updateOsApiKeyUI();
-    layerModal.classList.remove('hidden');
-    pushModalState('layer-modal');
-  });
-  if (closeLayerBtn) closeLayerBtn.addEventListener('click', () => layerModal.classList.add('hidden'));
+  if (openLayerBtn) openLayerBtn.addEventListener('click', openLayerModal);
+  if (closeLayerBtn) closeLayerBtn.addEventListener('click', closeLayerModal);
 
   document.querySelectorAll('.layer-opt-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -6397,6 +6474,8 @@ window.toggleUsersDrawer = toggleUsersDrawer;
 window.closeAllDrawers = closeAllDrawers;
 window.openTracksModal = openTracksModal;
 window.closeTracksModal = closeTracksModal;
+window.openLayerModal = openLayerModal;
+window.closeLayerModal = closeLayerModal;
 window.openInviteModal = openInviteModal;
 window.closeInviteModal = () => { const m = document.getElementById('invite-modal'); if (m) m.classList.add('hidden'); };
 window.openAnnouncementModal = openAnnouncementModal;

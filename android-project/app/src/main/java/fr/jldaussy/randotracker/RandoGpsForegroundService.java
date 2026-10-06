@@ -114,14 +114,19 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             backgroundHeartbeatRunnable = new Runnable() {
                 @Override
                 public void run() {
+                    long nextDelay = 7000L;
                     try {
                         if (isTrackingActive) {
+                            float speedMs = (lastLocation != null && lastLocation.hasSpeed()) ? lastLocation.getSpeed() : 0.0f;
+                            boolean isMoving = speedMs >= 0.25f;
+                            nextDelay = isMoving ? 7000L : 45000L;
+
                             // Vérifier la santé de la connexion MQTT en arrière-plan
                             if (mqttClient == null || !mqttClient.isConnected()) {
                                 Log.d(TAG, "[Heartbeat] MQTT non connecté en arrière-plan, tentative de reconnexion...");
                                 initMqttConnection();
                             } else if (lastLocation != null) {
-                                // Maintien d'émission vers les compagnons toutes les 4s même si écran éteint dans la poche
+                                // Maintien d'émission vers les compagnons avec cadence adaptative (7s en marche, 45s à l'arrêt)
                                 publishGpsLocationToMqtt(lastLocation);
                             }
                         }
@@ -129,11 +134,11 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
                         Log.w(TAG, "Erreur background heartbeat", e);
                     }
                     if (backgroundHandler != null && backgroundHeartbeatRunnable != null) {
-                        backgroundHandler.postDelayed(this, 4000L);
+                        backgroundHandler.postDelayed(this, nextDelay);
                     }
                 }
             };
-            backgroundHandler.postDelayed(backgroundHeartbeatRunnable, 4000L);
+            backgroundHandler.postDelayed(backgroundHeartbeatRunnable, 7000L);
         } catch (Exception e) {
             Log.e(TAG, "Erreur startBackgroundHeartbeat", e);
         }
@@ -365,8 +370,8 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
         // 1. Google Play Services Fused Location Provider (Haute précision et basse consommation prioritaire)
         try {
             fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-            LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 2000L)
-                .setMinUpdateIntervalMillis(1000L)
+            LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3500L)
+                .setMinUpdateIntervalMillis(2000L)
                 .setMinUpdateDistanceMeters(0.0f)
                 .setWaitForAccurateLocation(false)
                 .build();
@@ -383,7 +388,7 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
 
             fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
             isFusedActive = true;
-            Log.d(TAG, "FusedLocationProviderClient configure avec succes (Priorite 1)");
+            Log.d(TAG, "FusedLocationProviderClient configure avec succes (Priorite 1 - Duty-Cycle 3.5s)");
         } catch (SecurityException se) {
             Log.e(TAG, "SecurityException FusedLocation", se);
         } catch (Exception e) {
@@ -410,8 +415,8 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
                     };
 
                     if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 0.0f, locationListener, Looper.getMainLooper());
-                        Log.d(TAG, "LocationManager GPS_PROVIDER configure en fallback");
+                        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3500L, 0.0f, locationListener, Looper.getMainLooper());
+                        Log.d(TAG, "LocationManager GPS_PROVIDER configure en fallback (3.5s)");
                     }
                 }
             } catch (SecurityException se) {
@@ -549,8 +554,24 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
         }).start();
     }
 
+    private long lastMqttPublishTime = 0;
+
     private void publishGpsLocationToMqtt(Location loc) {
-        if (!isTrackingActive) return;
+        publishGpsLocationToMqtt(loc, false);
+    }
+
+    private void publishGpsLocationToMqtt(Location loc, boolean force) {
+        if (!isTrackingActive || loc == null) return;
+
+        long now = System.currentTimeMillis();
+        float speedMs = loc.hasSpeed() ? loc.getSpeed() : 0.0f;
+        boolean isMoving = speedMs >= 0.25f; // ~0.9 km/h
+        long minInterval = isMoving ? 7000L : 45000L;
+
+        if (!force && (now - lastMqttPublishTime < minInterval)) {
+            return;
+        }
+        lastMqttPublishTime = now;
 
         new Thread(() -> {
             try {
@@ -564,7 +585,6 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
                 double speedKmh = loc.hasSpeed() ? loc.getSpeed() * 3.6 : 0.0;
                 double altitude = loc.hasAltitude() ? loc.getAltitude() : 0.0;
                 float accuracy = loc.hasAccuracy() ? loc.getAccuracy() : 10.0f;
-                long now = System.currentTimeMillis();
 
                 JSONObject userObj = new JSONObject();
                 userObj.put("id", userId);

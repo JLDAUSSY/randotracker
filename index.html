@@ -53,8 +53,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v74 -->
-  <link rel="stylesheet" href="styles.css?v=74" />
+  <!-- Custom Styles with Cache-Busting v75 -->
+  <link rel="stylesheet" href="styles.css?v=75" />
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -73,14 +73,14 @@
   <header class="app-header bg-slate-900/98 backdrop-blur-md border-b-2 border-slate-800 px-2 sm:px-4 flex items-center justify-between z-30 shadow-2xl shrink-0 gap-1 sm:gap-2">
     <!-- Logo & Nom avec "by JLD" discret & clic pour ouvrir la fenêtre Jean-Luc DAUSSY 2026 -->
     <div id="brand-header-btn" class="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer select-none group active:scale-95 transition shrink-0" title="Jean-Luc DAUSSY 2026">
-      <img src="logo.png?v=74" alt="Logo RandoTracker" class="app-header-logo rounded-xl shadow-lg border border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
+      <img src="logo.png?v=75" alt="Logo RandoTracker" class="app-header-logo rounded-xl shadow-lg border border-emerald-500/50 shrink-0 bg-slate-900 object-contain p-0.5 group-hover:border-emerald-300 transition" />
       <div class="flex flex-col justify-center">
         <span class="app-header-title font-black tracking-tight text-white group-hover:text-emerald-300 transition leading-none whitespace-nowrap">RandoTracker</span>
         <div class="flex items-center gap-1.5 mt-0.5 leading-none">
           <span class="text-[9px] sm:text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider transition flex items-center gap-0.5">
             <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
           </span>
-          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.3.9</span>
+          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.4.0</span>
         </div>
       </div>
     </div>
@@ -89,20 +89,20 @@
     <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
       
       <!-- Sélecteur de Traces GPX Déroulant (Élégant, dynamique) -->
-      <button id="open-tracks-modal-btn" onclick="openTracksModal()" class="app-header-btn bg-slate-800 hover:bg-slate-750 text-white border-2 border-slate-700 hover:border-emerald-500/60 text-xs sm:text-sm font-black flex items-center gap-1 sm:gap-1.5 transition active:scale-95 shadow-xl !px-2.5 sm:!px-3.5" title="Gérer les traces GPX">
+      <button id="open-tracks-modal-btn" onclick="openTracksModal()" class="app-header-btn bg-slate-800 hover:bg-slate-750 text-white border-2 border-slate-700 hover:border-emerald-500/60 text-xs sm:text-sm font-black flex items-center gap-1 sm:gap-1.5 transition active:scale-95 shadow-xl !px-2.5 sm:!px-3.5 shrink-0" title="Gérer les traces GPX">
         <span class="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 shrink-0" id="header-track-dot"></span>
         <span id="header-track-label" class="font-black text-xs sm:text-sm whitespace-nowrap">Traces</span>
         <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
       </button>
 
       <!-- Choix Fond de Carte (IGN / Topo) -->
-      <button id="open-layer-modal-btn" class="app-header-btn bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 text-xs sm:text-sm font-black flex items-center gap-1 transition active:scale-95 shadow-xl !px-2.5 sm:!px-3" title="Choisir le fond de carte">
+      <button id="open-layer-modal-btn" onclick="openLayerModal()" class="app-header-btn bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 text-xs sm:text-sm font-black flex items-center gap-1 transition active:scale-95 shadow-xl !px-2.5 sm:!px-3 shrink-0" title="Choisir le fond de carte">
         <i data-lucide="layers" class="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 shrink-0"></i>
         <span id="active-layer-label" class="hidden md:inline font-bold text-xs sm:text-sm">IGN France</span>
       </button>
 
       <!-- Mon Profil & Paramètres (Toujours 100% visible et shrink-0) -->
-      <button id="open-profile-btn" class="app-header-btn aspect-square !p-0.5 bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 flex items-center justify-center transition active:scale-95 shadow-xl shrink-0" title="Mon Profil & Paramètres">
+      <button id="open-profile-btn" onclick="openProfileModal()" class="app-header-btn aspect-square !p-0.5 bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 flex items-center justify-center transition active:scale-95 shadow-xl shrink-0" title="Mon Profil & Paramètres">
         <div id="header-avatar-badge" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-600 flex items-center justify-center text-sm sm:text-base font-black text-white shadow overflow-hidden p-0.5">
           🌲
         </div>
@@ -1572,7 +1572,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v74 -->
-  <script src="app.js?v=74"></script>
+  <!-- Main Application Script with Cache-Busting v75 -->
+  <script src="app.js?v=75"></script>
 </body>
 </html>

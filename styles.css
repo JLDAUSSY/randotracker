@@ -487,9 +487,10 @@ body {
   right: 0 !important;
   width: 100% !important;
   width: 100vw !important;
-  height: var(--header-height, 64px) !important;
-  min-height: var(--header-height, 64px) !important;
-  max-height: var(--header-height, 64px) !important;
+  height: calc(var(--header-height, 64px) + env(safe-area-inset-top, 0px)) !important;
+  min-height: calc(var(--header-height, 64px) + env(safe-area-inset-top, 0px)) !important;
+  max-height: calc(var(--header-height, 64px) + env(safe-area-inset-top, 0px)) !important;
+  padding-top: env(safe-area-inset-top, 0px) !important;
   z-index: 2000 !important;
   border-bottom: 2.5px solid #334155 !important;
   background-color: rgba(15, 23, 42, 0.98) !important;
@@ -526,6 +527,7 @@ body {
   border-radius: 14px !important;
   font-size: var(--header-font-size, 13px) !important;
   font-weight: 900 !important;
+  flex-shrink: 0 !important;
 }
 
 @media (max-width: 440px) {
@@ -660,14 +662,14 @@ body {
 /* 3. ZONE PRINCIPALE CARTE (Z-INDEX 1) */
 main {
   position: fixed !important;
-  top: var(--header-height, 64px) !important;
+  top: calc(var(--header-height, 64px) + env(safe-area-inset-top, 0px)) !important;
   bottom: var(--bottom-nav-height, 88px) !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
   width: 100vw !important;
-  height: calc(100% - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
-  min-height: calc(100% - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
+  height: calc(100% - var(--header-height, 64px) - env(safe-area-inset-top, 0px) - var(--bottom-nav-height, 88px)) !important;
+  min-height: calc(100% - var(--header-height, 64px) - env(safe-area-inset-top, 0px) - var(--bottom-nav-height, 88px)) !important;
   z-index: 1 !important;
   touch-action: pan-x pan-y !important;
 }
@@ -697,14 +699,14 @@ main {
 /* 5. FENÊTRE PLEIN ÉCRAN GROUPE / PARTICIPANTS (Z-INDEX 950) */
 #users-panel {
   position: fixed !important;
-  top: var(--header-height, 64px) !important;
+  top: calc(var(--header-height, 64px) + env(safe-area-inset-top, 0px)) !important;
   bottom: var(--bottom-nav-height, 88px) !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
-  height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
-  max-height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
+  height: calc(100dvh - var(--header-height, 64px) - env(safe-area-inset-top, 0px) - var(--bottom-nav-height, 88px)) !important;
+  max-height: calc(100dvh - var(--header-height, 64px) - env(safe-area-inset-top, 0px) - var(--bottom-nav-height, 88px)) !important;
   z-index: 950 !important;
   background-color: #1e293b !important; /* Solid Slate-800 - Haute clarté */
   border: none !important;
@@ -733,14 +735,14 @@ main {
 /* 6. FENÊTRE PLEIN ÉCRAN SECOURS & URGENCE (Z-INDEX 950 - PARTITION RIGIDE 50/50) */
 #emergency-modal {
   position: fixed !important;
-  top: var(--header-height, 64px) !important;
+  top: calc(var(--header-height, 64px) + env(safe-area-inset-top, 0px)) !important;
   bottom: var(--bottom-nav-height, 88px) !important;
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
   max-width: 100% !important;
-  height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
-  max-height: calc(100dvh - var(--header-height, 64px) - var(--bottom-nav-height, 88px)) !important;
+  height: calc(100dvh - var(--header-height, 64px) - env(safe-area-inset-top, 0px) - var(--bottom-nav-height, 88px)) !important;
+  max-height: calc(100dvh - var(--header-height, 64px) - env(safe-area-inset-top, 0px) - var(--bottom-nav-height, 88px)) !important;
   z-index: 950 !important;
   background-color: #020617 !important;
   padding: 0 !important;
