@@ -505,6 +505,9 @@ body {
   -webkit-transform: translate3d(0, 0, 0) !important;
   pointer-events: auto !important;
   box-sizing: border-box !important;
+  touch-action: manipulation !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
 }
 
 .app-header-logo {

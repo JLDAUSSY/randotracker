@@ -30,6 +30,9 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -43,7 +46,7 @@ import java.util.Locale;
 public class RandoGpsForegroundService extends Service implements MqttCallback {
     private static final String TAG = "RandoGpsService";
     public static final String CHANNEL_ID = "rando_gps_tracking_channel";
-    public static final String MSG_CHANNEL_ID = "rando_messages_channel";
+    public static final String MSG_CHANNEL_ID = "rando_messages_alerts_v3";
     public static final int NOTIFICATION_ID = 2026;
     public static final String PREFS_NAME = "RandoTrackerPrefs";
 
@@ -277,9 +280,18 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
                     );
                     msgChannel.setDescription("Alerte immédiate pour les messages du salon, annonces et secours");
                     msgChannel.setShowBadge(true);
+                    msgChannel.enableLights(true);
                     msgChannel.enableVibration(true);
-                    msgChannel.setVibrationPattern(new long[]{0, 300, 150, 300, 150, 300});
+                    msgChannel.setVibrationPattern(new long[]{0, 350, 150, 350, 150, 350});
                     msgChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+
+                    Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                        .build();
+                    msgChannel.setSound(defaultSoundUri, audioAttributes);
+
                     manager.createNotificationChannel(msgChannel);
                 }
             }
@@ -294,7 +306,7 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager == null) return;
 
-            // S'assurer que les canaux existent
+            // S'assurer que le canal haute priorité avec sonnerie existe
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 NotificationChannel msgChannel = manager.getNotificationChannel(MSG_CHANNEL_ID);
                 if (msgChannel == null) {
@@ -305,12 +317,33 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
                     );
                     msgChannel.setDescription("Alerte immédiate pour les messages du salon, annonces et secours");
                     msgChannel.setShowBadge(true);
+                    msgChannel.enableLights(true);
                     msgChannel.enableVibration(true);
-                    msgChannel.setVibrationPattern(new long[]{0, 300, 150, 300, 150, 300});
+                    msgChannel.setVibrationPattern(new long[]{0, 350, 150, 350, 150, 350});
                     msgChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+
+                    Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                        .build();
+                    msgChannel.setSound(defaultSoundUri, audioAttributes);
+
                     manager.createNotificationChannel(msgChannel);
                 }
             }
+
+            // Réveil bref de l'écran si le téléphone est en veille (comportement WhatsApp sur écran verrouillé)
+            try {
+                PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+                if (pm != null && !pm.isInteractive()) {
+                    PowerManager.WakeLock screenWl = pm.newWakeLock(
+                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE,
+                        "RandoTracker:MessageScreenWakeLock"
+                    );
+                    screenWl.acquire(3000L);
+                }
+            } catch (Throwable ignored) {}
 
             Intent intent = new Intent(context, RandoMainActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -330,7 +363,9 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
             boolean isEmergency = "emergency".equalsIgnoreCase(type) || "emergency_alert".equalsIgnoreCase(type);
             long[] vibPattern = isEmergency 
                 ? new long[]{0, 500, 200, 500, 200, 500, 200, 1000} 
-                : new long[]{0, 300, 150, 300, 150, 300};
+                : new long[]{0, 350, 150, 350, 150, 350};
+
+            Uri soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 
             NotificationCompat.Builder builder = new NotificationCompat.Builder(context, MSG_CHANNEL_ID)
                 .setContentTitle(title)
@@ -338,12 +373,14 @@ public class RandoGpsForegroundService extends Service implements MqttCallback {
                 .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentIntent(pendingIntent)
+                .setFullScreenIntent(pendingIntent, false)
                 .setAutoCancel(true)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
                 .setCategory(isEmergency ? NotificationCompat.CATEGORY_ALARM : NotificationCompat.CATEGORY_MESSAGE)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setVibrate(vibPattern)
-                .setDefaults(NotificationCompat.DEFAULT_SOUND | NotificationCompat.DEFAULT_LIGHTS);
+                .setSound(soundUri)
+                .setDefaults(NotificationCompat.DEFAULT_SOUND | NotificationCompat.DEFAULT_LIGHTS | NotificationCompat.DEFAULT_VIBRATE);
 
             int notifId = (int) (System.currentTimeMillis() % 100000);
             manager.notify(notifId, builder.build());

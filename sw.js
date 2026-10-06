@@ -1,18 +1,18 @@
-// Service Worker pour RandoTracker PWA - Version 77
-const CACHE_NAME = 'rando-tracker-v77';
+// Service Worker pour RandoTracker PWA - Version 78
+const CACHE_NAME = 'rando-tracker-v78';
 const TILES_CACHE_NAME = 'rando-tiles-v1';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=77',
-  './app.js?v=77',
+  './styles.css?v=78',
+  './app.js?v=78',
   './manifest.json',
   './logo.png',
   './cat_icon.png',
-  './cat_icon.png?v=77',
+  './cat_icon.png?v=78',
   './cat_pink_icon.png',
-  './cat_pink_icon.png?v=77',
+  './cat_pink_icon.png?v=78',
   './ads.txt',
   './icon-192.png',
   './icon-512.png',
@@ -30,7 +30,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v77...');
+  console.log('[SW] Installation v78...');
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -42,7 +42,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation v77...');
+  console.log('[SW] Activation v78...');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(

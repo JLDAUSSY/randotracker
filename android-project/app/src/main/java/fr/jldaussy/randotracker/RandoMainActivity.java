@@ -193,10 +193,14 @@ public class RandoMainActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (webView != null && webView.canGoBack()) {
-                    webView.goBack();
+                if (webView != null) {
+                    webView.evaluateJavascript("if (typeof window.handleNativeBackPress === 'function') { window.handleNativeBackPress(); } else { false; }", (res) -> {
+                        if (res == null || !"true".equals(res.replace("\"", ""))) {
+                            // Pas de modale ouverte : mise en arrière-plan sans recharger/altérer la vue
+                            moveTaskToBack(true);
+                        }
+                    });
                 } else {
-                    // Mettre l'app en arriere-plan au lieu de la tuer pour continuer le suivi
                     moveTaskToBack(true);
                 }
             }
@@ -366,7 +370,7 @@ public class RandoMainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public String getAppVersion() {
-            return "1.4.2 (36)";
+            return "1.4.3 (37)";
         }
 
         @JavascriptInterface

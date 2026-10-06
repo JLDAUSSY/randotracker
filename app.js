@@ -162,9 +162,9 @@ const state = {
     icon: '🥾',
     color: '#10b981',
     assignedTrackId: 'auto', // 'auto' ou l'ID d'une trace GPX
-    lat: 45.8920,
-    lon: 6.1550,
-    ele: 450,
+    lat: null,
+    lon: null,
+    ele: null,
     speed: 0.0,
     movingAvgSpeed: 0.0,
     movingDistance: 0.0,
@@ -4486,11 +4486,15 @@ function markAnnouncementSeen(msgKey) {
 // DIFFUSION DE MESSAGES EN DIRECT POUR TOUT LE GROUPE (TOUS LES MARCHEURS)
 // ============================================================================
 function getMyGpsString() {
-  const lat = state.myUser.lat || 45.8920;
-  const lon = state.myUser.lon || 6.1550;
+  if (state.myUser.lat === null || state.myUser.lat === undefined || isNaN(state.myUser.lat) ||
+      state.myUser.lon === null || state.myUser.lon === undefined || isNaN(state.myUser.lon)) {
+    return '';
+  }
+  const lat = state.myUser.lat;
+  const lon = state.myUser.lon;
   const latDir = lat >= 0 ? 'N' : 'S';
   const lonDir = lon >= 0 ? 'E' : 'O';
-  const altStr = state.myUser.ele ? ` (Alt: ${Math.round(state.myUser.ele)}m)` : '';
+  const altStr = (state.myUser.ele !== undefined && state.myUser.ele !== null && !isNaN(state.myUser.ele)) ? ` (Alt: ${Math.round(state.myUser.ele)}m)` : '';
   return `📍 GPS: ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}${altStr} - `;
 }
 
@@ -4498,6 +4502,10 @@ function insertGpsInCustomAnnouncement() {
   const customInput = document.getElementById('announcement-custom-input');
   if (customInput) {
     const gpsStr = getMyGpsString();
+    if (!gpsStr) {
+      showToast('📡 Acquisition du signal GPS en cours...', 'info');
+      return;
+    }
     const currentVal = customInput.value;
     if (currentVal.startsWith('📍 GPS:')) {
       const parts = currentVal.split(' - ');
@@ -4518,8 +4526,9 @@ function openAnnouncementModal() {
   const modal = document.getElementById('announcement-modal');
   const customInput = document.getElementById('announcement-custom-input');
   if (customInput) {
-    // Préremplissage automatique avec les coordonnées GPS de l'émetteur
-    customInput.value = getMyGpsString();
+    // Préremplissage automatique uniquement si les coordonnées GPS réelles sont disponibles
+    const gpsStr = getMyGpsString();
+    customInput.value = gpsStr || '';
     setTimeout(() => {
       customInput.focus();
       customInput.setSelectionRange(customInput.value.length, customInput.value.length);
@@ -4543,12 +4552,14 @@ function sendAnnouncement(text) {
     return;
   }
 
-  const lat = state.myUser.lat;
-  const lon = state.myUser.lon;
-  const ele = state.myUser.ele;
+  const hasRealGps = state.myUser.lat !== null && state.myUser.lat !== undefined && !isNaN(state.myUser.lat) &&
+                     state.myUser.lon !== null && state.myUser.lon !== undefined && !isNaN(state.myUser.lon);
+  const lat = hasRealGps ? state.myUser.lat : null;
+  const lon = hasRealGps ? state.myUser.lon : null;
+  const ele = hasRealGps ? state.myUser.ele : null;
 
-  // Enrichir systématiquement avec la position GPS exacte si elle n'est pas déjà dans le texte
-  if (lat !== undefined && lat !== null && lon !== undefined && lon !== null && !msgText.includes('📍 GPS:')) {
+  // Enrichir systématiquement avec la position GPS exacte UNIQUEMENT si le GPS réel est acquis
+  if (hasRealGps && !msgText.includes('📍 GPS:')) {
     const latDir = lat >= 0 ? 'N' : 'S';
     const lonDir = lon >= 0 ? 'E' : 'O';
     const altStr = (ele !== undefined && ele !== null && !isNaN(ele)) ? ` (Alt: ${Math.round(ele)}m)` : '';
@@ -4562,14 +4573,16 @@ function sendAnnouncement(text) {
     icon: state.myUser.icon || '🥾',
     color: state.myUser.color || '#059669',
     text: msgText,
-    lat: lat || null,
-    lon: lon || null,
-    ele: ele || null,
+    lat: lat,
+    lon: lon,
+    ele: ele,
     timestamp: Date.now()
   };
 
-  if (lat && lon) {
+  if (lat !== null && lon !== null) {
     state.lastAnnouncementCoords = { lat, lon, author: payload.author };
+  } else {
+    state.lastAnnouncementCoords = null;
   }
 
   publishMessage(payload);
@@ -4759,33 +4772,46 @@ function updateEmergencyModalGpsData() {
   const modal = document.getElementById('emergency-modal');
   if (!modal) return;
 
-  const lat = state.myUser.lat || 45.8920;
-  const lon = state.myUser.lon || 6.1550;
-  const ele = state.myUser.ele || 0;
-  const acc = state.myUser.accuracy || 10;
-  const autoCountry = detectCountry(lat, lon);
+  const hasGps = state.myUser.lat !== null && state.myUser.lat !== undefined && !isNaN(state.myUser.lat) &&
+                 state.myUser.lon !== null && state.myUser.lon !== undefined && !isNaN(state.myUser.lon);
+  const lat = hasGps ? state.myUser.lat : null;
+  const lon = hasGps ? state.myUser.lon : null;
+  const ele = hasGps ? state.myUser.ele : 0;
+  const acc = hasGps ? (state.myUser.accuracy || 10) : null;
+  const autoCountry = hasGps ? detectCountry(lat, lon) : 'FR';
   const country = state.selectedEmergencyCountry || autoCountry;
-  const latDir = lat >= 0 ? 'N' : 'S';
-  const lonDir = lon >= 0 ? 'E' : 'O';
-  const ddStr = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
-  const dmsStr = `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
 
   // 1. Affichage Degrés Décimaux (DD)
   const decimalEl = document.getElementById('emergency-gps-decimal');
   if (decimalEl) {
-    decimalEl.textContent = ddStr;
+    if (hasGps) {
+      const latDir = lat >= 0 ? 'N' : 'S';
+      const lonDir = lon >= 0 ? 'E' : 'O';
+      decimalEl.textContent = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+    } else {
+      decimalEl.textContent = `📡 Recherche du signal GPS...`;
+    }
   }
 
   // 2. Affichage Degrés Minutes Secondes (DMS)
   const dmsEl = document.getElementById('emergency-gps-dms');
   if (dmsEl) {
-    dmsEl.textContent = dmsStr;
+    if (hasGps) {
+      dmsEl.textContent = `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
+    } else {
+      dmsEl.textContent = `Patientez pour le verrouillage satellite`;
+    }
   }
 
   // 3. Métadonnées (Altitude, Précision)
   const metaEl = document.getElementById('emergency-gps-meta');
   if (metaEl) {
-    metaEl.textContent = `Alt : ${Math.round(ele)} m • Précision : ±${Math.round(acc)} m`;
+    if (hasGps) {
+      const altStr = (ele !== null && !isNaN(ele)) ? `Alt : ${Math.round(ele)} m • ` : '';
+      metaEl.textContent = `${altStr}Précision : ±${Math.round(acc || 10)} m`;
+    } else {
+      metaEl.textContent = `Veuillez vous placer à ciel ouvert`;
+    }
   }
 
   // 4. Guide de dictée vocale
@@ -5220,25 +5246,32 @@ function sendEmergencySms(number) {
   copyEmergencyGpsCoords();
   sendGpsNotification();
 
-  const lat = state.myUser.lat || 45.8920;
-  const lon = state.myUser.lon || 6.1550;
-  const ele = state.myUser.ele || 0;
-  const acc = state.myUser.accuracy || 10;
-  const latDir = lat >= 0 ? 'N' : 'S';
-  const lonDir = lon >= 0 ? 'E' : 'O';
-  const dmsStr = `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
-  const ddStr = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+  const hasGps = state.myUser.lat !== null && state.myUser.lat !== undefined && !isNaN(state.myUser.lat) &&
+                 state.myUser.lon !== null && state.myUser.lon !== undefined && !isNaN(state.myUser.lon);
+  const lat = hasGps ? state.myUser.lat : null;
+  const lon = hasGps ? state.myUser.lon : null;
+  const ele = hasGps ? state.myUser.ele : 0;
+  const acc = hasGps ? (state.myUser.accuracy || 10) : null;
   const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const myName = state.myUser.name || 'Randonneur';
 
-  const smsText = `🚨 URGENCE RANDOTRACKER (${myName})\nPosition : ${ddStr}\nFormat DMS : ${dmsStr}\nAlt : ${Math.round(ele)}m (±${Math.round(acc)}m)\nHeure : ${time}`;
+  let posInfo = "Position : Signal GPS en cours d'acquisition";
+  if (hasGps) {
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const lonDir = lon >= 0 ? 'E' : 'O';
+    const dmsStr = `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
+    const ddStr = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+    posInfo = `Position : ${ddStr}\nFormat DMS : ${dmsStr}\nAlt : ${Math.round(ele)}m (±${Math.round(acc || 10)}m)`;
+  }
+
+  const smsText = `🚨 URGENCE RANDOTRACKER (${myName})\n${posInfo}\nHeure : ${time}`;
   
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const separator = isIOS ? '&' : '?';
   const targetNum = number ? number.replace(/\s+/g, '') : '';
   const smsUrl = targetNum ? `sms:${targetNum}${separator}body=${encodeURIComponent(smsText)}` : `sms:${separator}body=${encodeURIComponent(smsText)}`;
 
-  showToast(`💬 SMS d'urgence prérempli avec vos coordonnées GPS exactes !`, 'info');
+  showToast(`💬 SMS d'urgence prérempli avec vos coordonnées GPS !`, 'info');
 
   setTimeout(() => {
     window.location.href = smsUrl;
@@ -5246,13 +5279,20 @@ function sendEmergencySms(number) {
 }
 
 function sendGpsNotification(customTitle, customBody, extraData) {
-  const lat = state.myUser.lat || 45.8920;
-  const lon = state.myUser.lon || 6.1550;
-  const ele = state.myUser.ele || 0;
-  const latDir = lat >= 0 ? 'N' : 'S';
-  const lonDir = lon >= 0 ? 'E' : 'O';
-  const defaultTitle = `🚨 GPS Secours : ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
-  const defaultBody = `Alt : ${Math.round(ele)}m • ${toDMS(lat, true)} ${toDMS(lon, false)} (Copié au presse-papier)`;
+  const hasGps = state.myUser.lat !== null && state.myUser.lat !== undefined && !isNaN(state.myUser.lat) &&
+                 state.myUser.lon !== null && state.myUser.lon !== undefined && !isNaN(state.myUser.lon);
+  const lat = hasGps ? state.myUser.lat : null;
+  const lon = hasGps ? state.myUser.lon : null;
+  const ele = hasGps ? state.myUser.ele : 0;
+
+  let defaultTitle = `🚨 GPS Secours : En attente de signal...`;
+  let defaultBody = `Acquisition satellite en cours (Ciel ouvert conseillé)`;
+  if (hasGps) {
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const lonDir = lon >= 0 ? 'E' : 'O';
+    defaultTitle = `🚨 GPS Secours : ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+    defaultBody = `Alt : ${Math.round(ele)}m • ${toDMS(lat, true)} ${toDMS(lon, false)} (Copié au presse-papier)`;
+  }
 
   const title = customTitle || defaultTitle;
   const body = customBody || defaultBody;
@@ -6022,7 +6062,37 @@ function initPixelSanctuaryGuardians() {
       ensureBarsVisible();
       if (state.map) setTimeout(() => state.map.invalidateSize(), 80);
     });
+    window.visualViewport.addEventListener('scroll', () => {
+      ensureBarsVisible();
+    });
   }
+
+  // C. Fermeture de clavier virtuel (Inputs et Textareas)
+  document.addEventListener('focusout', (e) => {
+    if (e.target.matches('input, textarea, select')) {
+      setTimeout(() => {
+        ensureBarsVisible();
+        if (state.map) state.map.invalidateSize();
+      }, 100);
+    }
+  });
+
+  // D. Reconnexion WakeLock si retour au premier plan
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      ensureBarsVisible();
+      if (state.map) setTimeout(() => state.map.invalidateSize(), 100);
+      if (state.isTrackingGps) {
+        requestWakeLock();
+      }
+    }
+  });
+
+  // E. Gardien actif anti-disparition Pixel
+  setInterval(() => {
+    ensureBarsVisible();
+  }, 2000);
+}
 
   // C. Fermeture de clavier virtuel (Inputs et Textareas)
   document.addEventListener('focusout', (e) => {
@@ -6473,6 +6543,16 @@ function closeAllModalsAndDrawers() {
   ensureBarsVisible();
 }
 
+function handleNativeBackPress() {
+  if (isAnyModalOrDrawerOpen()) {
+    closeAllModalsAndDrawers();
+    ensureBarsVisible();
+    return true;
+  }
+  ensureBarsVisible();
+  return false;
+}
+
 // Interception des gestes retour (swipe gauche-droite sur Pixel/Samsung ou bouton retour système)
 window.addEventListener('popstate', (e) => {
   if (isAnyModalOrDrawerOpen()) {
@@ -6483,6 +6563,8 @@ window.addEventListener('popstate', (e) => {
   } catch (err) {}
   ensureBarsVisible();
 });
+
+window.handleNativeBackPress = handleNativeBackPress;
 
 // EXPORTS GLOBAUX WINDOW (Sécurité d'appel pour tous les boutons HTML inline)
 window.toggleEmergencyModal = toggleEmergencyModal;
