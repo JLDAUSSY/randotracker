@@ -227,18 +227,31 @@ const state = {
 // PONT NATIF ANDROID : SYNCHRONISATION ARRIÈRE-PLAN ÉCRAN ÉTEINT
 // ============================================================================
 function syncNativeAndroidSession() {
-  if (window.AndroidBridge && typeof window.AndroidBridge.updateSession === 'function') {
+  if (window.AndroidBridge) {
     try {
-      window.AndroidBridge.updateSession(
-        state.roomCode || 'RANDO-2026',
-        state.myUser.id,
-        state.myUser.name || 'Randonneur',
-        state.myUser.icon || '🥾',
-        state.myUser.color || '#10b981',
-        state.myUser.assignedTrackId || 'auto',
-        state.isTrackingGps !== false
-      );
-      console.log('[NativeBridge] Session synchronisée avec Android Service:', state.roomCode, state.myUser.name);
+      const room = state.roomCode || 'RANDO-2026';
+      const uid = (state.myUser && state.myUser.id) ? state.myUser.id : 'anonymous';
+      const name = (state.myUser && state.myUser.name) ? state.myUser.name : 'Randonneur';
+      const role = (state.myUser && state.myUser.role) ? state.myUser.role : 'Randonneur';
+      const color = (state.myUser && state.myUser.color) ? state.myUser.color : '#059669';
+      const icon = (state.myUser && state.myUser.icon) ? state.myUser.icon : '🥾';
+      const isSos = !!(state.myUser && state.myUser.isSos);
+
+      if (typeof window.AndroidBridge.syncTrackingSession === 'function') {
+        window.AndroidBridge.syncTrackingSession(room, uid, name, role, color, icon, isSos);
+        console.log('[NativeBridge] Session synchronisée avec Android Service (syncTrackingSession):', room, name);
+      } else if (typeof window.AndroidBridge.updateSession === 'function') {
+        window.AndroidBridge.updateSession(
+          room,
+          uid,
+          name,
+          icon,
+          color,
+          state.myUser?.assignedTrackId || 'auto',
+          state.isTrackingGps !== false
+        );
+        console.log('[NativeBridge] Session synchronisée avec Android Service (updateSession):', room, name);
+      }
     } catch (e) {
       console.warn('[NativeBridge] Erreur sync session:', e);
     }
@@ -4638,6 +4651,11 @@ function displayAnnouncementBanner(author, icon, role, text, timestamp) {
 function closeAnnouncementBanner() {
   const banner = document.getElementById('active-announcement-banner');
   if (banner) banner.classList.add('hidden');
+  try {
+    if (navigator.clearAppBadge) {
+      navigator.clearAppBadge().catch(() => {});
+    }
+  } catch (e) {}
 }
 
 function handleReceivedAnnouncement(data) {
@@ -5352,6 +5370,9 @@ function sendGpsNotification(customTitle, customBody, extraData) {
   // Sauvegarder la dernière notification pour ouverture automatique
   try {
     localStorage.setItem('rando_last_announcement', JSON.stringify(dataPayload));
+    if (navigator.setAppBadge) {
+      navigator.setAppBadge(1).catch(() => {});
+    }
   } catch(e) {}
 
   // 1. Déclenchement via le pont natif Android (pour affichage instantané dans Android et réveil des montres Bluetooth)
@@ -5579,6 +5600,7 @@ function toggleGroupSosAlert() {
   }
 
   updateEmergencyModalGpsData();
+  syncNativeAndroidSession();
   broadcastMyPosition(true);
 }
 

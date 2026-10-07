@@ -38,6 +38,7 @@ public class RandoMainActivity extends LauncherActivity {
         if (data != null) {
             String room = data.getQueryParameter("room");
             if (room != null && !room.isEmpty()) {
+                RandoGpsForegroundService.updateSessionConfig(getApplicationContext(), room, null, null, null, null, null, false);
                 if (webView != null) {
                     webView.evaluateJavascript("if(window.joinRoomDirectly) window.joinRoomDirectly('" + room + "');", null);
                 }
@@ -110,12 +111,22 @@ public class RandoMainActivity extends LauncherActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.8 (42)";
+            return "1.4.9 (43)";
         }
 
         @JavascriptInterface
         public void showMessageNotification(String title, String body, String type, String sender) {
             RandoGpsForegroundService.showNativeNotification(getApplicationContext(), title, body, type, sender);
+        }
+
+        @JavascriptInterface
+        public void syncTrackingSession(String room, String userId, String name, String role, String color, String icon, boolean isSos) {
+            RandoGpsForegroundService.updateSessionConfig(getApplicationContext(), room, userId, name, role, color, icon, isSos);
+        }
+
+        @JavascriptInterface
+        public void updateSession(String room, String userId, String name, String icon, String color, String assignedTrackId, boolean isTrackingGps) {
+            RandoGpsForegroundService.updateSessionConfig(getApplicationContext(), room, userId, name, "Randonneur", color, icon, false);
         }
     }
 }

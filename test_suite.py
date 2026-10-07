@@ -52,7 +52,7 @@ def run_test(name, condition_fn):
         print(f"  [ERROR] {name} -> {e}")
 
 print("================================================================================")
-print("  BATTERIE DE TESTS AUTOMATISES RANDOTRACKER V42 (DRAGGABLE WINDOWS & ECART GPX)")
+print("  BATTERIE DE TESTS AUTOMATISES RANDOTRACKER V43 (BACKGROUND GPS & PLAY PROTECT)")
 print("================================================================================\n")
 
 # ----------------------------------------------------------------------
@@ -73,7 +73,7 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.8 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.8' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.9 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.9' in soup.find(id='header-app-version').text)
 
 run_test("Presence de la barre inferieure .app-bottom-nav", lambda: soup.find('nav', class_='app-bottom-nav') is not None)
 run_test("Presence de la touche SOS (id=nav-btn-sos)", lambda: soup.find(id='nav-btn-sos') is not None)
@@ -334,8 +334,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 42 configuré", lambda: 'versionCode = 42' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.8 configuré", lambda: 'versionName = "1.4.8"' in gradle_content)
+    run_test("Android Gradle : VersionCode 43 configuré", lambda: 'versionCode = 43' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.9 configuré", lambda: 'versionName = "1.4.9"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -343,7 +343,7 @@ if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.8 (42) dans le bridge natif", lambda: '1.4.8 (42)' in main_act_content)
+    run_test("MainActivity : Version 1.4.9 (43) dans le bridge natif", lambda: '1.4.9 (43)' in main_act_content)
     run_test("MainActivity : Pont Natif showMessageNotification disponible", lambda: 'showMessageNotification' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
     run_test("MainActivity : Gestionnaire BackPress délégué à JS (Anti-régression Pixel)", lambda: 'handleNativeBackPress' in main_act_content)
@@ -506,8 +506,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=83',
-    'http://127.0.0.1:8000/app.js?v=83',
+    'http://127.0.0.1:8000/styles.css?v=84',
+    'http://127.0.0.1:8000/app.js?v=84',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
