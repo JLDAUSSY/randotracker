@@ -110,7 +110,7 @@ public class RandoMainActivity extends LauncherActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.7 (41)";
+            return "1.4.8 (42)";
         }
 
         @JavascriptInterface

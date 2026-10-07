@@ -34,3 +34,13 @@ Date d'enregistrement : 4 octobre 2026
   - Tous les messages rapides prédéfinis (Pause pique-nique, Regroupement, etc.) intègrent automatiquement la position GPS exacte (latitude, longitude, altitude).
 * **Bouton « 📍 Voir sur carte » :**
   - Permet aux membres du groupe de centrer la carte directement sur l'émetteur du message en un seul clic.
+
+---
+
+### 5. 🔒 Sécurité Certifiée Google Play Protect & Zéro Stockage Cloud
+* **Absence Totale de Virus :**
+  - Validation et scan automatisé obligatoire Google Play Protect à chaque version (.aab), y compris lors des tests fermés et bêta.
+* **Confidentialité & Vie Privée (RGPD) :**
+  - Architecture éphémère sans base de données centrale : aucun serveur cloud n'enregistre vos coordonnées GPS.
+  - Mode "Talkie-Walkie" en mémoire vive : les positions transitent en direct et ne sont jamais conservées ni historisées sur les téléphones des autres marcheurs.
+  - Données locales isolées : seuls vos réglages (prénom, couleur, icône) restent sur votre propre smartphone.

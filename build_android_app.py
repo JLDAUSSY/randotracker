@@ -131,8 +131,8 @@ android {{
         applicationId = "fr.jldaussy.randotracker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 41
-        versionName = "1.4.7"
+        versionCode = 42
+        versionName = "1.4.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -333,7 +333,7 @@ public class RandoMainActivity extends LauncherActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.7 (41)";
+            return "1.4.8 (42)";
         }
 
         @JavascriptInterface
@@ -468,6 +468,20 @@ public class RandoGpsForegroundService extends Service {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
 
+        // Réveil physique de l'écran pour avertir le marcheur même écran verrouillé en poche
+        try {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            if (pm != null) {
+                PowerManager.WakeLock screenWake = pm.newWakeLock(
+                    PowerManager.FULL_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP | PowerManager.ON_AFTER_RELEASE,
+                    "RandoTracker::ScreenWakeAlert"
+                );
+                screenWake.acquire(4000L);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         Intent fullScreenIntent = new Intent(context, RandoMainActivity.class);
         fullScreenIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         
@@ -475,7 +489,8 @@ public class RandoGpsForegroundService extends Service {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
-        PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(context, (int) System.currentTimeMillis(), fullScreenIntent, flags);
+        int uniqueReqCode = (int) (System.currentTimeMillis() % 100000);
+        PendingIntent fullScreenPendingIntent = PendingIntent.getActivity(context, uniqueReqCode, fullScreenIntent, flags);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, MESSAGE_CHANNEL_ID)
             .setContentTitle(title)
@@ -486,11 +501,13 @@ public class RandoGpsForegroundService extends Service {
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
+            .setNumber(1)
+            .setDefaults(Notification.DEFAULT_ALL)
             .setContentIntent(fullScreenPendingIntent)
             .setFullScreenIntent(fullScreenPendingIntent, true)
             .setVibrate(new long[]{0, 350, 150, 350, 150, 350});
 
-        manager.notify(MSG_NOTIFICATION_ID, builder.build());
+        manager.notify(uniqueReqCode, builder.build());
     }
 
     private void acquirePartialWakeLock() {
@@ -549,9 +566,32 @@ public class RandoGpsForegroundService extends Service {
 
                 @Override
                 public void messageArrived(String topic, MqttMessage message) throws Exception {
-                    if (topic != null && topic.contains("broadcast_announcement")) {
-                        String payload = new String(message.getPayload());
-                        showNativeNotification(getApplicationContext(), "📢 Message RandoTracker", payload, "announcement", "Groupe");
+                    try {
+                        if (topic != null && (topic.contains("broadcast_announcement") || topic.contains("/events"))) {
+                            String payload = new String(message.getPayload());
+                            if (payload.contains("broadcast_announcement") || payload.contains("group_sos_alert")) {
+                                String author = "Groupe";
+                                String text = payload;
+                                String role = "Randonneur";
+                                String type = "announcement";
+                                
+                                try {
+                                    org.json.JSONObject obj = new org.json.JSONObject(payload);
+                                    if (obj.has("author")) author = obj.getString("author");
+                                    if (obj.has("text")) text = obj.getString("text");
+                                    if (obj.has("role")) role = obj.getString("role");
+                                    if (obj.has("type")) type = obj.getString("type");
+                                } catch (Exception parseEx) {}
+                                
+                                String title = "📢 Message de " + author + (role.isEmpty() ? "" : " (" + role + ")");
+                                if ("group_sos_alert".equals(type)) {
+                                    title = "🚨 ALERTE SOS GROUPE • " + author;
+                                }
+                                showNativeNotification(getApplicationContext(), title, text, type, author);
+                            }
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
                     }
                 }
 
@@ -560,6 +600,7 @@ public class RandoGpsForegroundService extends Service {
             });
 
             mqttClient.connect(connOpts);
+            mqttClient.subscribe("randotracker/v1/rooms/+/events", 1);
             mqttClient.subscribe("randotracker/+/broadcast_announcement", 1);
         } catch (Exception e) {
             // MQTT optionnel pour bridge
@@ -606,6 +647,7 @@ android_manifest = """<?xml version="1.0" encoding="utf-8"?>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.CAMERA" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />

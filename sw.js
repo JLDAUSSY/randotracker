@@ -1,12 +1,12 @@
-// Service Worker pour RandoTracker PWA - Version 82
-const CACHE_NAME = 'rando-tracker-v82';
+// Service Worker pour RandoTracker PWA - Version 83
+const CACHE_NAME = 'rando-tracker-v83';
 const TILES_CACHE_NAME = 'rando-tiles-v1';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=82',
-  './app.js?v=82',
+  './styles.css?v=83',
+  './app.js?v=83',
   './manifest.json',
   './logo.png',
   './cat_icon.png',
@@ -30,7 +30,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v80...');
+  console.log('[SW] Installation v83...');
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -42,7 +42,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation v80...');
+  console.log('[SW] Activation v83...');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
@@ -115,6 +115,9 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  if ('clearAppBadge' in self.navigator) {
+    self.navigator.clearAppBadge().catch(() => {});
+  }
   const notifData = event.notification.data || {};
   const notifTitle = event.notification.title || '';
   const notifBody = event.notification.body || '';
