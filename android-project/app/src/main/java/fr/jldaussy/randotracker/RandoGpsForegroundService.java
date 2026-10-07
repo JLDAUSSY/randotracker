@@ -219,7 +219,6 @@ public class RandoGpsForegroundService extends Service {
             .setNumber(1)
             .setDefaults(Notification.DEFAULT_ALL)
             .setContentIntent(fullScreenPendingIntent)
-            .setFullScreenIntent(fullScreenPendingIntent, true)
             .setVibrate(new long[]{0, 350, 150, 350, 150, 350});
 
         manager.notify(uniqueReqCode, builder.build());

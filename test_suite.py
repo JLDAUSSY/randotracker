@@ -330,11 +330,13 @@ if os.path.exists(manifest_path):
         manifest_content = f.read()
     run_test("Android Manifest : Permission CAMERA déclarée", lambda: 'android.permission.CAMERA' in manifest_content)
     run_test("Android Manifest : Feature Caméra déclarée", lambda: 'android.hardware.camera' in manifest_content)
+    run_test("Play Store Compliance : Absence de ACCESS_BACKGROUND_LOCATION", lambda: 'ACCESS_BACKGROUND_LOCATION' not in manifest_content)
+    run_test("Play Store Compliance : Absence de USE_FULL_SCREEN_INTENT", lambda: 'USE_FULL_SCREEN_INTENT' not in manifest_content)
 
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 43 configuré", lambda: 'versionCode = 43' in gradle_content)
+    run_test("Android Gradle : VersionCode 44 configuré", lambda: 'versionCode = 44' in gradle_content)
     run_test("Android Gradle : VersionName 1.4.9 configuré", lambda: 'versionName = "1.4.9"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
@@ -343,7 +345,7 @@ if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.9 (43) dans le bridge natif", lambda: '1.4.9 (43)' in main_act_content)
+    run_test("MainActivity : Version 1.4.9 (44) dans le bridge natif", lambda: '1.4.9 (44)' in main_act_content)
     run_test("MainActivity : Pont Natif showMessageNotification disponible", lambda: 'showMessageNotification' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
     run_test("MainActivity : Gestionnaire BackPress délégué à JS (Anti-régression Pixel)", lambda: 'handleNativeBackPress' in main_act_content)
@@ -353,7 +355,7 @@ if os.path.exists(service_path):
         service_content = f.read()
     run_test("Foreground Service : Canal Messages rando_messages_alerts_v3 défini", lambda: 'rando_messages_alerts_v3' in service_content)
     run_test("Foreground Service : Canal Messages en IMPORTANCE_HIGH (réveil montre & lockscreen)", lambda: 'NotificationManager.IMPORTANCE_HIGH' in service_content)
-    run_test("Foreground Service : Méthode showNativeNotification avec réveil écran et son", lambda: 'public static void showNativeNotification' in service_content and 'setFullScreenIntent' in service_content)
+    run_test("Foreground Service : Méthode showNativeNotification avec réveil écran et son", lambda: 'public static void showNativeNotification' in service_content and 'setContentIntent' in service_content)
     run_test("Foreground Service : Écouteur MQTT messageArrived gérant broadcast_announcement", lambda: 'broadcast_announcement' in service_content and 'messageArrived' in service_content)
 
 # Tests Spécifiques Icônes Chat Détourées (Jaune & Rose)
