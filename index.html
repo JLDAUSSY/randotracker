@@ -879,19 +879,24 @@
           </button>
         </div>
 
-        <!-- APPLICATION NATIVE ANDROID APK (POUR ÉCRAN TOTALEMENT ÉTEINT DANS LA POCHE) -->
-        <div class="p-4 bg-emerald-950/40 rounded-2xl border-2 border-emerald-500/50 space-y-2.5">
-          <div class="flex items-center gap-2">
-            <span class="text-xl">🤖</span>
-            <div>
-              <span class="text-xs font-black text-white uppercase block">Application Native Android</span>
-              <span class="text-[10px] text-emerald-400 font-bold">Suivi GPS matériel écran éteint (Bouton Power)</span>
+        <!-- APPLICATION NATIVE ANDROID (AFFICHAGE CONTEXTUEL NATIVE / WEB) -->
+        <div id="native-app-profile-card" class="p-4 bg-emerald-950/40 rounded-2xl border-2 border-emerald-500/50 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">🤖</span>
+              <div>
+                <span class="text-xs font-black text-white uppercase block">Application Native Android</span>
+                <span id="native-app-subtitle" class="text-[10px] text-emerald-400 font-bold">Suivi GPS matériel écran éteint (Bouton Power)</span>
+              </div>
             </div>
+            <span id="native-app-active-badge" class="hidden text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 flex items-center gap-1">
+              ✓ App Active
+            </span>
           </div>
-          <p class="text-[11px] text-slate-300 font-semibold leading-relaxed">
+          <div id="native-app-status-text" class="text-[11px] text-slate-300 font-semibold leading-relaxed">
             Pour éteindre complètement l'écran avec le bouton physique Power sans aucune coupure GPS par Android :
-          </p>
-          <a href="RandoTracker.apk" download="RandoTracker.apk" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg transition active:scale-95 no-underline">
+          </div>
+          <a id="native-app-download-btn" href="RandoTracker.apk" download="RandoTracker.apk" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg transition active:scale-95 no-underline">
             <i data-lucide="download" class="w-4 h-4"></i>
             <span>📥 Télécharger l'Appli Android (RandoTracker.apk)</span>
           </a>

@@ -1019,6 +1019,28 @@ function updateProfileUI() {
       btn.className = 'ui-scale-btn py-2.5 px-2 rounded-xl border-2 border-slate-700 bg-slate-800 text-slate-300 font-black text-xs flex flex-col items-center justify-center gap-1 transition active:scale-95 hover:border-slate-600';
     }
   });
+
+  // Gestion de l'affichage contextuel de la carte Application Native Android
+  const downloadBtn = document.getElementById('native-app-download-btn');
+  const activeBadge = document.getElementById('native-app-active-badge');
+  const statusText = document.getElementById('native-app-status-text');
+  const subtitleText = document.getElementById('native-app-subtitle');
+
+  if (window.IS_NATIVE_ANDROID_APP || (typeof AndroidBridge !== 'undefined')) {
+    if (activeBadge) activeBadge.classList.remove('hidden');
+    if (downloadBtn) downloadBtn.style.display = 'none';
+    if (subtitleText) subtitleText.textContent = 'Version Play Store / Native Active';
+    if (statusText) {
+      statusText.innerHTML = '<span class="text-emerald-300 font-bold">✅ Application Native Active :</span> Le suivi GPS en continu, l\'écran éteint dans la poche et les alertes d\'arrière-plan sont pleinement fonctionnels.';
+    }
+  } else {
+    if (activeBadge) activeBadge.classList.add('hidden');
+    if (downloadBtn) downloadBtn.style.display = 'flex';
+    if (subtitleText) subtitleText.textContent = 'Suivi GPS matériel écran éteint (Bouton Power)';
+    if (statusText) {
+      statusText.textContent = "Pour éteindre complètement l'écran avec le bouton physique Power sans aucune coupure GPS par Android :";
+    }
+  }
 }
 
 function closeProfileModal() {
