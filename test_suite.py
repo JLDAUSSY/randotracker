@@ -73,7 +73,7 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.12 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.12' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.13 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.13' in soup.find(id='header-app-version').text)
 run_test("Presence de la barre de recherche de ville (#city-search-container)", lambda: soup.find(id='city-search-container') is not None)
 run_test("Presence du champ input de recherche de ville (#city-search-input)", lambda: soup.find(id='city-search-input') is not None)
 run_test("Presence du bouton d'arret du suivi dans le profil (#btn-stop-tracking-app)", lambda: soup.find(id='btn-stop-tracking-app') is not None)
@@ -359,8 +359,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 50 configuré", lambda: 'versionCode = 50' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.12 configuré", lambda: 'versionName = "1.4.12"' in gradle_content)
+    run_test("Android Gradle : VersionCode 51 configuré", lambda: 'versionCode = 51' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.13 configuré", lambda: 'versionName = "1.4.13"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -372,7 +372,7 @@ if os.path.exists(main_activity_path):
     run_test("MainActivity : WebChromeClient avec auto-grant Geolocation et Caméra QR", lambda: 'onGeolocationPermissionsShowPrompt' in main_act_content and 'onPermissionRequest' in main_act_content)
     run_test("MainActivity : WebViewClient isolant l'app et déléguant tel/sms/mailto aux Intents", lambda: 'handleUrlNavigation' in main_act_content and 'tel:' in main_act_content)
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.12 (50) dans le bridge natif", lambda: '1.4.12 (50)' in main_act_content)
+    run_test("MainActivity : Version 1.4.13 (51) dans le bridge natif", lambda: '1.4.13 (51)' in main_act_content)
     run_test("MainActivity : Pont Natif showMessageNotification disponible", lambda: 'showMessageNotification' in main_act_content)
     run_test("MainActivity : Pont Natif stopTrackingService disponible", lambda: 'stopTrackingService' in main_act_content)
     run_test("MainActivity : Guard permission avant demarrage GPS (Anti-crash Android 14+)", lambda: 'hasLocationPermission()' in main_act_content)
@@ -538,8 +538,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=88',
-    'http://127.0.0.1:8000/app.js?v=88',
+    'http://127.0.0.1:8000/styles.css?v=89',
+    'http://127.0.0.1:8000/app.js?v=89',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',

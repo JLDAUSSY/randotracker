@@ -165,8 +165,36 @@ public class RandoMainActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                view.setBackgroundColor(Color.parseColor("#0a1926"));
+            }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+                Log.w(TAG, "WebView Error (" + errorCode + "): " + description + " URL: " + failingUrl);
+            }
+
+            @TargetApi(Build.VERSION_CODES.M)
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, android.webkit.WebResourceError error) {
+                super.onReceivedError(view, request, error);
+                if (request.isForMainFrame()) {
+                    Log.w(TAG, "WebView MainFrame Error: " + error.getDescription() + " (" + error.getErrorCode() + ")");
+                }
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
+                Log.w(TAG, "WebView SSL Notice: " + error.toString());
+                handler.proceed();
+            }
+
+            @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                view.setBackgroundColor(Color.parseColor("#0a1926"));
                 // Flag identifiant l'application Android Native Pure
                 view.evaluateJavascript("window.IS_NATIVE_ANDROID_APP = true; if(window.RandoLogger) { window.RandoLogger.info('NATIVE', 'Architecture Android Native Pure Active'); }", null);
 
@@ -310,7 +338,7 @@ public class RandoMainActivity extends AppCompatActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.12 (50)";
+            return "1.4.13 (51)";
         }
 
         @JavascriptInterface

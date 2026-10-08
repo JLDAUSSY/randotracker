@@ -1,12 +1,12 @@
-// Service Worker pour RandoTracker PWA - Version 88
-const CACHE_NAME = 'rando-tracker-v88';
+// Service Worker pour RandoTracker PWA - Version 89
+const CACHE_NAME = 'rando-tracker-v89';
 const TILES_CACHE_NAME = 'rando-tiles-v1';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=88',
-  './app.js?v=88',
+  './styles.css?v=89',
+  './app.js?v=89',
   './manifest.json',
   './logo.png',
   './cat_icon.png',
@@ -30,7 +30,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v88...');
+  console.log('[SW] Installation v89...');
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -42,7 +42,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation v88...');
+  console.log('[SW] Activation v89...');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
@@ -108,6 +108,7 @@ self.addEventListener('fetch', (event) => {
           if (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html')) {
             return caches.match('./index.html');
           }
+          return new Response('', { status: 503, statusText: 'Offline Resource Unavailable' });
         });
       })
   );
