@@ -7,17 +7,177 @@
  */
 
 // ============================================================================
-// GARDIEN GLOBAL ANTI-CRASH & PROTECTION ÉCRAN NOIR
+// SYSTÈME DE LOGGING UNIFIÉ & PERSISTANT (RING BUFFER + LOCALSTORAGE + EXPORT)
+// ============================================================================
+const RandoLogger = (function() {
+  const MAX_MEMORY_LOGS = 400;
+  const MAX_STORAGE_LOGS = 120;
+  const STORAGE_KEY = 'rando_system_logs_v1';
+  let activeFilter = 'ALL';
+  let persistTimeout = null;
+  let isLogsModalOpen = false;
+
+  let logs = [];
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      logs = JSON.parse(saved);
+      if (!Array.isArray(logs)) logs = [];
+    }
+  } catch (e) {
+    logs = [];
+  }
+
+  function formatTime(d) {
+    const pad = (n, len = 2) => String(n).padStart(len, '0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+  }
+
+  function persistLogs() {
+    try {
+      const subset = logs.slice(-MAX_STORAGE_LOGS);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(subset));
+    } catch (e) {}
+  }
+
+  function addLog(level, tag, message, data = null) {
+    const now = new Date();
+    let dataStr = '';
+    if (data !== null && data !== undefined) {
+      try {
+        dataStr = typeof data === 'object' ? JSON.stringify(data) : String(data);
+      } catch (e) {
+        dataStr = '[Object non sérialisable]';
+      }
+    }
+
+    const entry = {
+      id: `${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      time: formatTime(now),
+      timestamp: now.getTime(),
+      level: level.toUpperCase(), // INFO, WARN, ERROR, DEBUG, GPS, MQTT
+      tag: tag ? tag.replace(/[\[\]]/g, '').trim().toUpperCase() : 'APP',
+      message: String(message || ''),
+      data: dataStr
+    };
+
+    logs.push(entry);
+    if (logs.length > MAX_MEMORY_LOGS) {
+      logs.shift();
+    }
+
+    if (!persistTimeout) {
+      persistTimeout = setTimeout(() => {
+        persistTimeout = null;
+        persistLogs();
+      }, 2000);
+    }
+
+    if (isLogsModalOpen && typeof renderLogsList === 'function') {
+      try { renderLogsList(); } catch (e) {}
+    }
+
+    return entry;
+  }
+
+  // Interception sécurisée de la console
+  const origLog = console.log ? console.log.bind(console) : () => {};
+  const origWarn = console.warn ? console.warn.bind(console) : () => {};
+  const origError = console.error ? console.error.bind(console) : () => {};
+  const origInfo = console.info ? console.info.bind(console) : origLog;
+
+  function parseAndLog(defaultLevel, args) {
+    if (!args || args.length === 0) return;
+    const first = String(args[0] || '');
+    let tag = 'APP';
+    let msg = first;
+    let level = defaultLevel;
+
+    const tagMatch = first.match(/^\[([A-Za-z0-9_-]+)\]/);
+    if (tagMatch) {
+      tag = tagMatch[1];
+      msg = first.substring(tagMatch[0].length).trim();
+      const upperTag = tag.toUpperCase();
+      if (upperTag.includes('GPS') || upperTag.includes('POS')) level = 'GPS';
+      else if (upperTag.includes('MQTT') || upperTag.includes('ROOM') || upperTag.includes('BROADCAST')) level = 'MQTT';
+    }
+
+    let extra = null;
+    if (args.length > 1) {
+      extra = args.length === 2 ? args[1] : args.slice(1);
+    }
+
+    addLog(level, tag, msg, extra);
+  }
+
+  console.log = function(...args) {
+    origLog(...args);
+    parseAndLog('INFO', args);
+  };
+  console.info = function(...args) {
+    origInfo(...args);
+    parseAndLog('INFO', args);
+  };
+  console.warn = function(...args) {
+    origWarn(...args);
+    parseAndLog('WARN', args);
+  };
+  console.error = function(...args) {
+    origError(...args);
+    parseAndLog('ERROR', args);
+  };
+
+  return {
+    info: (tag, msg, data) => addLog('INFO', tag, msg, data),
+    warn: (tag, msg, data) => addLog('WARN', tag, msg, data),
+    error: (tag, msg, data) => addLog('ERROR', tag, msg, data),
+    debug: (tag, msg, data) => addLog('DEBUG', tag, msg, data),
+    gps: (msg, data) => addLog('GPS', 'GPS', msg, data),
+    mqtt: (msg, data) => addLog('MQTT', 'MQTT', msg, data),
+    getLogs: () => [...logs],
+    clear: () => {
+      logs = [];
+      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+      if (typeof renderLogsList === 'function') renderLogsList();
+    },
+    exportAsText: () => {
+      const lines = [
+        `=== RANDOTRACKER RAPPORT DE DIAGNOSTIC & LOGS ===`,
+        `Généré le : ${new Date().toLocaleString('fr-FR')}`,
+        `Version : v1.4.10 (45) • Cache v85`,
+        `User Agent : ${navigator.userAgent}`,
+        `Salon : ${typeof state !== 'undefined' ? state.roomCode : 'N/A'}`,
+        `Moi : ${typeof state !== 'undefined' && state.myUser ? state.myUser.name : 'N/A'} (ID: ${typeof state !== 'undefined' && state.myUser ? state.myUser.id : 'N/A'})`,
+        `Position : ${typeof state !== 'undefined' && state.myUser && typeof state.myUser.lat === 'number' ? `${state.myUser.lat.toFixed(6)}, ${state.myUser.lon.toFixed(6)} (Alt: ${Math.round(state.myUser.ele || 0)}m)` : 'Non fixée'}`,
+        `Mode Natif Android : ${window.IS_NATIVE_ANDROID_APP ? 'OUI' : 'NON'}`,
+        `Service Worker : ${'serviceWorker' in navigator ? 'Disponible' : 'Non'}`,
+        `====================================================\n`
+      ];
+
+      logs.forEach(l => {
+        lines.push(`[${l.time}] [${l.level}] [${l.tag}] ${l.message} ${l.data ? `| ${l.data}` : ''}`);
+      });
+      return lines.join('\n');
+    },
+    setModalOpen: (isOpen) => { isLogsModalOpen = isOpen; },
+    getFilter: () => activeFilter,
+    setFilter: (f) => { activeFilter = f; }
+  };
+})();
+
+// ============================================================================
+// GARDIEN GLOBAL ANTI-CRASH & CAPTURE D'ERREURS DANS LES LOGS
 // ============================================================================
 window.addEventListener('error', function(e) {
-  console.warn('[RandoTracker Global Guard] Error caught:', e.message, e.filename, e.lineno);
+  RandoLogger.error('RUNTIME', e.message, { filename: e.filename, lineno: e.lineno, colno: e.colno });
   try {
     if (typeof ensureBarsVisible === 'function') ensureBarsVisible();
   } catch (err) {}
 });
 
 window.addEventListener('unhandledrejection', function(e) {
-  console.warn('[RandoTracker Global Guard] Unhandled rejection caught:', e.reason);
+  const reason = e.reason ? (e.reason.message || String(e.reason)) : 'Unhandled rejection';
+  RandoLogger.error('PROMISE', reason);
 });
 
 // ============================================================================
@@ -6922,6 +7082,190 @@ function stopTrackingAndExitApp() {
   }
 }
 
+// ============================================================================
+// GESTIONNAIRE D'AFFICHAGE DU JOURNAL DES LOGS & DIAGNOSTIC
+// ============================================================================
+function openLogsModal() {
+  const modal = document.getElementById('logs-modal');
+  if (!modal) return;
+  RandoLogger.setModalOpen(true);
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+  pushModalState('logs-modal');
+
+  updateLogsTelemetryUI();
+  renderLogsList();
+}
+
+function closeLogsModal() {
+  const modal = document.getElementById('logs-modal');
+  if (!modal) return;
+  RandoLogger.setModalOpen(false);
+  modal.classList.add('hidden');
+  modal.style.display = 'none';
+}
+
+function updateLogsTelemetryUI() {
+  const gpsElem = document.getElementById('diag-gps-status');
+  const mqttElem = document.getElementById('diag-mqtt-status');
+  const bgElem = document.getElementById('diag-bg-status');
+
+  if (gpsElem) {
+    if (state.lastGpsPos) {
+      const acc = state.lastGpsAccuracy ? Math.round(state.lastGpsAccuracy) : 5;
+      gpsElem.textContent = `Fixé (±${acc}m)`;
+      gpsElem.className = 'text-emerald-400 text-xs font-mono mt-0.5';
+    } else {
+      gpsElem.textContent = state.isTrackingGps ? 'Recherche...' : 'Inactif';
+      gpsElem.className = 'text-amber-400 text-xs font-mono mt-0.5';
+    }
+  }
+
+  if (mqttElem) {
+    const isConn = mqttClient && mqttClient.connected;
+    mqttElem.textContent = isConn ? `OK (${state.roomCode})` : 'Déconnecté';
+    mqttElem.className = isConn ? 'text-blue-400 text-xs font-mono mt-0.5' : 'text-red-400 text-xs font-mono mt-0.5';
+  }
+
+  if (bgElem) {
+    bgElem.textContent = window.IS_NATIVE_ANDROID_APP ? 'Android Natif' : (screenWakeLock ? 'WakeLock Web' : 'Standard Web');
+  }
+}
+
+function setLogsFilter(filter) {
+  RandoLogger.setFilter(filter);
+  const btns = document.querySelectorAll('.logs-filter-btn');
+  btns.forEach(b => {
+    if (b.getAttribute('data-filter') === filter) {
+      b.className = 'logs-filter-btn px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-black text-xs';
+    } else {
+      b.className = 'logs-filter-btn px-2.5 py-1 rounded-lg text-slate-400 hover:text-white font-bold text-xs';
+    }
+  });
+  renderLogsList();
+}
+
+function renderLogsList() {
+  const container = document.getElementById('logs-container');
+  const summary = document.getElementById('logs-status-summary');
+  const searchInput = document.getElementById('logs-search-input');
+  if (!container) return;
+
+  const logs = RandoLogger.getLogs();
+  const filter = RandoLogger.getFilter();
+  const search = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+  let filtered = logs.filter(l => {
+    if (filter === 'ERROR' && l.level !== 'ERROR' && l.level !== 'WARN') return false;
+    if (filter === 'GPS' && l.level !== 'GPS' && !l.tag.includes('GPS') && !l.tag.includes('POS')) return false;
+    if (filter === 'MQTT' && l.level !== 'MQTT' && !l.tag.includes('MQTT') && !l.tag.includes('ROOM') && !l.tag.includes('BROADCAST')) return false;
+    if (search) {
+      const matchMsg = (l.message || '').toLowerCase().includes(search);
+      const matchTag = (l.tag || '').toLowerCase().includes(search);
+      const matchData = (l.data || '').toLowerCase().includes(search);
+      if (!matchMsg && !matchTag && !matchData) return false;
+    }
+    return true;
+  });
+
+  if (summary) {
+    summary.textContent = `${logs.length} événement(s) (${filtered.length} affiché(s))`;
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-6 text-slate-500 font-bold text-xs">
+        Aucun log correspondant au filtre sélectionné
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(l => {
+    let entryClass = 'log-entry-info';
+    let badgeBg = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+    if (l.level === 'ERROR') {
+      entryClass = 'log-entry-error';
+      badgeBg = 'bg-red-500/20 text-red-300 border-red-500/40';
+    } else if (l.level === 'WARN') {
+      entryClass = 'log-entry-warn';
+      badgeBg = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+    } else if (l.level === 'GPS') {
+      entryClass = 'log-entry-gps';
+      badgeBg = 'bg-blue-500/20 text-blue-300 border-blue-500/40';
+    } else if (l.level === 'MQTT') {
+      entryClass = 'log-entry-info';
+      badgeBg = 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+    }
+
+    return `
+      <div class="log-entry ${entryClass}">
+        <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
+          <span class="font-mono text-slate-300">${l.time}</span>
+          <span class="log-badge border ${badgeBg}">${l.level}</span>
+          <span class="font-black text-slate-200">[${l.tag}]</span>
+        </div>
+        <div class="text-white text-xs mt-0.5 select-text font-mono">${escapeHtml(l.message)}</div>
+        ${l.data ? `<div class="text-[10px] text-slate-400 font-mono select-text bg-slate-900/90 p-1.5 rounded-lg mt-1 border border-slate-800 break-all">${escapeHtml(l.data)}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function copyLogsToClipboard() {
+  const text = RandoLogger.exportAsText();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 Logs copiés dans le presse-papiers !', 'success');
+    }).catch(() => {
+      fallbackCopy(text);
+    });
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  showToast('📋 Logs copiés dans le presse-papiers !', 'success');
+}
+
+function downloadLogsFile() {
+  const text = RandoLogger.exportAsText();
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const nowStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  a.href = url;
+  a.download = `randotracker_diagnostic_logs_${nowStr}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📥 Fichier de logs téléchargé !', 'success');
+}
+
+function clearAllLogs() {
+  if (!confirm('Voulez-vous effacer tout l\'historique des logs enregistrés ?')) return;
+  RandoLogger.clear();
+  showToast('🗑️ Journal des logs effacé.', 'info');
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // QR Scanner & Saisie Prénom Marcheur
 window.openQrScanner = openQrScanner;
 window.closeQrScanner = closeQrScanner;
@@ -6943,5 +7287,14 @@ window.triggerCitySearch = triggerCitySearch;
 window.fetchCitySuggestions = fetchCitySuggestions;
 window.selectSearchedCity = selectSearchedCity;
 window.stopTrackingAndExitApp = stopTrackingAndExitApp;
+window.RandoLogger = RandoLogger;
+window.openLogsModal = openLogsModal;
+window.closeLogsModal = closeLogsModal;
+window.setLogsFilter = setLogsFilter;
+window.renderLogsList = renderLogsList;
+window.copyLogsToClipboard = copyLogsToClipboard;
+window.downloadLogsFile = downloadLogsFile;
+window.clearAllLogs = clearAllLogs;
 window.state = state;
+
 

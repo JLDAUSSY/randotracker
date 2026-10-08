@@ -300,6 +300,17 @@ run_test("Recherche Ville : Style .city-search-pin défini dans CSS", lambda: '.
 run_test("Arrêt Suivi : Fonction stopTrackingAndExitApp définie", lambda: 'function stopTrackingAndExitApp' in js_text)
 run_test("Visibilité Groupe : Absence de filtre bloquant genericNames dans broadcastMyPosition", lambda: 'genericNames.includes(myName)' not in js_text)
 
+# Tests Système de Logging & Diagnostic
+run_test("Logging : Module RandoLogger défini dans app.js", lambda: 'const RandoLogger =' in js_text)
+run_test("Logging : Export global window.RandoLogger", lambda: 'window.RandoLogger = RandoLogger' in js_text)
+run_test("Logging : Modale #logs-modal présente dans le DOM", lambda: bool(soup.find(id='logs-modal')))
+run_test("Logging : Bouton ouverture logs (#btn-open-logs-modal) dans Profil", lambda: bool(soup.find(id='btn-open-logs-modal')))
+run_test("Logging : Filtres de logs (Tous, GPS, Réseau, Erreurs) présents", lambda: bool(soup.find(id='logs-filter-tabs')))
+run_test("Logging : Container de logs (#logs-container) présent", lambda: bool(soup.find(id='logs-container')))
+run_test("Logging : Export de rapport de diagnostic texte (exportAsText)", lambda: 'exportAsText' in js_text)
+run_test("Logging : Téléchargement fichier logs (.txt)", lambda: 'function downloadLogsFile' in js_text)
+run_test("Logging : Styles CSS log-entry et logs-modal définis", lambda: '#logs-modal' in css_text and '.log-entry' in css_text)
+
 # Tests Suivi GPS dans la poche (Écran éteint & Écran allumé)
 run_test("Maintien Arrière-plan Audio : Générateur WAV PCM silencieux (createSilentAudioBlobUrl)", lambda: 'createSilentAudioBlobUrl' in js_text and 'RIFF' in js_text)
 run_test("Maintien Arrière-plan Audio : Intégration MediaSession API (navigator.mediaSession)", lambda: 'mediaSession' in js_text and 'MediaMetadata' in js_text)

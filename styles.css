@@ -1656,4 +1656,51 @@ main {
   }
 }
 
+/* ========================================================================== */
+/* JOURNAL DES LOGS & DIAGNOSTIC SYSTÈME                                      */
+/* ========================================================================== */
+#logs-modal:not(.hidden) {
+  z-index: 3800 !important;
+}
+
+.log-entry {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  border-left: 3px solid #334155;
+  word-break: break-word;
+  transition: background-color 0.15s ease;
+}
+
+.log-entry:hover {
+  background: rgba(30, 41, 59, 0.9);
+}
+
+.log-entry-info {
+  border-left-color: #10b981;
+}
+
+.log-entry-warn {
+  border-left-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.log-entry-error {
+  border-left-color: #ef4444;
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.log-entry-gps {
+  border-left-color: #3b82f6;
+}
+
+.log-badge {
+  font-size: 9px;
+  font-weight: 900;
+  padding: 1px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 
