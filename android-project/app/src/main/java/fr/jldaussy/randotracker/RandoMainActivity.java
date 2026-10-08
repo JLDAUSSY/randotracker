@@ -55,10 +55,6 @@ public class RandoMainActivity extends AppCompatActivity {
         initWebViewSettings();
         checkAndRequestPermissions();
 
-        if (hasLocationPermission()) {
-            startGpsService();
-        }
-
         handleIntent(getIntent());
 
         String initialUrl = BASE_URL;
@@ -271,8 +267,8 @@ public class RandoMainActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQ_CODE) {
-            if (hasLocationPermission()) {
-                startGpsService();
+            if (webView != null) {
+                webView.evaluateJavascript("if(window.onNativePermissionsGranted) { window.onNativePermissionsGranted(); }", null);
             }
         }
     }
@@ -325,11 +321,17 @@ public class RandoMainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void syncTrackingSession(String room, String userId, String name, String role, String color, String icon, boolean isSos) {
             RandoGpsForegroundService.updateSessionConfig(getApplicationContext(), room, userId, name, role, color, icon, isSos);
+            if (hasLocationPermission()) {
+                startGpsService();
+            }
         }
 
         @JavascriptInterface
         public void updateSession(String room, String userId, String name, String icon, String color, String assignedTrackId, boolean isTrackingGps) {
             RandoGpsForegroundService.updateSessionConfig(getApplicationContext(), room, userId, name, "Randonneur", color, icon, false);
+            if (hasLocationPermission() && isTrackingGps) {
+                startGpsService();
+            }
         }
 
         @JavascriptInterface
