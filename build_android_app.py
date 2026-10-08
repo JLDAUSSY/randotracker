@@ -178,8 +178,7 @@ android {{
 dependencies {{
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("com.google.androidbrowserhelper:androidbrowserhelper:2.5.0")
-    implementation("androidx.browser:browser:1.8.0")
+    implementation("androidx.webkit:webkit:1.12.1")
     implementation("org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5")
 }}
 """
@@ -224,30 +223,185 @@ with open(os.path.join(res_dir, "values", "styles.xml"), "w", encoding="utf-8") 
 main_activity_java = """package fr.jldaussy.randotracker;
 
 import android.Manifest;
+import android.annotation.TargetApi;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
+import android.webkit.ConsoleMessage;
+import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
+import android.webkit.PermissionRequest;
+import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import com.google.androidbrowserhelper.trusted.LauncherActivity;
 
-public class RandoMainActivity extends LauncherActivity {
+public class RandoMainActivity extends AppCompatActivity {
+    private static final String TAG = "RandoMainActivity";
     private static final int PERMISSION_REQ_CODE = 2026;
+    private static final String BASE_URL = "https://jldaussy.github.io/randotracker/";
+    
     private WebView webView;
+    private String pendingRoom = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Configuration barre de statut et theme immersif sombre
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Window window = getWindow();
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.setStatusBarColor(Color.parseColor("#0d273a"));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                window.setNavigationBarColor(Color.parseColor("#0d273a"));
+            }
+        }
+
+        // Initialisation de la WebView native pure (Plein écran sans barre d'adresse)
+        webView = new WebView(this);
+        setContentView(webView);
+
+        initWebViewSettings();
         checkAndRequestPermissions();
+
         if (hasLocationPermission()) {
             startGpsService();
         }
+
         handleIntent(getIntent());
+
+        String initialUrl = BASE_URL;
+        if (pendingRoom != null && !pendingRoom.isEmpty()) {
+            initialUrl = BASE_URL + "?room=" + Uri.encode(pendingRoom);
+        }
+        webView.loadUrl(initialUrl);
+    }
+
+    private void initWebViewSettings() {
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+        settings.setGeolocationEnabled(true);
+        settings.setMediaPlaybackRequiresUserGesture(false);
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
+        settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(true);
+        settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
+        settings.setDisplayZoomControls(false);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
+
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+        webView.setBackgroundColor(Color.parseColor("#0a1926"));
+
+        // Injection du pont natif JavaScript
+        webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
+
+        // Gestionnaire d'autorisations et console JS
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onGeolocationPermissionsShowPrompt(String origin, GeolocationPermissions.Callback callback) {
+                // Toujours accorder la géolocalisation au domaine de l'app
+                callback.invoke(origin, true, false);
+            }
+
+            @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            // Accorder automatiquement la caméra pour le scanner QR
+                            request.grant(request.getResources());
+                        }
+                    });
+                }
+            }
+
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                Log.d("RandoTrackerJS", consoleMessage.message() + " [" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber() + "]");
+                return true;
+            }
+        });
+
+        // Gestionnaire de navigation (aucun affichage de barre d'URL externe, liens externes gérés par Intent)
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return handleUrlNavigation(url);
+            }
+
+            @TargetApi(Build.VERSION_CODES.N)
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return handleUrlNavigation(request.getUrl().toString());
+            }
+
+            private boolean handleUrlNavigation(String url) {
+                if (url == null) return false;
+
+                // Protocoles d'appels d'urgence, SMS, Mail, WhatsApp, Cartes externes
+                if (url.startsWith("tel:") || url.startsWith("sms:") || url.startsWith("mailto:") || 
+                    url.startsWith("whatsapp:") || url.startsWith("geo:")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        startActivity(intent);
+                        return true;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Erreur intent externe: " + url, e);
+                        return true;
+                    }
+                }
+
+                // Rester dans la WebView native pour les pages de l'application
+                if (url.contains("jldaussy.github.io/randotracker") || url.contains("localhost") || url.contains("127.0.0.1")) {
+                    return false;
+                }
+
+                // Autres liens HTTP externes : ouvrir dans le navigateur système
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                    return true;
+                } catch (Exception e) {
+                    Log.e(TAG, "Impossible d'ouvrir le lien externe: " + url, e);
+                    return false;
+                }
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                // Flag identifiant l'application Android Native Pure
+                view.evaluateJavascript("window.IS_NATIVE_ANDROID_APP = true; if(window.RandoLogger) { window.RandoLogger.info('NATIVE', 'Architecture Android Native Pure Active'); }", null);
+
+                if (pendingRoom != null && !pendingRoom.isEmpty()) {
+                    view.evaluateJavascript("if(window.joinRoomDirectly) window.joinRoomDirectly('" + pendingRoom + "');", null);
+                    pendingRoom = null;
+                }
+            }
+        });
     }
 
     @Override
@@ -263,6 +417,7 @@ public class RandoMainActivity extends LauncherActivity {
         if (data != null) {
             String room = data.getQueryParameter("room");
             if (room != null && !room.isEmpty()) {
+                pendingRoom = room;
                 RandoGpsForegroundService.updateSessionConfig(getApplicationContext(), room, null, null, null, null, null, false);
                 if (webView != null) {
                     webView.evaluateJavascript("if(window.joinRoomDirectly) window.joinRoomDirectly('" + room + "');", null);
@@ -320,7 +475,7 @@ public class RandoMainActivity extends LauncherActivity {
                 startService(serviceIntent);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Erreur démarrage GPS Service", e);
         }
     }
 
@@ -330,7 +485,7 @@ public class RandoMainActivity extends LauncherActivity {
             serviceIntent.setAction(RandoGpsForegroundService.ACTION_STOP_SERVICE);
             startService(serviceIntent);
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Erreur arrêt GPS Service", e);
         }
     }
 
@@ -351,6 +506,31 @@ public class RandoMainActivity extends LauncherActivity {
         } else {
             super.onBackPressed();
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (webView != null) {
+            webView.onResume();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (webView != null) {
+            webView.onPause();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (webView != null) {
+            webView.destroy();
+            webView = null;
+        }
+        super.onDestroy();
     }
 
     public class AndroidBridge {
@@ -889,19 +1069,9 @@ android_manifest = """<?xml version="1.0" encoding="utf-8"?>
         <activity
             android:name=".RandoMainActivity"
             android:label="@string/app_name"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
+            android:windowSoftInputMode="adjustResize"
             android:exported="true">
-
-            <meta-data
-                android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                android:value="${defaultUrl}" />
-
-            <meta-data
-                android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
-                android:resource="@color/colorPrimaryDark" />
-
-            <meta-data
-                android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
-                android:resource="@color/navigationColor" />
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

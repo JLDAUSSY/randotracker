@@ -367,6 +367,10 @@ if os.path.exists(gradle_path):
 if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
+    run_test("MainActivity : Architecture Pure Native WebView (extends AppCompatActivity)", lambda: 'extends AppCompatActivity' in main_act_content)
+    run_test("MainActivity : WebSettings avec JavaScript et DomStorage actifs", lambda: 'settings.setJavaScriptEnabled(true)' in main_act_content and 'settings.setDomStorageEnabled(true)' in main_act_content)
+    run_test("MainActivity : WebChromeClient avec auto-grant Geolocation et Caméra QR", lambda: 'onGeolocationPermissionsShowPrompt' in main_act_content and 'onPermissionRequest' in main_act_content)
+    run_test("MainActivity : WebViewClient isolant l'app et déléguant tel/sms/mailto aux Intents", lambda: 'handleUrlNavigation' in main_act_content and 'tel:' in main_act_content)
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
     run_test("MainActivity : Version 1.4.10 (45) dans le bridge natif", lambda: '1.4.10 (45)' in main_act_content)
     run_test("MainActivity : Pont Natif showMessageNotification disponible", lambda: 'showMessageNotification' in main_act_content)
