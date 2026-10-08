@@ -144,7 +144,7 @@ const RandoLogger = (function() {
       const lines = [
         `=== RANDOTRACKER RAPPORT DE DIAGNOSTIC & LOGS ===`,
         `Généré le : ${new Date().toLocaleString('fr-FR')}`,
-        `Version : v1.4.11 (46) • Cache v87`,
+        `Version : v1.4.12 (50) • Cache v88`,
         `User Agent : ${navigator.userAgent}`,
         `Salon : ${typeof state !== 'undefined' ? state.roomCode : 'N/A'}`,
         `Moi : ${typeof state !== 'undefined' && state.myUser ? state.myUser.name : 'N/A'} (ID: ${typeof state !== 'undefined' && state.myUser ? state.myUser.id : 'N/A'})`,

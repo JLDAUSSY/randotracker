@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Constructeur et compilateur de l'Android App Bundle (.aab) et APK pour RandoTracker V1.4.11 (46)
+Constructeur et compilateur de l'Android App Bundle (.aab) et APK pour RandoTracker V1.4.12 (50)
 Génère le projet Android complet avec pont natif, scanner QR caméra, service d'arrière-plan haute priorité,
 support des notifications montre & lockscreen, transmission MQTT native écran éteint et compilation Play Store / Release.
 """
@@ -131,8 +131,8 @@ android {{
         applicationId = "fr.jldaussy.randotracker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 46
-        versionName = "1.4.11"
+        versionCode = 50
+        versionName = "1.4.12"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -532,7 +532,7 @@ public class RandoMainActivity extends AppCompatActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.11 (46)";
+            return "1.4.12 (50)";
         }
 
         @JavascriptInterface
