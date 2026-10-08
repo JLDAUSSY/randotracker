@@ -53,8 +53,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v86 -->
-  <link rel="stylesheet" href="styles.css?v=86" />
+  <!-- Custom Styles with Cache-Busting v87 -->
+  <link rel="stylesheet" href="styles.css?v=87" />
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -119,19 +119,19 @@
     <!-- LEAFLET MAP -->
     <div id="map" class="w-full h-full z-0"></div>
 
-    <!-- BARRE DE RECHERCHE DE VILLE / COMMUNE SUR LA CARTE -->
-    <div id="city-search-container" class="absolute top-3 left-3 sm:left-4 z-20 w-60 sm:w-72 max-w-[calc(100vw-24px)] flex flex-col pointer-events-auto">
-      <div class="relative flex items-center bg-slate-900/95 backdrop-blur-md border-2 border-slate-700/90 hover:border-emerald-500/80 rounded-2xl shadow-2xl transition overflow-hidden">
-        <button id="city-search-icon-btn" onclick="triggerCitySearch()" class="p-2 sm:p-2.5 text-slate-400 hover:text-emerald-400 transition" title="Rechercher une ville">
-          <i data-lucide="search" class="w-4 h-4 text-emerald-400"></i>
+    <!-- BARRE DE RECHERCHE DE VILLE / COMMUNE SUR LA CARTE (Large, Épurée et Haut Contraste) -->
+    <div id="city-search-container" class="absolute top-3 left-3 right-3 sm:right-auto z-20 w-[calc(100vw-24px)] sm:w-84 md:w-96 max-w-md flex flex-col pointer-events-auto">
+      <div class="relative flex items-center bg-[#0d1e2e] border-2 border-slate-600 focus-within:border-emerald-400 rounded-2xl shadow-2xl transition overflow-hidden">
+        <button id="city-search-icon-btn" onclick="triggerCitySearch()" class="p-3 text-emerald-400 hover:text-emerald-300 transition shrink-0" title="Rechercher une commune">
+          <i data-lucide="search" class="w-5 h-5 text-emerald-400"></i>
         </button>
-        <input type="text" id="city-search-input" placeholder="Rechercher une ville..." autocomplete="off" class="w-full bg-transparent text-white text-xs sm:text-sm font-bold placeholder-slate-400 focus:outline-none pr-8 py-2" oninput="handleCitySearchInput(event)" onkeydown="if(event.key==='Enter'){triggerCitySearch();}" />
-        <button id="city-search-clear-btn" onclick="clearCitySearch()" class="hidden absolute right-2 p-1 text-slate-400 hover:text-white rounded-full bg-slate-800 hover:bg-slate-700 transition" title="Effacer">
-          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        <input type="text" id="city-search-input" placeholder="Rechercher une commune / ville..." autocomplete="off" class="w-full bg-transparent text-white text-base font-bold placeholder-slate-400 focus:outline-none pr-10 py-3" oninput="handleCitySearchInput(event)" onkeydown="if(event.key==='Enter'){triggerCitySearch();}" />
+        <button id="city-search-clear-btn" onclick="clearCitySearch()" class="hidden absolute right-2.5 w-8 h-8 flex items-center justify-center text-slate-300 hover:text-white rounded-full bg-slate-800 hover:bg-slate-700 transition" title="Effacer">
+          <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
       <!-- Dropdown suggestions -->
-      <div id="city-search-results" class="hidden mt-1 bg-slate-900/98 backdrop-blur-md border border-slate-700 rounded-2xl shadow-2xl overflow-hidden max-h-60 overflow-y-auto flex flex-col divide-y divide-slate-800">
+      <div id="city-search-results" class="hidden mt-1.5 bg-[#0d1e2e] border-2 border-slate-600 rounded-2xl shadow-2xl overflow-hidden max-h-72 overflow-y-auto flex flex-col divide-y divide-slate-700">
       </div>
     </div>
 
@@ -1683,7 +1683,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v86 -->
-  <script src="app.js?v=86"></script>
+  <!-- Main Application Script with Cache-Busting v87 -->
+  <script src="app.js?v=87"></script>
 </body>
 </html>

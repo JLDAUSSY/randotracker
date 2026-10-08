@@ -1610,21 +1610,38 @@ main {
   max-width: calc(100vw - 24px);
 }
 
+#city-search-container input {
+  font-size: 16px !important; /* Taille lisible et anti-zoom automatique mobile */
+  color: #ffffff !important;
+}
+
+#city-search-container input::placeholder {
+  color: #94a3b8 !important;
+  font-size: 14px;
+}
+
+#city-search-results {
+  background-color: #0d1e2e !important;
+  border: 2px solid #334155 !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.85) !important;
+}
+
 .city-search-pin {
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.5));
 }
 
 .city-search-item {
-  padding: 10px 14px;
+  background-color: #0d1e2e !important;
+  padding: 12px 16px;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
 .city-search-item:hover, .city-search-item:active {
-  background-color: rgba(16, 185, 129, 0.2);
+  background-color: #1e293b !important;
 }
 
 /* ========================================================================== */

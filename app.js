@@ -144,7 +144,7 @@ const RandoLogger = (function() {
       const lines = [
         `=== RANDOTRACKER RAPPORT DE DIAGNOSTIC & LOGS ===`,
         `Généré le : ${new Date().toLocaleString('fr-FR')}`,
-        `Version : v1.4.11 (46) • Cache v86`,
+        `Version : v1.4.11 (46) • Cache v87`,
         `User Agent : ${navigator.userAgent}`,
         `Salon : ${typeof state !== 'undefined' ? state.roomCode : 'N/A'}`,
         `Moi : ${typeof state !== 'undefined' && state.myUser ? state.myUser.name : 'N/A'} (ID: ${typeof state !== 'undefined' && state.myUser ? state.myUser.id : 'N/A'})`,
@@ -6944,8 +6944,8 @@ async function fetchCitySuggestions(query, autoSelectFirst = false) {
 
     if (suggestions.length === 0) {
       resultsDropdown.innerHTML = `
-        <div class="p-3 text-xs text-slate-400 font-bold text-center">
-          Aucune ville trouvée pour "${query}"
+        <div class="p-4 text-sm text-amber-300 font-black text-center">
+          ⚠️ Aucune commune trouvée pour "${query}"
         </div>
       `;
       resultsDropdown.classList.remove('hidden');
@@ -6958,19 +6958,21 @@ async function fetchCitySuggestions(query, autoSelectFirst = false) {
       return;
     }
 
-    // Rendu de la liste déroulante des résultats
+    // Rendu de la liste déroulante des résultats avec lisibilité et contraste maximum
     resultsDropdown.innerHTML = suggestions.map((s, idx) => `
-      <div class="city-search-item flex items-center justify-between text-left cursor-pointer p-2.5 sm:p-3 hover:bg-slate-800 transition border-b border-slate-800 last:border-0" onclick="selectSearchedCity(${s.lat}, ${s.lon}, '${s.name.replace(/'/g, "\\'")}', '${(s.context || '').replace(/'/g, "\\'")}')">
-        <div class="min-w-0 flex-1">
-          <div class="text-xs sm:text-sm font-black text-white truncate flex items-center gap-1.5">
-            <span class="text-emerald-400">📍</span>
-            <span>${s.name}</span>
+      <div class="city-search-item flex items-center justify-between text-left cursor-pointer p-3.5 sm:p-4 hover:bg-slate-800 active:bg-emerald-950/90 transition border-b border-slate-700/80 last:border-0" onclick="selectSearchedCity(${s.lat}, ${s.lon}, '${s.name.replace(/'/g, "\\'")}', '${(s.context || '').replace(/'/g, "\\'")}')">
+        <div class="min-w-0 flex-1 pr-2.5">
+          <div class="text-sm sm:text-base font-black text-amber-300 truncate flex items-center gap-1.5">
+            <span class="text-emerald-400 shrink-0 text-base">📍</span>
+            <span class="truncate">${s.name}</span>
           </div>
-          <div class="text-[10px] sm:text-[11px] text-slate-400 font-semibold truncate mt-0.5">
+          <div class="text-xs sm:text-sm text-slate-200 font-bold truncate mt-0.5">
             ${s.context}
           </div>
         </div>
-        <span class="text-xs text-slate-500 font-bold shrink-0 ml-2">Zoom ➔</span>
+        <span class="px-2.5 py-1 rounded-lg bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 text-xs font-black shrink-0">
+          Zoomer ➔
+        </span>
       </div>
     `).join('');
 
