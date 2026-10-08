@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Constructeur et compilateur de l'Android App Bundle (.aab) et APK pour RandoTracker V1.4.9 (43)
+Constructeur et compilateur de l'Android App Bundle (.aab) et APK pour RandoTracker V1.4.10 (45)
 Génère le projet Android complet avec pont natif, scanner QR caméra, service d'arrière-plan haute priorité,
 support des notifications montre & lockscreen, transmission MQTT native écran éteint et compilation Play Store / Release.
 """
@@ -131,8 +131,8 @@ android {{
         applicationId = "fr.jldaussy.randotracker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 44
-        versionName = "1.4.9"
+        versionCode = 45
+        versionName = "1.4.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -244,7 +244,9 @@ public class RandoMainActivity extends LauncherActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         checkAndRequestPermissions();
-        startGpsService();
+        if (hasLocationPermission()) {
+            startGpsService();
+        }
         handleIntent(getIntent());
     }
 
@@ -267,6 +269,11 @@ public class RandoMainActivity extends LauncherActivity {
                 }
             }
         }
+    }
+
+    private boolean hasLocationPermission() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+               ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void checkAndRequestPermissions() {
@@ -301,7 +308,10 @@ public class RandoMainActivity extends LauncherActivity {
         }
     }
 
-    private void startGpsService() {
+    public void startGpsService() {
+        if (!hasLocationPermission()) {
+            return;
+        }
         try {
             Intent serviceIntent = new Intent(this, RandoGpsForegroundService.class);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -314,11 +324,23 @@ public class RandoMainActivity extends LauncherActivity {
         }
     }
 
+    public void stopGpsService() {
+        try {
+            Intent serviceIntent = new Intent(this, RandoGpsForegroundService.class);
+            serviceIntent.setAction(RandoGpsForegroundService.ACTION_STOP_SERVICE);
+            startService(serviceIntent);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQ_CODE) {
-            startGpsService();
+            if (hasLocationPermission()) {
+                startGpsService();
+            }
         }
     }
 
@@ -334,7 +356,7 @@ public class RandoMainActivity extends LauncherActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.9 (44)";
+            return "1.4.10 (45)";
         }
 
         @JavascriptInterface
@@ -351,6 +373,11 @@ public class RandoMainActivity extends LauncherActivity {
         public void updateSession(String room, String userId, String name, String icon, String color, String assignedTrackId, boolean isTrackingGps) {
             RandoGpsForegroundService.updateSessionConfig(getApplicationContext(), room, userId, name, "Randonneur", color, icon, false);
         }
+
+        @JavascriptInterface
+        public void stopTrackingService() {
+            stopGpsService();
+        }
     }
 }
 """
@@ -359,6 +386,7 @@ with open(os.path.join(app_dir, "src", "main", "java", "fr", "jldaussy", "randot
 
 service_java = """package fr.jldaussy.randotracker;
 
+import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -367,6 +395,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.location.LocationListener;
@@ -380,6 +409,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PowerManager;
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -396,6 +426,7 @@ public class RandoGpsForegroundService extends Service {
     public static final String MESSAGE_CHANNEL_ID = "rando_messages_alerts_v3";
     public static final int NOTIFICATION_ID = 2026;
     public static final String PREFS_NAME = "randotracker_config";
+    public static final String ACTION_STOP_SERVICE = "fr.jldaussy.randotracker.ACTION_STOP_SERVICE";
     
     private static volatile String activeRoom = "RANDO-2026";
     private static volatile String activeUserId = "";
@@ -448,6 +479,11 @@ public class RandoGpsForegroundService extends Service {
         acquirePartialWakeLock();
         initNativeLocationListener();
         initMqttListener();
+    }
+
+    private boolean hasLocationPermission() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+               ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void loadSavedConfig() {
@@ -520,20 +556,34 @@ public class RandoGpsForegroundService extends Service {
         
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, launchIntent, flags);
 
+        // Bouton Arrêter le suivi directement dans la notification
+        Intent stopIntent = new Intent(this, RandoGpsForegroundService.class);
+        stopIntent.setAction(ACTION_STOP_SERVICE);
+        PendingIntent stopPendingIntent = PendingIntent.getService(this, 101, stopIntent, flags);
+
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("🥾 RandoTracker • Suivi GPS actif")
             .setContentText("Position partagée en direct (écran allumé ou éteint en poche)")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "🛑 Arrêter le suivi", stopPendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && hasLocationPermission()) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (Exception e) {
+            try {
+                startForeground(NOTIFICATION_ID, notification);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
     }
 
@@ -770,6 +820,11 @@ public class RandoGpsForegroundService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_STOP_SERVICE.equals(intent.getAction())) {
+            stopForeground(true);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         return START_STICKY;
     }
 

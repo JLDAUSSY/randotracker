@@ -512,17 +512,13 @@ function loadSavedOtherUsersFromStorage() {
     const data = JSON.parse(str);
     if (!data || data.roomCode !== state.roomCode || !Array.isArray(data.users)) return false;
 
-    // Restaurer les participants de la session de moins de 5 heures (en excluant les fantômes "Guide" / "Animateur")
+    // Restaurer les participants de la session de moins de 5 heures
     const now = Date.now();
     const maxFreshnessMs = 5 * 3600 * 1000;
     let loadedCount = 0;
 
-    const genericNames = ['guide', 'animateur', 'guide de tête', 'guide de tete', 'randonneur', 'marcheur', 'participant', ''];
-    const myNameClean = (state.myUser.name || '').trim().toLowerCase();
-
     data.users.forEach(u => {
-      const uName = (u && u.name ? u.name.trim().toLowerCase() : '');
-      if (u && u.id && u.id !== state.myUser.id && !genericNames.includes(uName) && uName !== myNameClean && (now - (u.lastSeen || 0) < maxFreshnessMs)) {
+      if (u && u.id && u.id !== state.myUser.id && (now - (u.lastSeen || 0) < maxFreshnessMs)) {
         state.otherUsers.set(u.id, u);
         createOrUpdateUserMarker(u);
         loadedCount++;
@@ -533,7 +529,6 @@ function loadSavedOtherUsersFromStorage() {
       renderUsersList();
       return true;
     } else {
-      // Si la liste ne contenait que des fantômes obsolètes, réenregistrer une liste propre
       saveOtherUsersToStorage();
     }
   } catch (e) {
@@ -2689,7 +2684,6 @@ function normalizeHikerName(name) {
 
 function deduplicateUsersByName() {
   const genericNormalized = new Set(['randonneur', 'marcheur', 'participant', 'guide', 'guidedetete', 'animateur', '']);
-  const myNameNorm = normalizeHikerName(state.myUser.name);
   const byNormName = new Map();
 
   // Purger les marqueurs orphelins sur la carte Leaflet
@@ -2704,50 +2698,39 @@ function deduplicateUsersByName() {
   });
 
   state.otherUsers.forEach((user, id) => {
-    // 0. Si pour une raison quelconque mon propre ID s'est retrouvé dans otherUsers, le retirer
+    // 0. Si mon propre ID s'est retrouvé dans otherUsers, le retirer
     if (id === state.myUser.id || user.id === state.myUser.id) {
       removeUserMarker(id);
       state.otherUsers.delete(id);
       return;
     }
 
+    if (!user.name || !user.name.trim()) {
+      user.name = 'Randonneur';
+    }
+
     const uNorm = normalizeHikerName(user.name);
 
-    // 0bis. Purger immédiatement tout profil générique ou non nommé (Guide, Animateur, Randonneur, etc.)
-    if (!uNorm || genericNormalized.has(uNorm)) {
-      console.log(`[Deduplication] Élimination du profil générique/non nommé '${user.name}' (${id})`);
-      removeUserMarker(id);
-      state.otherUsers.delete(id);
-      return;
-    }
+    // Si c'est un nom personnalisé (non-générique) et qu'il existe déjà un autre participant avec ce même nom exact,
+    // fusionner pour garder la session la plus récente (gestion des reconnexions)
+    if (uNorm && !genericNormalized.has(uNorm)) {
+      if (byNormName.has(uNorm)) {
+        const existing = byNormName.get(uNorm);
+        const existingTime = existing.lastSeen || 0;
+        const thisTime = user.lastSeen || 0;
 
-    // 1. Si un participant distant porte le même nom que Moi (insensible aux accents et majuscules : Edith === Édith)
-    if (myNameNorm && uNorm === myNameNorm) {
-      console.log(`[Deduplication] Suppression session doublon de moi-même (${user.name} - ${id})`);
-      removeUserMarker(id);
-      state.otherUsers.delete(id);
-      return;
-    }
-
-    // 2. Si deux participants distants portent le même prénom (ex: "Edith" vs "Édith", ou reconnexion)
-    if (byNormName.has(uNorm)) {
-      const existing = byNormName.get(uNorm);
-      const existingTime = existing.lastSeen || 0;
-      const thisTime = user.lastSeen || 0;
-
-      // Conserver la session la plus fraîche/active
-      if (thisTime >= existingTime) {
-        console.log(`[Deduplication] Fusion doublon : remplacement session obsolète de ${existing.name} (${existing.id}) par ${user.name} (${id})`);
-        removeUserMarker(existing.id);
-        state.otherUsers.delete(existing.id);
-        byNormName.set(uNorm, user);
+        // Conserver la session la plus fraîche/active
+        if (thisTime >= existingTime) {
+          removeUserMarker(existing.id);
+          state.otherUsers.delete(existing.id);
+          byNormName.set(uNorm, user);
+        } else {
+          removeUserMarker(id);
+          state.otherUsers.delete(id);
+        }
       } else {
-        console.log(`[Deduplication] Suppression session doublon obsolète de ${user.name} (${id})`);
-        removeUserMarker(id);
-        state.otherUsers.delete(id);
+        byNormName.set(uNorm, user);
       }
-    } else {
-      byNormName.set(uNorm, user);
     }
   });
 }
@@ -4281,13 +4264,6 @@ function broadcastMyPosition(forceNow = false) {
       return;
     }
 
-    // Ne pas diffuser aux autres si notre nom est générique / non personnalisé (ex: session PC en consultation)
-    const myName = (state.myUser.name || '').trim().toLowerCase();
-    const genericNames = ['guide', 'animateur', 'guide de tête', 'guide de tete', 'randonneur', 'marcheur', 'participant', ''];
-    if (genericNames.includes(myName)) {
-      return;
-    }
-
     // Calcul de la cadence adaptative :
     // 1. Haute urgence / Alerte (SOS ou >50m sortie de trace) : 2.5 secondes
     // 2. Pause / Stationnaire (< 0.8 km/h ou auto-pause) : 45 secondes (Eco-Pause)
@@ -4337,17 +4313,12 @@ function handleIncomingMessage(data) {
     if (data.senderId === state.myUser.id) return; // Ignore nos propres messages
     if (data.room && data.room !== state.roomCode) return;
 
-    const myNameClean = (state.myUser.name || '').trim().toLowerCase();
-    const genericNames = ['guide', 'animateur', 'guide de tête', 'guide de tete', 'randonneur', 'marcheur', 'participant', ''];
-
     if (data.type === 'request_presence') {
-      // Un participant demande la liste des présents : répondre immédiatement si nous sommes nommés
-      if (!genericNames.includes(myNameClean)) {
-        publishMessage({
-          type: 'respond_presence',
-          user: state.myUser
-        });
-      }
+      // Un participant demande la liste des présents : répondre immédiatement
+      publishMessage({
+        type: 'respond_presence',
+        user: state.myUser
+      });
       // Si nous avons des traces, les transmettre
       if (state.tracks.length > 0) {
         publishMessage({
@@ -4359,10 +4330,6 @@ function handleIncomingMessage(data) {
     } else if (data.type === 'user_joined') {
       const user = data.user;
       if (user && user.id !== state.myUser.id) {
-        const uName = (user.name || '').trim().toLowerCase();
-        if (genericNames.includes(uName) || uName === myNameClean) {
-          return;
-        }
         if (!user.lastSeen) user.lastSeen = Date.now();
         state.otherUsers.set(user.id, user);
         deduplicateUsersByName();
@@ -4370,15 +4337,13 @@ function handleIncomingMessage(data) {
         saveOtherUsersToStorage();
         renderUsersList();
         refreshActiveUserPopups();
-        showToast(`👋 ${user.name} a rejoint la rando !`, 'info');
+        showToast(`👋 ${user.name || 'Un marcheur'} a rejoint la rando !`, 'info');
 
-        // Répondre IMMÉDIATEMENT au nouvel arrivant avec notre présence si nous sommes nommés
-        if (!genericNames.includes(myNameClean)) {
-          publishMessage({
-            type: 'respond_presence',
-            user: state.myUser
-          });
-        }
+        // Répondre IMMÉDIATEMENT au nouvel arrivant avec notre présence
+        publishMessage({
+          type: 'respond_presence',
+          user: state.myUser
+        });
 
         // Si nous avons des traces GPX chargées, nous les envoyons au nouvel arrivant
         if (state.tracks.length > 0) {
@@ -4392,10 +4357,6 @@ function handleIncomingMessage(data) {
     } else if (data.type === 'respond_presence' || data.type === 'update_position' || data.type === 'user_updated') {
       const user = data.user;
       if (user && user.id !== state.myUser.id) {
-        const uName = (user.name || '').trim().toLowerCase();
-        if (genericNames.includes(uName) || uName === myNameClean) {
-          return;
-        }
         if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
           if (!user.lastSeen) user.lastSeen = Date.now();
           state.otherUsers.set(user.id, user);
@@ -6717,6 +6678,250 @@ window.startPocketHoldUnlock = startPocketHoldUnlock;
 window.cancelPocketHoldUnlock = cancelPocketHoldUnlock;
 window.updatePocketModeTelemetry = updatePocketModeTelemetry;
 
+// ============================================================================
+// RECHERCHE DE VILLE / COMMUNE SUR LA CARTE & CADRAGE IMMÉDIAT
+// ============================================================================
+let citySearchDebounceTimer = null;
+
+function handleCitySearchInput(event) {
+  const input = document.getElementById('city-search-input');
+  const clearBtn = document.getElementById('city-search-clear-btn');
+  const resultsDropdown = document.getElementById('city-search-results');
+  if (!input) return;
+
+  const query = input.value.trim();
+  if (clearBtn) {
+    if (query.length > 0) {
+      clearBtn.classList.remove('hidden');
+    } else {
+      clearBtn.classList.add('hidden');
+    }
+  }
+
+  if (citySearchDebounceTimer) {
+    clearTimeout(citySearchDebounceTimer);
+  }
+
+  if (query.length < 2) {
+    if (resultsDropdown) {
+      resultsDropdown.classList.add('hidden');
+      resultsDropdown.innerHTML = '';
+    }
+    return;
+  }
+
+  citySearchDebounceTimer = setTimeout(() => {
+    fetchCitySuggestions(query);
+  }, 250);
+}
+
+function clearCitySearch() {
+  const input = document.getElementById('city-search-input');
+  const clearBtn = document.getElementById('city-search-clear-btn');
+  const resultsDropdown = document.getElementById('city-search-results');
+  if (input) input.value = '';
+  if (clearBtn) clearBtn.classList.add('hidden');
+  if (resultsDropdown) {
+    resultsDropdown.classList.add('hidden');
+    resultsDropdown.innerHTML = '';
+  }
+}
+
+async function triggerCitySearch() {
+  const input = document.getElementById('city-search-input');
+  if (!input) return;
+  const query = input.value.trim();
+  if (!query) return;
+
+  await fetchCitySuggestions(query, true);
+}
+
+async function fetchCitySuggestions(query, autoSelectFirst = false) {
+  const resultsDropdown = document.getElementById('city-search-results');
+  if (!resultsDropdown) return;
+
+  try {
+    // 1. Recherche prioritaire sur l'API Adresse officielle française (rapide, précis, sans clé)
+    let suggestions = [];
+    try {
+      const respGov = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&type=municipality&limit=5`);
+      if (respGov.ok) {
+        const dataGov = await respGov.json();
+        if (dataGov && dataGov.features && dataGov.features.length > 0) {
+          suggestions = dataGov.features.map(f => ({
+            name: f.properties.name || f.properties.city,
+            context: f.properties.context || `${f.properties.postcode || ''} ${f.properties.city || ''}`,
+            lat: f.geometry.coordinates[1],
+            lon: f.geometry.coordinates[0],
+            country: 'France 🇫🇷'
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('[CitySearch] API Adresse non disponible, fallback OSM:', e);
+    }
+
+    // 2. Fallback Nominatim OpenStreetMap (monde entier) si aucun résultat français
+    if (suggestions.length === 0) {
+      try {
+        const respOsm = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
+        if (respOsm.ok) {
+          const dataOsm = await respOsm.json();
+          if (Array.isArray(dataOsm) && dataOsm.length > 0) {
+            suggestions = dataOsm.map(item => ({
+              name: item.name || item.display_name.split(',')[0],
+              context: item.display_name,
+              lat: parseFloat(item.lat),
+              lon: parseFloat(item.lon),
+              country: item.address ? (item.address.country || '') : ''
+            }));
+          }
+        }
+      } catch (e) {
+        console.warn('[CitySearch] Nominatim indisponible:', e);
+      }
+    }
+
+    if (suggestions.length === 0) {
+      resultsDropdown.innerHTML = `
+        <div class="p-3 text-xs text-slate-400 font-bold text-center">
+          Aucune ville trouvée pour "${query}"
+        </div>
+      `;
+      resultsDropdown.classList.remove('hidden');
+      return;
+    }
+
+    if (autoSelectFirst && suggestions.length > 0) {
+      const top = suggestions[0];
+      selectSearchedCity(top.lat, top.lon, top.name, top.context);
+      return;
+    }
+
+    // Rendu de la liste déroulante des résultats
+    resultsDropdown.innerHTML = suggestions.map((s, idx) => `
+      <div class="city-search-item flex items-center justify-between text-left cursor-pointer p-2.5 sm:p-3 hover:bg-slate-800 transition border-b border-slate-800 last:border-0" onclick="selectSearchedCity(${s.lat}, ${s.lon}, '${s.name.replace(/'/g, "\\'")}', '${(s.context || '').replace(/'/g, "\\'")}')">
+        <div class="min-w-0 flex-1">
+          <div class="text-xs sm:text-sm font-black text-white truncate flex items-center gap-1.5">
+            <span class="text-emerald-400">📍</span>
+            <span>${s.name}</span>
+          </div>
+          <div class="text-[10px] sm:text-[11px] text-slate-400 font-semibold truncate mt-0.5">
+            ${s.context}
+          </div>
+        </div>
+        <span class="text-xs text-slate-500 font-bold shrink-0 ml-2">Zoom ➔</span>
+      </div>
+    `).join('');
+
+    resultsDropdown.classList.remove('hidden');
+  } catch (e) {
+    console.error('[CitySearch] Erreur recherche ville:', e);
+  }
+}
+
+function selectSearchedCity(lat, lon, name, context) {
+  if (typeof lat !== 'number' || typeof lon !== 'number' || isNaN(lat) || isNaN(lon)) return;
+
+  const resultsDropdown = document.getElementById('city-search-results');
+  const input = document.getElementById('city-search-input');
+  const clearBtn = document.getElementById('city-search-clear-btn');
+
+  if (input) input.value = name;
+  if (clearBtn) clearBtn.classList.remove('hidden');
+  if (resultsDropdown) {
+    resultsDropdown.classList.add('hidden');
+    resultsDropdown.innerHTML = '';
+  }
+
+  if (!state.map) return;
+
+  // Cadrage fluide vers la ville trouvée (zoom 13 adapté randonnée & topographie)
+  state.map.flyTo([lat, lon], 13, {
+    animate: true,
+    duration: 1.5
+  });
+
+  // Marqueur visuel animé sur la ville trouvée
+  if (state.citySearchMarker) {
+    try { state.map.removeLayer(state.citySearchMarker); } catch (e) {}
+    state.citySearchMarker = null;
+  }
+
+  const cityIcon = L.divIcon({
+    className: 'city-search-pin',
+    html: `
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 via-indigo-600 to-blue-700 border-2 border-white text-white flex items-center justify-center text-xl shadow-2xl animate-bounce">
+        📍
+      </div>
+    `,
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40]
+  });
+
+  state.citySearchMarker = L.marker([lat, lon], { icon: cityIcon }).addTo(state.map);
+  state.citySearchMarker.bindPopup(`
+    <div class="p-2 text-center">
+      <div class="font-black text-sm text-slate-900">📍 ${name}</div>
+      ${context ? `<div class="text-[11px] text-slate-600 font-bold mt-0.5">${context}</div>` : ''}
+    </div>
+  `).openPopup();
+
+  showToast(`📍 Carte centrée sur : ${name}`, 'success');
+}
+
+// ============================================================================
+// ARRÊT PROPRE DU SUIVI GPS & DÉCONNEXION COMPLÈTE DE L'APPLICATION
+// ============================================================================
+function stopTrackingAndExitApp() {
+  if (!confirm('Voulez-vous arrêter le suivi GPS et quitter la session ?\n\nVotre position ne sera plus transmise au groupe et le service d\'arrière-plan sera immédiatement coupé.')) {
+    return;
+  }
+
+  try {
+    // 1. Couper les moteurs de maintien d'arrière-plan
+    stopGpsWorkerHeartbeat();
+    stopBackgroundKeepAlive();
+    releaseWakeLock();
+
+    // 2. Stopper la géolocalisation matérielle
+    stopGpsWatch();
+
+    // 3. Informer le service natif Android d'arrêter le Foreground Service
+    if (window.AndroidBridge && typeof window.AndroidBridge.stopTrackingService === 'function') {
+      try {
+        window.AndroidBridge.stopTrackingService();
+        console.log('[StopTracking] Service natif Android stoppé avec succès.');
+      } catch (e) {
+        console.warn('[StopTracking] Erreur stop native bridge:', e);
+      }
+    }
+
+    // 4. Envoyer un message de déconnexion et couper MQTT
+    if (mqttClient) {
+      try {
+        publishMessage({
+          type: 'user_left',
+          user: state.myUser
+        });
+        mqttClient.end(true);
+      } catch (e) {}
+      mqttClient = null;
+    }
+
+    // 5. Mettre à jour l'état et l'interface
+    state.isTrackingGps = false;
+    state.gpsStartTime = null;
+
+    closeProfileModal();
+    updateConnectionStatus(false);
+    showToast('🛑 Suivi GPS arrêté. Batterie et réseau libérés.', 'info');
+  } catch (e) {
+    console.error('[StopTracking] Erreur lors de l\'arrêt du suivi:', e);
+  }
+}
+
 // QR Scanner & Saisie Prénom Marcheur
 window.openQrScanner = openQrScanner;
 window.closeQrScanner = closeQrScanner;
@@ -6732,4 +6937,11 @@ window.initOrdnanceSurveyLayer = initOrdnanceSurveyLayer;
 window.saveOrdnanceSurveyApiKey = saveOrdnanceSurveyApiKey;
 window.updateOsApiKeyUI = updateOsApiKeyUI;
 window.selectEmergencyCountry = selectEmergencyCountry;
+window.handleCitySearchInput = handleCitySearchInput;
+window.clearCitySearch = clearCitySearch;
+window.triggerCitySearch = triggerCitySearch;
+window.fetchCitySuggestions = fetchCitySuggestions;
+window.selectSearchedCity = selectSearchedCity;
+window.stopTrackingAndExitApp = stopTrackingAndExitApp;
 window.state = state;
+

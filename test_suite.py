@@ -73,7 +73,10 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.9 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.9' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.10 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.10' in soup.find(id='header-app-version').text)
+run_test("Presence de la barre de recherche de ville (#city-search-container)", lambda: soup.find(id='city-search-container') is not None)
+run_test("Presence du champ input de recherche de ville (#city-search-input)", lambda: soup.find(id='city-search-input') is not None)
+run_test("Presence du bouton d'arret du suivi dans le profil (#btn-stop-tracking-app)", lambda: soup.find(id='btn-stop-tracking-app') is not None)
 
 run_test("Presence de la barre inferieure .app-bottom-nav", lambda: soup.find('nav', class_='app-bottom-nav') is not None)
 run_test("Presence de la touche SOS (id=nav-btn-sos)", lambda: soup.find(id='nav-btn-sos') is not None)
@@ -288,6 +291,15 @@ run_test("Optimisation Batterie : Suppression des boucles redondantes en mode na
 run_test("Optimisation Batterie : GNSS Duty-Cycling 3.5s dans Foreground Service", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoGpsForegroundService.java')) and '3500L' in open(os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoGpsForegroundService.java'), 'r', encoding='utf-8').read())
 run_test("Optimisation Batterie : Heartbeat adaptatif 45s à l'arrêt dans Foreground Service", lambda: '45000L' in open(os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoGpsForegroundService.java'), 'r', encoding='utf-8').read())
 
+# Tests Recherche de Ville sur Carte & Arrêt Propre
+run_test("Recherche Ville : Fonction handleCitySearchInput définie", lambda: 'function handleCitySearchInput' in js_text)
+run_test("Recherche Ville : Fonction clearCitySearch définie", lambda: 'function clearCitySearch' in js_text)
+run_test("Recherche Ville : Fonction triggerCitySearch définie", lambda: 'function triggerCitySearch' in js_text)
+run_test("Recherche Ville : Fonction selectSearchedCity définie avec map.flyTo", lambda: 'function selectSearchedCity' in js_text and 'map.flyTo' in js_text)
+run_test("Recherche Ville : Style .city-search-pin défini dans CSS", lambda: '.city-search-pin' in css_text)
+run_test("Arrêt Suivi : Fonction stopTrackingAndExitApp définie", lambda: 'function stopTrackingAndExitApp' in js_text)
+run_test("Visibilité Groupe : Absence de filtre bloquant genericNames dans broadcastMyPosition", lambda: 'genericNames.includes(myName)' not in js_text)
+
 # Tests Suivi GPS dans la poche (Écran éteint & Écran allumé)
 run_test("Maintien Arrière-plan Audio : Générateur WAV PCM silencieux (createSilentAudioBlobUrl)", lambda: 'createSilentAudioBlobUrl' in js_text and 'RIFF' in js_text)
 run_test("Maintien Arrière-plan Audio : Intégration MediaSession API (navigator.mediaSession)", lambda: 'mediaSession' in js_text and 'MediaMetadata' in js_text)
@@ -336,8 +348,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 44 configuré", lambda: 'versionCode = 44' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.9 configuré", lambda: 'versionName = "1.4.9"' in gradle_content)
+    run_test("Android Gradle : VersionCode 45 configuré", lambda: 'versionCode = 45' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.10 configuré", lambda: 'versionName = "1.4.10"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -345,8 +357,10 @@ if os.path.exists(main_activity_path):
     with open(main_activity_path, 'r', encoding='utf-8') as f:
         main_act_content = f.read()
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.9 (44) dans le bridge natif", lambda: '1.4.9 (44)' in main_act_content)
+    run_test("MainActivity : Version 1.4.10 (45) dans le bridge natif", lambda: '1.4.10 (45)' in main_act_content)
     run_test("MainActivity : Pont Natif showMessageNotification disponible", lambda: 'showMessageNotification' in main_act_content)
+    run_test("MainActivity : Pont Natif stopTrackingService disponible", lambda: 'stopTrackingService' in main_act_content)
+    run_test("MainActivity : Guard permission avant demarrage GPS (Anti-crash Android 14+)", lambda: 'hasLocationPermission()' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
     run_test("MainActivity : Gestionnaire BackPress délégué à JS (Anti-régression Pixel)", lambda: 'handleNativeBackPress' in main_act_content)
 
@@ -355,6 +369,7 @@ if os.path.exists(service_path):
         service_content = f.read()
     run_test("Foreground Service : Canal Messages rando_messages_alerts_v3 défini", lambda: 'rando_messages_alerts_v3' in service_content)
     run_test("Foreground Service : Canal Messages en IMPORTANCE_HIGH (réveil montre & lockscreen)", lambda: 'NotificationManager.IMPORTANCE_HIGH' in service_content)
+    run_test("Foreground Service : Action ACTION_STOP_SERVICE avec bouton notification", lambda: 'ACTION_STOP_SERVICE' in service_content)
     run_test("Foreground Service : Méthode showNativeNotification avec réveil écran et son", lambda: 'public static void showNativeNotification' in service_content and 'setContentIntent' in service_content)
     run_test("Foreground Service : Écouteur MQTT messageArrived gérant broadcast_announcement", lambda: 'broadcast_announcement' in service_content and 'messageArrived' in service_content)
 

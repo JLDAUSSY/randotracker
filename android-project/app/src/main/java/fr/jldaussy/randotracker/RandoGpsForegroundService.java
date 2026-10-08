@@ -1,5 +1,6 @@
 package fr.jldaussy.randotracker;
 
+import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -8,6 +9,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.location.Location;
 import android.location.LocationListener;
@@ -21,6 +23,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PowerManager;
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -37,6 +40,7 @@ public class RandoGpsForegroundService extends Service {
     public static final String MESSAGE_CHANNEL_ID = "rando_messages_alerts_v3";
     public static final int NOTIFICATION_ID = 2026;
     public static final String PREFS_NAME = "randotracker_config";
+    public static final String ACTION_STOP_SERVICE = "fr.jldaussy.randotracker.ACTION_STOP_SERVICE";
     
     private static volatile String activeRoom = "RANDO-2026";
     private static volatile String activeUserId = "";
@@ -89,6 +93,11 @@ public class RandoGpsForegroundService extends Service {
         acquirePartialWakeLock();
         initNativeLocationListener();
         initMqttListener();
+    }
+
+    private boolean hasLocationPermission() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+               ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void loadSavedConfig() {
@@ -161,20 +170,34 @@ public class RandoGpsForegroundService extends Service {
         
         PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, launchIntent, flags);
 
+        // Bouton Arrêter le suivi directement dans la notification
+        Intent stopIntent = new Intent(this, RandoGpsForegroundService.class);
+        stopIntent.setAction(ACTION_STOP_SERVICE);
+        PendingIntent stopPendingIntent = PendingIntent.getService(this, 101, stopIntent, flags);
+
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("🥾 RandoTracker • Suivi GPS actif")
             .setContentText("Position partagée en direct (écran allumé ou éteint en poche)")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .setContentIntent(pendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "🛑 Arrêter le suivi", stopPendingIntent)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .build();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && hasLocationPermission()) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+            } else {
+                startForeground(NOTIFICATION_ID, notification);
+            }
+        } catch (Exception e) {
+            try {
+                startForeground(NOTIFICATION_ID, notification);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
     }
 
@@ -411,6 +434,11 @@ public class RandoGpsForegroundService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null && ACTION_STOP_SERVICE.equals(intent.getAction())) {
+            stopForeground(true);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         return START_STICKY;
     }
 

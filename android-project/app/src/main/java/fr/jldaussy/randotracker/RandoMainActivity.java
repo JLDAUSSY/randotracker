@@ -21,7 +21,9 @@ public class RandoMainActivity extends LauncherActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         checkAndRequestPermissions();
-        startGpsService();
+        if (hasLocationPermission()) {
+            startGpsService();
+        }
         handleIntent(getIntent());
     }
 
@@ -44,6 +46,11 @@ public class RandoMainActivity extends LauncherActivity {
                 }
             }
         }
+    }
+
+    private boolean hasLocationPermission() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+               ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void checkAndRequestPermissions() {
@@ -78,7 +85,10 @@ public class RandoMainActivity extends LauncherActivity {
         }
     }
 
-    private void startGpsService() {
+    public void startGpsService() {
+        if (!hasLocationPermission()) {
+            return;
+        }
         try {
             Intent serviceIntent = new Intent(this, RandoGpsForegroundService.class);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -91,11 +101,23 @@ public class RandoMainActivity extends LauncherActivity {
         }
     }
 
+    public void stopGpsService() {
+        try {
+            Intent serviceIntent = new Intent(this, RandoGpsForegroundService.class);
+            serviceIntent.setAction(RandoGpsForegroundService.ACTION_STOP_SERVICE);
+            startService(serviceIntent);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_REQ_CODE) {
-            startGpsService();
+            if (hasLocationPermission()) {
+                startGpsService();
+            }
         }
     }
 
@@ -111,7 +133,7 @@ public class RandoMainActivity extends LauncherActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.9 (44)";
+            return "1.4.10 (45)";
         }
 
         @JavascriptInterface
@@ -127,6 +149,11 @@ public class RandoMainActivity extends LauncherActivity {
         @JavascriptInterface
         public void updateSession(String room, String userId, String name, String icon, String color, String assignedTrackId, boolean isTrackingGps) {
             RandoGpsForegroundService.updateSessionConfig(getApplicationContext(), room, userId, name, "Randonneur", color, icon, false);
+        }
+
+        @JavascriptInterface
+        public void stopTrackingService() {
+            stopGpsService();
         }
     }
 }
