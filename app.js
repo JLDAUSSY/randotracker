@@ -6926,56 +6926,143 @@ async function triggerCitySearch() {
   await fetchCitySuggestions(query, true);
 }
 
+function getCountryFlag(countryCode, countryName) {
+  const c = ((countryCode || '') + ' ' + (countryName || '')).toLowerCase();
+  if (c.includes('fr') || c.includes('france')) return '🇫🇷';
+  if (c.includes('es') || c.includes('españa') || c.includes('spain') || c.includes('espagne')) return '🇪🇸';
+  if (c.includes('ch') || c.includes('suisse') || c.includes('schweiz') || c.includes('switzerland')) return '🇨🇭';
+  if (c.includes('gb') || c.includes('uk') || c.includes('united kingdom') || c.includes('royaume-uni')) return '🇬🇧';
+  if (c.includes('it') || c.includes('italy') || c.includes('italie') || c.includes('italia')) return '🇮🇹';
+  if (c.includes('de') || c.includes('germany') || c.includes('deutschland') || c.includes('allemagne')) return '🇩🇪';
+  if (c.includes('ad') || c.includes('andorra') || c.includes('andorre')) return '🇦🇩';
+  if (c.includes('be') || c.includes('belgique') || c.includes('belgium')) return '🇧🇪';
+  if (c.includes('pt') || c.includes('portugal')) return '🇵🇹';
+  if (c.includes('at') || c.includes('österreich') || c.includes('autriche') || c.includes('austria')) return '🇦🇹';
+  return '🌍';
+}
+
 async function fetchCitySuggestions(query, autoSelectFirst = false) {
   const resultsDropdown = document.getElementById('city-search-results');
   if (!resultsDropdown) return;
 
+  const queryClean = (query || '').trim().toLowerCase();
+  if (!queryClean) return;
+
   try {
-    // 1. Recherche prioritaire sur l'API Adresse officielle française (rapide, précis, sans clé)
-    let suggestions = [];
-    try {
-      const respGov = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&type=municipality&limit=5`);
-      if (respGov.ok) {
-        const dataGov = await respGov.json();
-        if (dataGov && dataGov.features && dataGov.features.length > 0) {
-          suggestions = dataGov.features.map(f => ({
-            name: f.properties.name || f.properties.city,
-            context: f.properties.context || `${f.properties.postcode || ''} ${f.properties.city || ''}`,
-            lat: f.geometry.coordinates[1],
-            lon: f.geometry.coordinates[0],
-            country: 'France 🇫🇷'
-          }));
+    const rawResults = [];
+
+    // 1. Appel simultané API Adresse officielle (France) + Photon Komoot (Mondial OSM)
+    const [govRes, photonRes] = await Promise.allSettled([
+      fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&type=municipality&limit=5`, {
+        headers: { 'Accept': 'application/json' }
+      }).then(r => r.ok ? r.json() : null),
+      fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8`, {
+        headers: { 'Accept': 'application/json' }
+      }).then(r => r.ok ? r.json() : null)
+    ]);
+
+    // Traitement API Adresse France
+    if (govRes.status === 'fulfilled' && govRes.value && govRes.value.features) {
+      for (const f of govRes.value.features) {
+        const props = f.properties || {};
+        const coords = (f.geometry && f.geometry.coordinates) || [];
+        if (coords.length >= 2) {
+          const name = props.name || props.city || '';
+          let score = parseFloat(props.score || 0.5);
+          if (name.toLowerCase() === queryClean) score += 1.2;
+          else if (name.toLowerCase().startsWith(queryClean)) score += 0.4;
+
+          rawResults.push({
+            name: name,
+            context: props.context || `${props.postcode || ''} ${props.city || ''}`.trim() || 'France',
+            lat: coords[1],
+            lon: coords[0],
+            country: 'France',
+            flag: '🇫🇷',
+            score: score,
+            source: 'gov'
+          });
         }
       }
-    } catch (e) {
-      console.warn('[CitySearch] API Adresse non disponible, fallback OSM:', e);
     }
 
-    // 2. Fallback Nominatim OpenStreetMap (monde entier) si aucun résultat français
-    if (suggestions.length === 0) {
-      try {
-        const respOsm = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
-        if (respOsm.ok) {
-          const dataOsm = await respOsm.json();
-          if (Array.isArray(dataOsm) && dataOsm.length > 0) {
-            suggestions = dataOsm.map(item => ({
-              name: item.name || item.display_name.split(',')[0],
-              context: item.display_name,
-              lat: parseFloat(item.lat),
-              lon: parseFloat(item.lon),
-              country: item.address ? (item.address.country || '') : ''
-            }));
-          }
+    // Traitement Photon Komoot (Mondial : Espagne, Suisse, UK, Italie, France...)
+    if (photonRes.status === 'fulfilled' && photonRes.value && photonRes.value.features) {
+      for (const f of photonRes.value.features) {
+        const p = f.properties || {};
+        const coords = (f.geometry && f.geometry.coordinates) || [];
+        if (!p.name || coords.length < 2) continue;
+
+        const name = p.name;
+        const stateName = p.state || '';
+        const country = p.country || '';
+        const countryCode = p.countrycode || '';
+        const osmValue = p.osm_value || '';
+        const osmKey = p.osm_key || '';
+
+        const ctxParts = [stateName, country].filter(Boolean);
+        const context = ctxParts.join(', ');
+
+        let score = 0.6;
+        if (['city', 'town', 'municipality', 'village'].includes(osmValue)) {
+          score = 0.85;
+        } else if (['hamlet', 'suburb'].includes(osmValue)) {
+          score = 0.5;
+        } else if (osmKey === 'highway') {
+          score = 0.3;
         }
-      } catch (e) {
-        console.warn('[CitySearch] Nominatim indisponible:', e);
+
+        const nameLower = name.toLowerCase();
+        if (nameLower === queryClean) {
+          score += 1.3;
+        } else if (nameLower.startsWith(queryClean)) {
+          score += 0.5;
+        } else if (nameLower.includes(queryClean)) {
+          score += 0.2;
+        }
+
+        const flag = getCountryFlag(countryCode, country);
+        // Bonus pour destinations européennes majeures de randonnée
+        if (['🇫🇷', '🇪🇸', '🇨🇭', '🇬🇧', '🇮🇹', '🇦🇩', '🇩🇪', '🇦🇹'].includes(flag)) {
+          score += 0.3;
+        }
+
+        rawResults.push({
+          name: name,
+          context: context || country || 'Monde',
+          lat: coords[1],
+          lon: coords[0],
+          country: country,
+          flag: flag,
+          score: score,
+          source: 'photon'
+        });
       }
+    }
+
+    // Tri par pertinence décroissante
+    rawResults.sort((a, b) => b.score - a.score);
+
+    // Déduplication intelligente (proximité géographique ou même nom & drapeau)
+    const suggestions = [];
+    for (const r of rawResults) {
+      const isDup = suggestions.some(u => {
+        const dLat = Math.abs(r.lat - u.lat);
+        const dLon = Math.abs(r.lon - u.lon);
+        if (dLat < 0.08 && dLon < 0.08) return true;
+        if (r.name.toLowerCase() === u.name.toLowerCase() && r.flag === u.flag) return true;
+        return false;
+      });
+      if (!isDup) {
+        suggestions.push(r);
+      }
+      if (suggestions.length >= 6) break;
     }
 
     if (suggestions.length === 0) {
       resultsDropdown.innerHTML = `
         <div class="p-4 text-sm text-amber-300 font-black text-center">
-          ⚠️ Aucune commune trouvée pour "${query}"
+          ⚠️ Aucune localité trouvée pour "${escapeHtml(query)}"
         </div>
       `;
       resultsDropdown.classList.remove('hidden');
@@ -6988,16 +7075,16 @@ async function fetchCitySuggestions(query, autoSelectFirst = false) {
       return;
     }
 
-    // Rendu de la liste déroulante des résultats avec lisibilité et contraste maximum
-    resultsDropdown.innerHTML = suggestions.map((s, idx) => `
+    // Rendu de la liste déroulante avec drapeaux et contraste élevé
+    resultsDropdown.innerHTML = suggestions.map((s) => `
       <div class="city-search-item flex items-center justify-between text-left cursor-pointer p-3.5 sm:p-4 hover:bg-slate-800 active:bg-emerald-950/90 transition border-b border-slate-700/80 last:border-0" onclick="selectSearchedCity(${s.lat}, ${s.lon}, '${s.name.replace(/'/g, "\\'")}', '${(s.context || '').replace(/'/g, "\\'")}')">
         <div class="min-w-0 flex-1 pr-2.5">
           <div class="text-sm sm:text-base font-black text-amber-300 truncate flex items-center gap-1.5">
-            <span class="text-emerald-400 shrink-0 text-base">📍</span>
-            <span class="truncate">${s.name}</span>
+            <span class="shrink-0 text-base">${s.flag}</span>
+            <span class="truncate">${escapeHtml(s.name)}</span>
           </div>
           <div class="text-xs sm:text-sm text-slate-200 font-bold truncate mt-0.5">
-            ${s.context}
+            ${escapeHtml(s.context)}
           </div>
         </div>
         <span class="px-2.5 py-1 rounded-lg bg-emerald-600/30 text-emerald-300 border border-emerald-500/50 text-xs font-black shrink-0">
@@ -7008,7 +7095,7 @@ async function fetchCitySuggestions(query, autoSelectFirst = false) {
 
     resultsDropdown.classList.remove('hidden');
   } catch (e) {
-    console.error('[CitySearch] Erreur recherche ville:', e);
+    console.error('[CitySearch] Erreur recherche géographique:', e);
   }
 }
 
@@ -7028,11 +7115,18 @@ function selectSearchedCity(lat, lon, name, context) {
 
   if (!state.map) return;
 
-  // Cadrage fluide vers la ville trouvée (zoom 13 adapté randonnée & topographie)
+  // Cadrage fluide vers la localité trouvée (zoom 13 adapté randonnée & topographie)
   state.map.flyTo([lat, lon], 13, {
     animate: true,
     duration: 1.5
   });
+
+  // Commutation automatique du fond cartographique selon le pays trouvé (IGN España, Swisstopo, UK Topo, IGN France...)
+  try {
+    autoSelectMapLayerForCoords(lat, lon, 'gps');
+  } catch (e) {
+    console.warn('[CitySearch] autoSelectMapLayerForCoords error:', e);
+  }
 
   // Nettoyage de tout ancien marqueur de recherche
   if (state.citySearchMarker) {
@@ -7059,8 +7153,8 @@ function selectSearchedCity(lat, lon, name, context) {
   state.citySearchMarker = L.marker([lat, lon], { icon: cityIcon }).addTo(state.map);
   state.citySearchMarker.bindPopup(`
     <div class="p-2 text-center">
-      <div class="font-black text-sm text-slate-900">📍 ${name}</div>
-      ${context ? `<div class="text-[11px] text-slate-600 font-bold mt-0.5">${context}</div>` : ''}
+      <div class="font-black text-sm text-slate-900">📍 ${escapeHtml(name)}</div>
+      ${context ? `<div class="text-[11px] text-slate-600 font-bold mt-0.5">${escapeHtml(context)}</div>` : ''}
     </div>
   `).openPopup();
 
