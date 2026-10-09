@@ -960,7 +960,7 @@ public class RandoGpsForegroundService extends Service {
     private synchronized void ensureMqttConnected() {
         try {
             if (mqttClient == null) {
-                String broker = "tcp://broker.hivemq.com:1883";
+                String broker = "tcp://broker.emqx.io:1883";
                 String clientId = "RandoTracker_Native_" + (activeUserId.isEmpty() ? "gen" : activeUserId) + "_" + (System.currentTimeMillis() % 100000);
                 mqttClient = new MqttClient(broker, clientId, new MemoryPersistence());
             }
