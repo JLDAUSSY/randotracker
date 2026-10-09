@@ -10,8 +10,8 @@ android {
         applicationId = "fr.jldaussy.randotracker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 51
-        versionName = "1.4.13"
+        versionCode = 52
+        versionName = "1.4.14"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         

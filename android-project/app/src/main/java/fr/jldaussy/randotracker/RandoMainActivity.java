@@ -2,12 +2,14 @@ package fr.jldaussy.randotracker;
 
 import android.Manifest;
 import android.annotation.TargetApi;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
@@ -321,9 +323,8 @@ public class RandoMainActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (webView != null) {
-            webView.onPause();
-        }
+        // IMPORTANT : Ne pas appeler webView.onPause() pour permettre au moteur JavaScript,
+        // à la boucle audio keep-alive et aux WebSockets WSS de continuer l'émission en direct écran éteint.
     }
 
     @Override
@@ -338,7 +339,7 @@ public class RandoMainActivity extends AppCompatActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.13 (51)";
+            return "1.4.14 (52)";
         }
 
         @JavascriptInterface
@@ -365,6 +366,32 @@ public class RandoMainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void stopTrackingService() {
             stopGpsService();
+        }
+
+        @JavascriptInterface
+        public void openBatteryOptimizationSettings() {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    Intent intent = new Intent();
+                    String packageName = getPackageName();
+                    PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                    if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
+                        intent.setAction(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                        intent.setData(Uri.parse("package:" + packageName));
+                    } else {
+                        intent.setAction(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                    }
+                    startActivity(intent);
+                }
+            } catch (Exception e) {
+                try {
+                    Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                } catch (Exception ex) {
+                    Log.e(TAG, "Impossible d'ouvrir les paramètres batterie", ex);
+                }
+            }
         }
     }
 }
