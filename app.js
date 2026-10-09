@@ -144,7 +144,7 @@ const RandoLogger = (function() {
       const lines = [
         `=== RANDOTRACKER RAPPORT DE DIAGNOSTIC & LOGS ===`,
         `Généré le : ${new Date().toLocaleString('fr-FR')}`,
-        `Version : v1.4.13 (51) • Cache v89`,
+        `Version : v1.4.13 (51) • Cache v90`,
         `User Agent : ${navigator.userAgent}`,
         `Salon : ${typeof state !== 'undefined' ? state.roomCode : 'N/A'}`,
         `Moi : ${typeof state !== 'undefined' && state.myUser ? state.myUser.name : 'N/A'} (ID: ${typeof state !== 'undefined' && state.myUser ? state.myUser.id : 'N/A'})`,
@@ -1173,9 +1173,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=89')
+    navigator.serviceWorker.register('./sw.js?v=90')
       .then((reg) => {
-        console.log('[PWA] Service Worker v89 actif:', reg.scope);
+        console.log('[PWA] Service Worker v90 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -6907,6 +6907,14 @@ function clearCitySearch() {
     resultsDropdown.classList.add('hidden');
     resultsDropdown.innerHTML = '';
   }
+  if (state.citySearchMarker && state.map) {
+    try { state.map.removeLayer(state.citySearchMarker); } catch (e) {}
+    state.citySearchMarker = null;
+  }
+  if (state.citySearchMarkerTimeout) {
+    clearTimeout(state.citySearchMarkerTimeout);
+    state.citySearchMarkerTimeout = null;
+  }
 }
 
 async function triggerCitySearch() {
@@ -7026,10 +7034,14 @@ function selectSearchedCity(lat, lon, name, context) {
     duration: 1.5
   });
 
-  // Marqueur visuel animé sur la ville trouvée
+  // Nettoyage de tout ancien marqueur de recherche
   if (state.citySearchMarker) {
     try { state.map.removeLayer(state.citySearchMarker); } catch (e) {}
     state.citySearchMarker = null;
+  }
+  if (state.citySearchMarkerTimeout) {
+    clearTimeout(state.citySearchMarkerTimeout);
+    state.citySearchMarkerTimeout = null;
   }
 
   const cityIcon = L.divIcon({
@@ -7053,6 +7065,17 @@ function selectSearchedCity(lat, lon, name, context) {
   `).openPopup();
 
   showToast(`📍 Carte centrée sur : ${name}`, 'success');
+
+  // Retrait automatique de l'épingle après le cadrage de la localité (pour ne pas polluer la carte)
+  state.citySearchMarkerTimeout = setTimeout(() => {
+    if (state.citySearchMarker && state.map) {
+      try {
+        state.map.removeLayer(state.citySearchMarker);
+      } catch (e) {}
+      state.citySearchMarker = null;
+    }
+    state.citySearchMarkerTimeout = null;
+  }, 4000);
 }
 
 // ============================================================================
