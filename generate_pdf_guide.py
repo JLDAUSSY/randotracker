@@ -401,7 +401,7 @@ html_content = f"""<!DOCTYPE html>
   <div class="cover-header">
     <div class="cover-title-row">
       <div>
-        <span class="cover-badge">MODE D'EMPLOI OFFICIEL • VERSION v1.3.5 (2026)</span>
+        <span class="cover-badge">MODE D'EMPLOI OFFICIEL • VERSION v1.4.14 (2026)</span>
         <h1>RandoTracker</h1>
         <div class="cover-subtitle">
           Plateforme collaborative de suivi en direct pour Clubs de Randonnée, Multi-Groupes de Niveaux & Sécurité Outdoor.
@@ -497,8 +497,9 @@ html_content = f"""<!DOCTYPE html>
       <ul class="steps-list" style="font-size: 9.8px;">
         <li><b>IGN France Plan v2 Topo</b> : Sentiers balisés GR/PR, courbes de niveau, toponymes et refuges avec rendu Rétina haute netteté.</li>
         <li><b>IGN España MTN Topo 1:25k</b> : Idéal pour les randonnées pyrénéennes et transfrontalières.</li>
-        <li><b>UK Ordnance / Topo (Trails) & Swisstopo (Suisse Alpin)</b> : Cartes topographiques officielles pour la Grande-Bretagne et la Suisse avec détection automatique selon vos coordonnées GPS.</li>
-        <li><b>Calque Fortes Pentes IGN (>30°)</b> : Surimpression de sécurité indispensable pour anticiper les passages escarpés et le risque d'avalanche.</li>
+        <li><b>UK Ordnance / Topo & Swisstopo</b> : Cartes officielles Grande-Bretagne et Suisse avec détection automatique selon vos coordonnées.</li>
+        <li><b>Recherche Géographique Mondiale & Drapeaux</b> : Barre intégrée avec auto-complétion mondiale (Photon Komoot & API Adresse) : tapez <i>Girona</i> 🇪🇸, <i>Zermatt</i> 🇨🇭, <i>Fort William</i> 🇬🇧 ou <i>Sanary</i> 🇫🇷 pour cadrer la carte avec auto-commutation du fond officiel. Épingle retirée après 4s.</li>
+        <li><b>Calque Fortes Pentes IGN (>30°)</b> : Surimpression de sécurité indispensable pour anticiper les passages escarpés.</li>
       </ul>
     </div>
 
@@ -613,8 +614,8 @@ html_content = f"""<!DOCTYPE html>
       <ul class="steps-list" style="font-size: 9.8px;">
         <li><b>Prénom & Avatars Haute Définition</b> : Choix parmi 12 profils outdoor et avatars personnalisés (Chat Jaune, Chat Rose, Loup, Renard, Ours, etc.).</li>
         <li><b>Rôle dans la randonnée</b> : Animateur 👑, Co-animateur 🥈, Serre-file 🛡️, Randonneur 🥾, Secouriste 🩺, Photographe 📸.</li>
-        <li><b>Trace suivie & ETA</b> : Rattachement au parcours choisi pour le calcul de fin de rando.</li>
-        <li><b>Mode Poche (🔒) & Suivi Écran Éteint</b> : Protection anti-tactile avec déverrouillage sécurisé par appui maintenu 1.5s.</li>
+        <li><b>Durée de Partage GPS (2h, 4h, 8h par défaut, 12h, 24h)</b> : Réglable par chaque marcheur ; démarre le matin au lancement pour préserver vie privée et batterie.</li>
+        <li><b>Mode Poche (🔒) & Suivi Écran Éteint</b> : Protection anti-tactile avec déverrouillage sécurisé par appui maintenu 1.5s, et bouton rouge <code>🛑 Arrêter le suivi</code>.</li>
       </ul>
     </div>
   </div>
@@ -949,7 +950,8 @@ html_content = f"""<!DOCTYPE html>
         <b>Symptôme :</b> Un balayage malencontreux a fermé l'onglet ou l'application.
       </p>
       <ul class="steps-list" style="font-size: 9.1px;">
-        <li><b>Restauration 100% Automatique :</b> Rouvrez simplement RandoTracker. Votre session active, vos traces GPX, vos couleurs, votre prénom et votre salon sont immédiatement restaurés sans aucune manipulation.</li>
+        <li><b>Restauration 100% Automatique :</b> Rouvrez simplement RandoTracker. Votre session active, vos traces GPX, vos couleurs, votre prénom et votre salon sont immédiatement restaurés.</li>
+        <li><b>Journal de Bord & Diagnostic (📋) :</b> Ouvrez <i>Profil $\rightarrow$ Diagnostics & Logs</i> pour vérifier les événements ou télécharger le rapport technique (.txt) en 1 clic.</li>
       </ul>
     </div>
 
