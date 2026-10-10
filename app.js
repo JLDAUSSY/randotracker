@@ -764,35 +764,107 @@ function clearOnlyParticipants() {
   });
 }
 
+// ============================================================================
+// GESTION DU PREMIER PLAN DES FENÊTRES & MODALES (TOUJOURS AU-DESSUS)
+// ============================================================================
+let topWindowZIndex = 4000;
+function bringWindowToFront(el) {
+  if (!el) return;
+  topWindowZIndex += 10;
+  el.style.zIndex = topWindowZIndex;
+  const inner = el.querySelector ? el.querySelector(':scope > div') : null;
+  if (inner && inner.style) {
+    inner.style.zIndex = topWindowZIndex + 1;
+  }
+}
+window.bringWindowToFront = bringWindowToFront;
+
+// ============================================================================
+// DIALOGUE DE CONFIRMATION MODALE (SUPPRESSION MARCHEUR, ACTIONS CRITIQUES)
+// ============================================================================
+let pendingConfirmCallback = null;
+
+function showConfirmDialog(options = {}) {
+  const {
+    title = 'Confirmation requise',
+    message = 'Êtes-vous sûr de vouloir effectuer cette action ?',
+    confirmText = 'Oui, supprimer',
+    cancelText = 'Non, annuler',
+    isDanger = true
+  } = options;
+
+  return new Promise((resolve) => {
+    const modal = document.getElementById('confirm-modal');
+    if (!modal) {
+      resolve(window.confirm(message));
+      return;
+    }
+    const titleEl = document.getElementById('confirm-modal-title');
+    const msgEl = document.getElementById('confirm-modal-message');
+    const okBtn = document.getElementById('confirm-modal-ok-btn');
+    const cancelBtn = document.getElementById('confirm-modal-cancel-btn');
+
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    if (okBtn) okBtn.textContent = confirmText;
+    if (cancelBtn) cancelBtn.textContent = cancelText;
+
+    pendingConfirmCallback = resolve;
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+    bringWindowToFront(modal);
+    pushModalState('confirm-modal');
+  });
+}
+
+function closeConfirmModal(result = false) {
+  const modal = document.getElementById('confirm-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+  if (typeof pendingConfirmCallback === 'function') {
+    const cb = pendingConfirmCallback;
+    pendingConfirmCallback = null;
+    cb(Boolean(result));
+  }
+}
+
 function deleteParticipant(userId) {
   const user = state.otherUsers.get(userId);
   const userName = user ? user.name : 'ce marcheur';
 
-  if (!confirm(`Voulez-vous vraiment supprimer ${userName} de la session et de la carte ?`)) {
-    return;
-  }
+  showConfirmDialog({
+    title: 'Supprimer ce marcheur',
+    message: `Êtes-vous sûr de vouloir supprimer ${userName} de la session et de la carte ?`,
+    confirmText: 'Oui, supprimer',
+    cancelText: 'Non, annuler',
+    isDanger: true
+  }).then((confirmed) => {
+    if (!confirmed) return;
 
-  // 1. Fermer le popup de la carte s'il est ouvert
-  if (state.map) {
-    state.map.closePopup();
-  }
+    // 1. Fermer le popup de la carte s'il est ouvert
+    if (state.map) {
+      state.map.closePopup();
+    }
 
-  // 2. Supprimer le marqueur de la carte et de la collection
-  removeUserMarker(userId);
-  state.otherUsers.delete(userId);
+    // 2. Supprimer le marqueur de la carte et de la collection
+    removeUserMarker(userId);
+    state.otherUsers.delete(userId);
 
-  // 3. Mettre à jour le stockage local persistant
-  saveOtherUsersToStorage();
+    // 3. Mettre à jour le stockage local persistant
+    saveOtherUsersToStorage();
 
-  // 4. Mettre à jour l'interface utilisateur
-  renderUsersList();
-  showToast(`Participant ${userName} supprimé de la session.`, 'info');
+    // 4. Mettre à jour l'interface utilisateur
+    renderUsersList();
+    showToast(`Participant ${userName} supprimé de la session.`, 'info');
 
-  // 5. Diffuser l'exclusion aux autres téléphones du groupe
-  publishMessage({
-    type: 'kick_user',
-    targetUserId: userId,
-    from: state.myUser.id
+    // 5. Diffuser l'exclusion aux autres téléphones du groupe
+    publishMessage({
+      type: 'kick_user',
+      targetUserId: userId,
+      from: state.myUser.id
+    });
   });
 }
 
@@ -1127,6 +1199,8 @@ function openProfileModal() {
   updateProfileUI();
   renderProfileAdBanner();
   profileModal.classList.remove('hidden');
+  profileModal.style.display = 'flex';
+  bringWindowToFront(profileModal);
   pushModalState('profile-modal');
 }
 
@@ -1332,12 +1406,19 @@ function initMap() {
 
   // Rafraîchir les icônes & activer le déplacement tactile/souris et zoom des popups
   state.map.on('popupopen', (e) => {
+    document.body.classList.add('has-active-popup');
+    const searchContainer = document.getElementById('city-search-container');
+    if (searchContainer) {
+      searchContainer.classList.add('search-hidden-by-popup');
+    }
+
     if (window.lucide && lucide.createIcons) {
       lucide.createIcons();
     }
     if (e && e.popup) {
       const popupEl = e.popup.getElement();
       if (popupEl) {
+        bringWindowToFront(popupEl);
         makePopupDraggable(popupEl);
         makeElementPinchZoomable(popupEl);
         if (typeof L !== 'undefined' && L.DomEvent) {
@@ -1346,6 +1427,14 @@ function initMap() {
         }
         applySavedPopupZoom(popupEl);
       }
+    }
+  });
+
+  state.map.on('popupclose', () => {
+    document.body.classList.remove('has-active-popup');
+    const searchContainer = document.getElementById('city-search-container');
+    if (searchContainer) {
+      searchContainer.classList.remove('search-hidden-by-popup');
     }
   });
 
@@ -1832,6 +1921,8 @@ function openTracksModal() {
   renderTracksModalContent();
   renderTrackAdBanner();
   modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+  bringWindowToFront(modal);
   pushModalState('tracks-modal');
 }
 
@@ -1848,6 +1939,8 @@ function openLayerModal() {
   if (!layerModal) return;
   if (typeof updateOsApiKeyUI === 'function') updateOsApiKeyUI();
   layerModal.classList.remove('hidden');
+  layerModal.style.display = 'flex';
+  bringWindowToFront(layerModal);
   pushModalState('layer-modal');
 }
 
@@ -2627,7 +2720,10 @@ function generateUserPopupHtml(userId) {
           <span class="popup-zoom-level-badge text-[10px] font-mono text-emerald-400 px-1 font-black">100%</span>
           <button type="button" onclick="adjustPopupZoom(this, 0.15)" class="popup-zoom-btn" title="Agrandir la taille">A+</button>
         </div>
-        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold truncate hidden sm:inline">${isMe ? 'Moi' : 'Profil'}</span>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold truncate hidden sm:inline">${isMe ? 'Moi' : 'Profil'}</span>
+          <button type="button" onclick="if(state.map) state.map.closePopup();" class="w-6 h-6 rounded-lg bg-slate-800 hover:bg-red-600/90 text-slate-300 hover:text-white flex items-center justify-center font-black text-xs transition active:scale-95 border border-slate-700/60 ml-0.5" title="Fermer la fiche">✕</button>
+        </div>
       </div>
 
       <!-- En-tête Participant GÉANT -->
@@ -2822,14 +2918,22 @@ function createOrUpdateUserMarker(user) {
     popupAnchor: [0, -55]
   });
 
+  const popupOptions = {
+    autoPan: true,
+    autoPanPaddingTopLeft: (typeof L !== 'undefined' && L.point) ? L.point(16, 95) : [16, 95],
+    autoPanPaddingBottomRight: (typeof L !== 'undefined' && L.point) ? L.point(16, 100) : [16, 100],
+    autoPanPadding: [16, 95],
+    closeButton: true
+  };
+
   if (!marker) {
     marker = L.marker([user.lat, user.lon], { icon: customIcon }).addTo(state.map);
     state.userMarkers.set(user.id, marker);
-    marker.bindPopup(() => generateUserPopupHtml(user.id));
+    marker.bindPopup(() => generateUserPopupHtml(user.id), popupOptions);
   } else {
     marker.setLatLng([user.lat, user.lon]);
     marker.setIcon(customIcon);
-    marker.bindPopup(() => generateUserPopupHtml(user.id));
+    marker.bindPopup(() => generateUserPopupHtml(user.id), popupOptions);
     if (marker.isPopupOpen && marker.isPopupOpen()) {
       marker.setPopupContent(generateUserPopupHtml(user.id));
       if (window.lucide && lucide.createIcons) {
@@ -6697,6 +6801,10 @@ function pushModalState(modalId) {
   try {
     history.pushState({ modal: modalId, randoTracker: true }, '');
   } catch (e) {}
+  const el = typeof modalId === 'string' ? document.getElementById(modalId) : modalId;
+  if (el) {
+    bringWindowToFront(el);
+  }
 }
 
 function isAnyModalOrDrawerOpen() {
@@ -6704,7 +6812,7 @@ function isAnyModalOrDrawerOpen() {
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
     'emergency-modal', 'onboarding-modal', 'app-open-ad-modal',
-    'qr-scan-modal', 'name-prompt-modal', 'pocket-mode-overlay'
+    'qr-scan-modal', 'name-prompt-modal', 'logs-modal', 'confirm-modal', 'pocket-mode-overlay'
   ];
   for (const id of modals) {
     const el = document.getElementById(id);
@@ -6723,12 +6831,14 @@ function closeAllModalsAndDrawers() {
   closeAppOpenAd();
   closeQrScanner();
   closeNamePromptModal();
+  if (typeof closeConfirmModal === 'function') closeConfirmModal(false);
+  if (typeof closeLogsModal === 'function') closeLogsModal();
   exitPocketMode();
   const modals = [
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal', 'about-modal',
     'elevation-drawer', 'onboarding-modal', 'app-open-ad-modal',
-    'qr-scan-modal', 'name-prompt-modal', 'pocket-mode-overlay'
+    'qr-scan-modal', 'name-prompt-modal', 'logs-modal', 'confirm-modal', 'pocket-mode-overlay'
   ];
   modals.forEach(id => {
     const el = document.getElementById(id);
@@ -6800,6 +6910,9 @@ window.renderElevationChart = renderElevationChart;
 window.setTrackColor = setTrackColor;
 window.cycleTrackColor = cycleTrackColor;
 window.ensureBarsVisible = ensureBarsVisible;
+window.bringWindowToFront = bringWindowToFront;
+window.showConfirmDialog = showConfirmDialog;
+window.closeConfirmModal = closeConfirmModal;
 window.deleteParticipant = deleteParticipant;
 window.clearOnlyParticipants = clearOnlyParticipants;
 window.clearHikeSession = clearHikeSession;

@@ -54,7 +54,7 @@
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
   <!-- Custom Styles with Cache-Busting v91 -->
-  <link rel="stylesheet" href="styles.css?v=91" />
+  <link rel="stylesheet" href="styles.css?v=92" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -133,7 +133,7 @@
   <main class="relative flex-1 w-full h-full overflow-hidden">
     
     <!-- LEAFLET MAP -->
-    <div id="map" class="w-full h-full z-0"></div>
+    <div id="map" class="w-full h-full"></div>
 
     <!-- BARRE DE RECHERCHE DE VILLE / COMMUNE SUR LA CARTE (Large, Épurée et Haut Contraste) -->
     <div id="city-search-container" class="absolute top-3 left-3 right-3 sm:right-auto z-20 w-[calc(100vw-24px)] sm:w-84 md:w-96 max-w-md flex flex-col pointer-events-auto">
@@ -1704,7 +1704,32 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v91 -->
-  <script src="app.js?v=91"></script>
+  <!-- ================================================================= -->
+  <!-- MODAL : CONFIRMATION D'ACTION (SUPPRESSION MARCHEUR, ETC.)         -->
+  <!-- ================================================================= -->
+  <div id="confirm-modal" class="hidden fixed inset-0 z-[4000] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
+    <div class="bg-slate-900 border-2 border-red-500/70 rounded-3xl w-full max-w-sm p-6 shadow-2xl flex flex-col gap-4 text-center">
+      <div class="w-16 h-16 rounded-full bg-red-600/20 border-2 border-red-500/60 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-red-600/20">
+        ⚠️
+      </div>
+      <div>
+        <h3 class="font-black text-xl text-white tracking-tight" id="confirm-modal-title">Supprimer ce marcheur</h3>
+        <p class="text-sm text-slate-300 font-semibold mt-2 leading-relaxed" id="confirm-modal-message">
+          Êtes-vous sûr de vouloir supprimer ce marcheur de la session et de la carte ?
+        </p>
+      </div>
+      <div class="grid grid-cols-2 gap-3 pt-2">
+        <button type="button" id="confirm-modal-cancel-btn" onclick="closeConfirmModal(false)" class="w-full py-3.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-black text-sm border border-slate-700 transition active:scale-95 shadow-md">
+          Non, annuler
+        </button>
+        <button type="button" id="confirm-modal-ok-btn" onclick="closeConfirmModal(true)" class="w-full py-3.5 px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-black text-sm border border-red-500 shadow-xl shadow-red-600/30 transition active:scale-95">
+          Oui, supprimer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Application Script with Cache-Busting v92 -->
+  <script src="app.js?v=92"></script>
 </body>
 </html>

@@ -407,6 +407,15 @@ run_test("CSS : Masquage strict #pocket-mode-overlay.hidden", lambda: '#pocket-m
 run_test("CSS : Masquage strict #qr-scan-modal.hidden", lambda: '#qr-scan-modal.hidden' in css_text and 'display: none !important' in css_text)
 run_test("CSS : Masquage strict #name-prompt-modal.hidden", lambda: '#name-prompt-modal.hidden' in css_text and 'display: none !important' in css_text)
 run_test("CSS : Masquage strict #app-open-ad-modal.hidden", lambda: '#app-open-ad-modal.hidden' in css_text and 'display: none !important' in css_text)
+run_test("CSS : Masquage strict #confirm-modal.hidden", lambda: '#confirm-modal.hidden' in css_text and 'display: none !important' in css_text)
+run_test("IHM : Modale de confirmation de suppression (#confirm-modal)", lambda: bool(soup.find(id='confirm-modal')))
+run_test("IHM : Bouton confirmation Oui (#confirm-modal-ok-btn)", lambda: bool(soup.find(id='confirm-modal-ok-btn')))
+run_test("IHM : Bouton confirmation Non (#confirm-modal-cancel-btn)", lambda: bool(soup.find(id='confirm-modal-cancel-btn')))
+run_test("IHM : Fonction bringWindowToFront définie dans app.js", lambda: 'function bringWindowToFront' in js_text)
+run_test("IHM : Fonction showConfirmDialog définie dans app.js", lambda: 'function showConfirmDialog' in js_text)
+run_test("IHM : Fonction closeConfirmModal définie dans app.js", lambda: 'function closeConfirmModal' in js_text)
+run_test("CSS : Règle masquage recherche sur popup active (.search-hidden-by-popup)", lambda: '.search-hidden-by-popup' in css_text and 'opacity: 0' in css_text)
+run_test("CSS : Leaflet popup pane au premier plan (z-index 2500)", lambda: '.leaflet-pane.leaflet-popup-pane' in css_text and '2500' in css_text)
 
 
 # ----------------------------------------------------------------------
@@ -541,8 +550,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=91',
-    'http://127.0.0.1:8000/app.js?v=91',
+    'http://127.0.0.1:8000/styles.css?v=92',
+    'http://127.0.0.1:8000/app.js?v=92',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
@@ -741,7 +750,12 @@ try:
     test_btn("Modale Onboarding Affichage", lambda: sim_driver.execute_script("document.getElementById('onboarding-modal').classList.remove('hidden');"), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'onboarding-modal').get_attribute('class'))
     test_btn("Bouton Compris Onboarding", lambda: sim_click('accept-onboarding-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'onboarding-modal').get_attribute('class'))
 
-    # 10. Audit Logs DevTools
+    # 10. Modale Confirmation Suppression Marcheur
+    test_btn("Ouvrir Modale Confirmation", lambda: sim_driver.execute_script("window.showConfirmDialog({ title: 'Confirmation test', message: 'Test message' });"), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'confirm-modal').get_attribute('class'))
+    test_btn("Bouton Annuler Confirmation", lambda: sim_click('confirm-modal-cancel-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'confirm-modal').get_attribute('class'))
+    test_btn("Bouton Confirmer Suppression", lambda: (sim_driver.execute_script("window.showConfirmDialog({ title: 'Confirmation test 2' });"), sim_click('confirm-modal-ok-btn')), lambda: 'hidden' in sim_driver.find_element(By.ID, 'confirm-modal').get_attribute('class'))
+
+    # 11. Audit Logs DevTools
     sim_logs = sim_driver.get_log('browser')
     sim_severe_errors = [
         l for l in sim_logs 

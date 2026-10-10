@@ -415,7 +415,7 @@ body {
   background: rgba(30, 41, 59, 0.95) !important;
   border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
   text-decoration: none !important;
-  z-index: 50 !important;
+  z-index: 100 !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.6) !important;
 }
 
@@ -471,7 +471,12 @@ body {
   border-color: rgba(16, 185, 129, 0.7) !important;
 }
 
+.leaflet-pane.leaflet-popup-pane {
+  z-index: 2500 !important;
+}
+
 .leaflet-popup {
+  z-index: 2501 !important;
   transition: transform 0.05s ease-out;
 }
 
@@ -1032,7 +1037,7 @@ main {
   bottom: 0 !important;
 }
 
-/* 8. TOUTES LES SOUS-MODALES & POPUPS DIALOGUES (Z-INDEX 3000 - PREMIER PLAN ABSOLU) */
+/* 8. TOUTES LES SOUS-MODALES & POPUPS DIALOGUES (Z-INDEX 3000+ - PREMIER PLAN ABSOLU) */
 #invite-modal:not(.hidden),
 #announcement-modal:not(.hidden),
 #received-announcement-modal:not(.hidden),
@@ -1044,6 +1049,8 @@ main {
 #onboarding-modal:not(.hidden),
 #qr-scan-modal:not(.hidden),
 #name-prompt-modal:not(.hidden),
+#logs-modal:not(.hidden),
+#confirm-modal:not(.hidden),
 #app-open-ad-modal:not(.hidden) {
   position: fixed !important;
   inset: 0 !important;
@@ -1058,6 +1065,14 @@ main {
   pointer-events: auto !important;
 }
 
+#confirm-modal:not(.hidden) {
+  z-index: 4500 !important;
+}
+
+#confirm-modal > div {
+  z-index: 4501 !important;
+}
+
 #invite-modal.hidden,
 #announcement-modal.hidden,
 #received-announcement-modal.hidden,
@@ -1069,6 +1084,8 @@ main {
 #onboarding-modal.hidden,
 #qr-scan-modal.hidden,
 #name-prompt-modal.hidden,
+#logs-modal.hidden,
+#confirm-modal.hidden,
 #app-open-ad-modal.hidden,
 #pocket-mode-overlay.hidden,
 #drawer-backdrop.hidden,
@@ -1096,6 +1113,7 @@ main {
 #onboarding-modal > div,
 #qr-scan-modal > div,
 #name-prompt-modal > div,
+#logs-modal > div,
 #app-open-ad-modal > div {
   z-index: 3001 !important;
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.95) !important;
@@ -1606,8 +1624,17 @@ main {
 /* RECHERCHE DE VILLE SUR LA CARTE & MARQUEUR ANIMÉ                           */
 /* ========================================================================== */
 #city-search-container {
-  z-index: 1000 !important;
+  z-index: 500 !important; /* Sous les popups Leaflet (2500) et sous les modales (3500+) */
   max-width: calc(100vw - 24px);
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.search-hidden-by-popup,
+body.has-active-popup #city-search-container {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: translateY(-24px) scale(0.96) !important;
 }
 
 #city-search-container input {
