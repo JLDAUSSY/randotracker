@@ -1913,6 +1913,24 @@ function renderTrackOnMap(track) {
 }
 
 // ============================================================================
+// DECLENCHEUR EXPLICITE DU SELECTEUR GPX (COMPATIBLE ANDROID WEBVIEW & WEB)
+// ============================================================================
+function triggerGpxPicker(e) {
+  if (e) {
+    if (typeof e.preventDefault === 'function') e.preventDefault();
+    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+  }
+  const input = document.getElementById('gpx-file-input');
+  if (input) {
+    try {
+      input.value = '';
+    } catch (err) {}
+    input.click();
+  }
+}
+window.triggerGpxPicker = triggerGpxPicker;
+
+// ============================================================================
 // GESTIONNAIRE DES PARCOURS & TRACES GPX (MODALE & SÉLECTEUR HEADER)
 // ============================================================================
 function openTracksModal() {
@@ -1982,7 +2000,7 @@ function renderTracksModalContent() {
   }
 
   if (adminActions) {
-    if (state.isOrganizer && state.tracks.length < MAX_TRACKS) {
+    if (state.isOrganizer && state.tracks.length > 0 && state.tracks.length < MAX_TRACKS) {
       adminActions.classList.remove('hidden');
     } else {
       adminActions.classList.add('hidden');
@@ -2012,10 +2030,10 @@ function renderTracksModalContent() {
           </div>
         </div>
         ${state.isOrganizer ? `
-          <label for="gpx-file-input" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition cursor-pointer">
+          <button type="button" id="load-first-gpx-btn" onclick="triggerGpxPicker(event)" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition cursor-pointer">
             <i data-lucide="upload-cloud" class="w-5 h-5"></i>
             <span>📂 Charger un fichier GPX</span>
-          </label>
+          </button>
         ` : ''}
       </div>
     `;
@@ -5987,7 +6005,8 @@ function setupEventListeners() {
   const gpxInput = document.getElementById('gpx-file-input');
   if (gpxInput) {
     gpxInput.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files);
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
       let countAdded = 0;
       for (const file of files) {
         if (state.tracks.length >= MAX_TRACKS) {
@@ -6000,13 +6019,18 @@ function setupEventListeners() {
           addTrackToState(parsed);
           countAdded++;
         } catch (err) {
+          console.error(`Erreur import GPX (${file.name}):`, err);
           alert(`Erreur dans ${file.name} : ${err.message}`);
         }
       }
-      gpxInput.value = '';
+      try {
+        gpxInput.value = '';
+      } catch (err) {}
       if (countAdded > 0) {
         saveHikeSessionToStorage();
         fitAllTracks();
+        renderTracksModalContent();
+        renderQuickTracksBar();
       }
     });
   }

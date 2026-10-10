@@ -362,8 +362,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 52 configuré", lambda: 'versionCode = 52' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.14 configuré", lambda: 'versionName = "1.4.14"' in gradle_content)
+    run_test("Android Gradle : VersionCode 53 configuré", lambda: 'versionCode = 53' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.15 configuré", lambda: 'versionName = "1.4.15"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -375,7 +375,9 @@ if os.path.exists(main_activity_path):
     run_test("MainActivity : WebChromeClient avec auto-grant Geolocation et Caméra QR", lambda: 'onGeolocationPermissionsShowPrompt' in main_act_content and 'onPermissionRequest' in main_act_content)
     run_test("MainActivity : WebViewClient isolant l'app et déléguant tel/sms/mailto aux Intents", lambda: 'handleUrlNavigation' in main_act_content and 'tel:' in main_act_content)
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.14 (52) dans le bridge natif", lambda: '1.4.14 (52)' in main_act_content)
+    run_test("MainActivity : Version 1.4.15 (53) dans le bridge natif", lambda: '1.4.15 (53)' in main_act_content)
+    run_test("MainActivity : Support natif onShowFileChooser (sélection fichier GPX)", lambda: 'onShowFileChooser' in main_act_content)
+    run_test("MainActivity : Support natif onActivityResult (réception URI GPX)", lambda: 'onActivityResult' in main_act_content and 'FILE_CHOOSER_REQ_CODE' in main_act_content)
     run_test("MainActivity : Pont Natif showMessageNotification disponible", lambda: 'showMessageNotification' in main_act_content)
     run_test("MainActivity : Pont Natif stopTrackingService disponible", lambda: 'stopTrackingService' in main_act_content)
     run_test("MainActivity : Guard permission avant demarrage GPS (Anti-crash Android 14+)", lambda: 'hasLocationPermission()' in main_act_content)
@@ -416,6 +418,10 @@ run_test("IHM : Fonction showConfirmDialog définie dans app.js", lambda: 'funct
 run_test("IHM : Fonction closeConfirmModal définie dans app.js", lambda: 'function closeConfirmModal' in js_text)
 run_test("CSS : Règle masquage recherche sur popup active (.search-hidden-by-popup)", lambda: '.search-hidden-by-popup' in css_text and 'opacity: 0' in css_text)
 run_test("CSS : Leaflet popup pane au premier plan (z-index 2500)", lambda: '.leaflet-pane.leaflet-popup-pane' in css_text and '2500' in css_text)
+run_test("IHM GPX : Fonction triggerGpxPicker définie dans app.js", lambda: 'function triggerGpxPicker' in js_text)
+run_test("IHM GPX : Input #gpx-file-input présent avec types MIME étendus", lambda: bool(soup.find(id='gpx-file-input')) and 'application/gpx+xml' in str(soup.find(id='gpx-file-input').get('accept', '')))
+run_test("IHM GPX : Input #gpx-file-input accessible hors écran (non masqué par display:none)", lambda: 'position:fixed' in str(soup.find(id='gpx-file-input').get('style', '')))
+run_test("IHM GPX : Bouton charger autre parcours (#load-another-gpx-btn) avec onclick triggerGpxPicker", lambda: bool(soup.find(id='load-another-gpx-btn')) and 'triggerGpxPicker' in str(soup.find(id='load-another-gpx-btn').get('onclick', '')))
 
 
 # ----------------------------------------------------------------------
@@ -550,8 +556,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=92',
-    'http://127.0.0.1:8000/app.js?v=92',
+    'http://127.0.0.1:8000/styles.css?v=93',
+    'http://127.0.0.1:8000/app.js?v=93',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
@@ -647,6 +653,24 @@ try:
     test_btn("Fermer À Propos (#close-about-modal-btn)", lambda: sim_click('close-about-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'about-modal').get_attribute('class'))
     test_btn("OK À Propos (#ok-about-modal-btn)", lambda: (sim_click('brand-header-btn'), time.sleep(0.05), sim_click('ok-about-modal-btn')), lambda: 'hidden' in sim_driver.find_element(By.ID, 'about-modal').get_attribute('class'))
     test_btn("Traces Header (#open-tracks-modal-btn) -> Ouvre Traces", lambda: sim_click('open-tracks-modal-btn'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'tracks-modal').get_attribute('class'))
+    test_btn("Bouton Charger Premier GPX (#load-first-gpx-btn -> triggerGpxPicker)",
+             lambda: sim_driver.execute_script("""
+                 window._gpxInputClicked = false;
+                 const inp = document.getElementById('gpx-file-input');
+                 inp.onclick = function() { window._gpxInputClicked = true; };
+                 document.getElementById('load-first-gpx-btn').click();
+             """),
+             lambda: sim_driver.execute_script("return window._gpxInputClicked === true;"))
+    test_btn("Bouton Charger Autre Parcours GPX (#load-another-gpx-btn -> triggerGpxPicker)",
+             lambda: sim_driver.execute_script("""
+                 window.state.tracks = [{ id: 't_mock', name: 'Circuit Test', points: [{lat: 43.1, lon: 5.7, ele: 100}], totalDistance: 5.2, eleGain: 120, color: {hex: '#10b981', name: 'Vert'}, visible: true }];
+                 window.renderTracksModalContent();
+                 window._gpxInputClicked = false;
+                 const inp = document.getElementById('gpx-file-input');
+                 inp.onclick = function() { window._gpxInputClicked = true; };
+                 document.getElementById('load-another-gpx-btn').click();
+             """),
+             lambda: sim_driver.execute_script("window.state.tracks = []; window.renderTracksModalContent(); return window._gpxInputClicked === true;"))
     test_btn("Fermer Traces (#close-tracks-modal-btn)", lambda: sim_click('close-tracks-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'tracks-modal').get_attribute('class'))
     test_btn("Cartes Header (#open-layer-modal-btn) -> Ouvre Cartes", lambda: sim_click('open-layer-modal-btn'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'layer-modal').get_attribute('class'))
     test_btn("Fermer Cartes (#close-layer-modal-btn)", lambda: sim_click('close-layer-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'layer-modal').get_attribute('class'))

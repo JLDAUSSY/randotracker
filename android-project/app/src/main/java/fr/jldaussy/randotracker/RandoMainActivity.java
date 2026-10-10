@@ -18,6 +18,7 @@ import android.webkit.ConsoleMessage;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -31,10 +32,12 @@ import androidx.core.content.ContextCompat;
 public class RandoMainActivity extends AppCompatActivity {
     private static final String TAG = "RandoMainActivity";
     private static final int PERMISSION_REQ_CODE = 2026;
+    private static final int FILE_CHOOSER_REQ_CODE = 2027;
     private static final String BASE_URL = "https://jldaussy.github.io/randotracker/";
     
     private WebView webView;
     private String pendingRoom = null;
+    private ValueCallback<Uri[]> fileUploadCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -118,6 +121,39 @@ public class RandoMainActivity extends AppCompatActivity {
             public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
                 Log.d("RandoTrackerJS", consoleMessage.message() + " [" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber() + "]");
                 return true;
+            }
+
+            @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+            @Override
+            public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, WebChromeClient.FileChooserParams fileChooserParams) {
+                if (fileUploadCallback != null) {
+                    fileUploadCallback.onReceiveValue(null);
+                    fileUploadCallback = null;
+                }
+                fileUploadCallback = filePathCallback;
+                Intent intent = null;
+                try {
+                    intent = fileChooserParams.createIntent();
+                } catch (Exception e) {
+                    Log.w(TAG, "fileChooserParams.createIntent() a échoué, fallback générique", e);
+                }
+                if (intent == null) {
+                    intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                }
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                try {
+                    startActivityForResult(Intent.createChooser(intent, "Sélectionner un fichier GPX"), FILE_CHOOSER_REQ_CODE);
+                    return true;
+                } catch (Exception e) {
+                    Log.e(TAG, "Impossible d'ouvrir le sélecteur de fichier", e);
+                    if (fileUploadCallback != null) {
+                        fileUploadCallback.onReceiveValue(null);
+                        fileUploadCallback = null;
+                    }
+                    return false;
+                }
             }
         });
 
@@ -304,6 +340,29 @@ public class RandoMainActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == FILE_CHOOSER_REQ_CODE) {
+            if (fileUploadCallback == null) return;
+            Uri[] results = null;
+            if (resultCode == RESULT_OK && data != null) {
+                String dataString = data.getDataString();
+                android.content.ClipData clipData = data.getClipData();
+                if (clipData != null) {
+                    results = new Uri[clipData.getItemCount()];
+                    for (int i = 0; i < clipData.getItemCount(); i++) {
+                        results[i] = clipData.getItemAt(i).getUri();
+                    }
+                } else if (dataString != null) {
+                    results = new Uri[]{ Uri.parse(dataString) };
+                }
+            }
+            fileUploadCallback.onReceiveValue(results);
+            fileUploadCallback = null;
+        }
+    }
+
+    @Override
     public void onBackPressed() {
         if (webView != null) {
             webView.evaluateJavascript("if(typeof handleNativeBackPress === 'function') { handleNativeBackPress(); } else { history.back(); }", null);
@@ -339,7 +398,7 @@ public class RandoMainActivity extends AppCompatActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.14 (52)";
+            return "1.4.15 (53)";
         }
 
         @JavascriptInterface
