@@ -144,7 +144,7 @@ const RandoLogger = (function() {
       const lines = [
         `=== RANDOTRACKER RAPPORT DE DIAGNOSTIC & LOGS ===`,
         `Généré le : ${new Date().toLocaleString('fr-FR')}`,
-        `Version : v1.4.14 (52) • Cache v91`,
+        `Version : v1.4.15 (53) • Cache v94`,
         `User Agent : ${navigator.userAgent}`,
         `Salon : ${typeof state !== 'undefined' ? state.roomCode : 'N/A'}`,
         `Moi : ${typeof state !== 'undefined' && state.myUser ? state.myUser.name : 'N/A'} (ID: ${typeof state !== 'undefined' && state.myUser ? state.myUser.id : 'N/A'})`,
@@ -6710,6 +6710,16 @@ function bootApp() {
   try { syncNativeAndroidSession(); } catch(e) { console.error('[Init AndroidBridge]', e); }
   try { initPixelSanctuaryGuardians(); } catch(e) { console.error('[Init PixelGuardians]', e); }
   try { initAllDraggableModals(); } catch(e) { console.error('[Init DraggableModals]', e); }
+  try {
+    const vEl = document.getElementById('header-app-version');
+    if (vEl) {
+      if (window.AndroidBridge && typeof window.AndroidBridge.getVersionName === 'function') {
+        vEl.textContent = 'v' + window.AndroidBridge.getVersionName().split(' ')[0];
+      } else {
+        vEl.textContent = 'v1.4.15';
+      }
+    }
+  } catch(e) {}
 
   // Ancrage initial robuste dans l'historique pour empêcher tout swipe-back destructif
   try {

@@ -73,7 +73,7 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.14 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.14' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.15 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.15' in soup.find(id='header-app-version').text)
 run_test("Presence de la barre de recherche de ville (#city-search-container)", lambda: soup.find(id='city-search-container') is not None)
 run_test("Presence du champ input de recherche de ville (#city-search-input)", lambda: soup.find(id='city-search-input') is not None)
 run_test("Presence du bouton d'arret du suivi dans le profil (#btn-stop-tracking-app)", lambda: soup.find(id='btn-stop-tracking-app') is not None)
@@ -655,6 +655,9 @@ try:
     test_btn("Traces Header (#open-tracks-modal-btn) -> Ouvre Traces", lambda: sim_click('open-tracks-modal-btn'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'tracks-modal').get_attribute('class'))
     test_btn("Bouton Charger Premier GPX (#load-first-gpx-btn -> triggerGpxPicker)",
              lambda: sim_driver.execute_script("""
+                 window.state.isOrganizer = true;
+                 window.state.tracks = [];
+                 window.renderTracksModalContent();
                  window._gpxInputClicked = false;
                  const inp = document.getElementById('gpx-file-input');
                  inp.onclick = function() { window._gpxInputClicked = true; };
