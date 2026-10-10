@@ -53,8 +53,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v93 -->
-  <link rel="stylesheet" href="styles.css?v=93" />
+  <!-- Custom Styles with Cache-Busting v94 -->
+  <link rel="stylesheet" href="styles.css?v=94" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -464,11 +464,10 @@
       </div>
       <span class="nav-label text-slate-300">Groupe</span>
     </button>
-
   </nav>
 
-  <!-- Input masqué pour chargement GPX (accessible off-screen pour compatibilité Android WebView) -->
-  <input type="file" id="gpx-file-input" accept=".gpx,application/gpx+xml,application/xml,text/xml,*/*" style="position:fixed;top:-9999px;left:-9999px;opacity:0;width:1px;height:1px;pointer-events:none;" multiple />
+  <!-- Input masqué pour chargement GPX (accessible hors écran pour compatibilité Android WebView & Web) -->
+  <input type="file" id="gpx-file-input" accept=".gpx,application/gpx+xml,application/xml,text/xml,*/*" style="position:fixed;top:-9999px;left:-9999px;opacity:0;width:1px;height:1px;" onchange="handleGpxFileInput(this)" multiple />
 
   <!-- ================================================================= -->
   <!-- MODAL : GESTIONNAIRE DES TRACES GPX (Jusqu'à 5 traces)            -->
@@ -505,8 +504,8 @@
         <!-- Bouton Charger Nouveau GPX (Organisateur) -->
         <div id="tracks-modal-admin-actions" class="flex flex-col gap-2">
           <button type="button" id="load-another-gpx-btn" onclick="triggerGpxPicker(event)" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-xl transition active:scale-95 cursor-pointer">
-            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
-            <span>📂 + Charger un autre parcours GPX</span>
+            <i data-lucide="upload-cloud" class="w-5 h-5 pointer-events-none"></i>
+            <span class="pointer-events-none">📂 + Charger un autre parcours GPX</span>
           </button>
         </div>
 
@@ -1729,7 +1728,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v93 -->
-  <script src="app.js?v=93"></script>
+  <!-- Main Application Script with Cache-Busting v94 -->
+  <script src="app.js?v=94"></script>
 </body>
 </html>

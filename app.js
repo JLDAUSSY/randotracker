@@ -771,10 +771,12 @@ let topWindowZIndex = 4000;
 function bringWindowToFront(el) {
   if (!el) return;
   topWindowZIndex += 10;
-  el.style.zIndex = topWindowZIndex;
+  if (el.style) {
+    el.style.setProperty('z-index', String(topWindowZIndex), 'important');
+  }
   const inner = el.querySelector ? el.querySelector(':scope > div') : null;
   if (inner && inner.style) {
-    inner.style.zIndex = topWindowZIndex + 1;
+    inner.style.setProperty('z-index', String(topWindowZIndex + 1), 'important');
   }
 }
 window.bringWindowToFront = bringWindowToFront;
@@ -1913,14 +1915,42 @@ function renderTrackOnMap(track) {
 }
 
 // ============================================================================
-// DECLENCHEUR EXPLICITE DU SELECTEUR GPX (COMPATIBLE ANDROID WEBVIEW & WEB)
+// GESTION ET CHARGEMENT DES FICHIERS GPX (COMPATIBLE NATIVE & WEB)
 // ============================================================================
-function triggerGpxPicker(e) {
-  if (e) {
-    if (typeof e.preventDefault === 'function') e.preventDefault();
-    if (typeof e.stopPropagation === 'function') e.stopPropagation();
+async function handleGpxFileInput(inputEl) {
+  if (!inputEl) return;
+  const files = Array.from(inputEl.files || []);
+  if (!files.length) return;
+  let countAdded = 0;
+  for (const file of files) {
+    if (state.tracks.length >= MAX_TRACKS) {
+      alert(`Limite de ${MAX_TRACKS} traces GPX atteinte.`);
+      break;
+    }
+    try {
+      const text = await file.text();
+      const parsed = parseGpxContent(text, file.name);
+      addTrackToState(parsed);
+      countAdded++;
+    } catch (err) {
+      console.error(`Erreur import GPX (${file.name}):`, err);
+      alert(`Erreur dans ${file.name} : ${err.message}`);
+    }
   }
-  const input = document.getElementById('gpx-file-input');
+  try {
+    inputEl.value = '';
+  } catch (err) {}
+  if (countAdded > 0) {
+    saveHikeSessionToStorage();
+    fitAllTracks();
+    renderTracksModalContent();
+    renderQuickTracksBar();
+  }
+}
+window.handleGpxFileInput = handleGpxFileInput;
+
+function triggerGpxPicker(e) {
+  const input = document.getElementById('gpx-file-input') || document.getElementById('gpx-file-input-empty');
   if (input) {
     try {
       input.value = '';
@@ -2031,8 +2061,8 @@ function renderTracksModalContent() {
         </div>
         ${state.isOrganizer ? `
           <button type="button" id="load-first-gpx-btn" onclick="triggerGpxPicker(event)" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg active:scale-95 transition cursor-pointer">
-            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
-            <span>📂 Charger un fichier GPX</span>
+            <i data-lucide="upload-cloud" class="w-5 h-5 pointer-events-none"></i>
+            <span class="pointer-events-none">📂 Charger un fichier GPX</span>
           </button>
         ` : ''}
       </div>
@@ -6004,35 +6034,7 @@ function setupEventListeners() {
   // Import GPX Multifichiers (1 à 5 fichiers sélectionnés d'un coup)
   const gpxInput = document.getElementById('gpx-file-input');
   if (gpxInput) {
-    gpxInput.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files || []);
-      if (!files.length) return;
-      let countAdded = 0;
-      for (const file of files) {
-        if (state.tracks.length >= MAX_TRACKS) {
-          alert(`Limite de ${MAX_TRACKS} traces GPX atteinte.`);
-          break;
-        }
-        try {
-          const text = await file.text();
-          const parsed = parseGpxContent(text, file.name);
-          addTrackToState(parsed);
-          countAdded++;
-        } catch (err) {
-          console.error(`Erreur import GPX (${file.name}):`, err);
-          alert(`Erreur dans ${file.name} : ${err.message}`);
-        }
-      }
-      try {
-        gpxInput.value = '';
-      } catch (err) {}
-      if (countAdded > 0) {
-        saveHikeSessionToStorage();
-        fitAllTracks();
-        renderTracksModalContent();
-        renderQuickTracksBar();
-      }
-    });
+    gpxInput.addEventListener('change', () => handleGpxFileInput(gpxInput));
   }
 
   // Fermer profil altimétrique
