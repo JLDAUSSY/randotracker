@@ -556,8 +556,8 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=94',
-    'http://127.0.0.1:8000/app.js?v=94',
+    'http://127.0.0.1:8000/styles.css?v=95',
+    'http://127.0.0.1:8000/app.js?v=95',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',

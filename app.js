@@ -832,6 +832,30 @@ function closeConfirmModal(result = false) {
   }
 }
 
+// ============================================================================
+// GESTION DES PARTICIPANTS EXCLUS / SUPPRIMÉS (ANTI-RÉAPPARITION)
+// ============================================================================
+let dismissedUserIds = new Set();
+try {
+  const savedDismissed = JSON.parse(localStorage.getItem('rando_dismissed_users') || '[]');
+  if (Array.isArray(savedDismissed)) dismissedUserIds = new Set(savedDismissed);
+} catch (e) {}
+
+function markUserDismissed(userId) {
+  if (!userId) return;
+  dismissedUserIds.add(userId);
+  try {
+    localStorage.setItem('rando_dismissed_users', JSON.stringify(Array.from(dismissedUserIds).slice(-100)));
+  } catch (e) {}
+}
+
+function clearDismissedUsers() {
+  dismissedUserIds.clear();
+  try {
+    localStorage.removeItem('rando_dismissed_users');
+  } catch (e) {}
+}
+
 function deleteParticipant(userId) {
   const user = state.otherUsers.get(userId);
   const userName = user ? user.name : 'ce marcheur';
@@ -850,18 +874,21 @@ function deleteParticipant(userId) {
       state.map.closePopup();
     }
 
-    // 2. Supprimer le marqueur de la carte et de la collection
+    // 2. Marquer l'ID comme exclu définitivement pour bloquer toute réapparition via MQTT
+    markUserDismissed(userId);
+
+    // 3. Supprimer le marqueur de la carte et de la collection
     removeUserMarker(userId);
     state.otherUsers.delete(userId);
 
-    // 3. Mettre à jour le stockage local persistant
+    // 4. Mettre à jour le stockage local persistant
     saveOtherUsersToStorage();
 
-    // 4. Mettre à jour l'interface utilisateur
+    // 5. Mettre à jour l'interface utilisateur
     renderUsersList();
     showToast(`Participant ${userName} supprimé de la session.`, 'info');
 
-    // 5. Diffuser l'exclusion aux autres téléphones du groupe
+    // 6. Diffuser l'exclusion aux autres téléphones du groupe
     publishMessage({
       type: 'kick_user',
       targetUserId: userId,
@@ -3037,11 +3064,12 @@ function normalizeHikerName(name) {
 function deduplicateUsersByName() {
   const genericNormalized = new Set(['randonneur', 'marcheur', 'participant', 'guide', 'guidedetete', 'animateur', '']);
   const byNormName = new Map();
+  const myNorm = normalizeHikerName(state.myUser ? state.myUser.name : '');
 
   // Purger les marqueurs orphelins sur la carte Leaflet
   const activeIds = new Set([state.myUser.id, ...Array.from(state.otherUsers.keys())]);
   state.userMarkers.forEach((marker, markerId) => {
-    if (!activeIds.has(markerId)) {
+    if (!activeIds.has(markerId) || (typeof dismissedUserIds !== 'undefined' && dismissedUserIds.has(markerId))) {
       if (state.map && state.map.hasLayer(marker)) {
         state.map.removeLayer(marker);
       }
@@ -3050,8 +3078,8 @@ function deduplicateUsersByName() {
   });
 
   state.otherUsers.forEach((user, id) => {
-    // 0. Si mon propre ID s'est retrouvé dans otherUsers, le retirer
-    if (id === state.myUser.id || user.id === state.myUser.id) {
+    // 0. Si mon propre ID s'est retrouvé dans otherUsers ou si l'utilisateur a été supprimé
+    if (id === state.myUser.id || user.id === state.myUser.id || (typeof dismissedUserIds !== 'undefined' && (dismissedUserIds.has(id) || dismissedUserIds.has(user.id)))) {
       removeUserMarker(id);
       state.otherUsers.delete(id);
       return;
@@ -3062,6 +3090,15 @@ function deduplicateUsersByName() {
     }
 
     const uNorm = normalizeHikerName(user.name);
+
+    // 0bis. Si un participant dans otherUsers a le même nom que MOI (ex: clone de "Jean-Luc"),
+    // c'est obligatoirement un fantôme de moi-même (autre onglet, APK ou session résiduelle).
+    // On l'élimine immédiatement pour ne jamais afficher de double de soi-même !
+    if (myNorm && uNorm && myNorm === uNorm && !genericNormalized.has(uNorm)) {
+      removeUserMarker(id);
+      state.otherUsers.delete(id);
+      return;
+    }
 
     // Si c'est un nom personnalisé (non-générique) et qu'il existe déjà un autre participant avec ce même nom exact,
     // fusionner pour garder la session la plus récente (gestion des reconnexions)
@@ -4682,6 +4719,13 @@ function handleIncomingMessage(data) {
     } else if (data.type === 'user_joined') {
       const user = data.user;
       if (user && user.id !== state.myUser.id) {
+        if (typeof dismissedUserIds !== 'undefined' && dismissedUserIds.has(user.id)) return;
+        const myNorm = normalizeHikerName(state.myUser ? state.myUser.name : '');
+        const uNorm = normalizeHikerName(user.name);
+        const genericNormalized = new Set(['randonneur', 'marcheur', 'participant', 'guide', 'guidedetete', 'animateur', '']);
+        if (myNorm && uNorm && myNorm === uNorm && !genericNormalized.has(uNorm)) {
+          return; // Ignore les messages d'un clone de soi-même
+        }
         if (!user.lastSeen) user.lastSeen = Date.now();
         state.otherUsers.set(user.id, user);
         deduplicateUsersByName();
@@ -4709,6 +4753,13 @@ function handleIncomingMessage(data) {
     } else if (data.type === 'respond_presence' || data.type === 'update_position' || data.type === 'user_updated') {
       const user = data.user;
       if (user && user.id !== state.myUser.id) {
+        if (typeof dismissedUserIds !== 'undefined' && dismissedUserIds.has(user.id)) return;
+        const myNorm = normalizeHikerName(state.myUser ? state.myUser.name : '');
+        const uNorm = normalizeHikerName(user.name);
+        const genericNormalized = new Set(['randonneur', 'marcheur', 'participant', 'guide', 'guidedetete', 'animateur', '']);
+        if (myNorm && uNorm && myNorm === uNorm && !genericNormalized.has(uNorm)) {
+          return; // Ignore les messages d'un clone de soi-même
+        }
         if (state.otherUsers.size < (MAX_USERS - 1) || state.otherUsers.has(user.id)) {
           if (!user.lastSeen) user.lastSeen = Date.now();
           state.otherUsers.set(user.id, user);
@@ -4785,11 +4836,16 @@ function handleIncomingMessage(data) {
     } else if (data.type === 'kick_user') {
       if (data.targetUserId === state.myUser.id) {
         showToast('⚠️ Vous avez été retiré de la session par l\'organisateur.', 'warning');
-      } else if (state.otherUsers.has(data.targetUserId)) {
-        state.otherUsers.delete(data.targetUserId);
-        removeUserMarker(data.targetUserId);
-        saveOtherUsersToStorage();
-        renderUsersList();
+        try { stopGpsWatch(); } catch(e) {}
+        try { if (typeof stopGpsWorkerHeartbeat === 'function') stopGpsWorkerHeartbeat(); } catch(e) {}
+      } else {
+        if (typeof markUserDismissed === 'function') markUserDismissed(data.targetUserId);
+        if (state.otherUsers.has(data.targetUserId)) {
+          state.otherUsers.delete(data.targetUserId);
+          removeUserMarker(data.targetUserId);
+          saveOtherUsersToStorage();
+          renderUsersList();
+        }
       }
     } else if (data.type === 'broadcast_announcement') {
       const msgKey = `${data.senderId || data.author || 'anon'}_${data.timestamp || 0}_${(data.text || '').substring(0, 30)}`;
