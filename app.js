@@ -1917,6 +1917,24 @@ function renderTrackOnMap(track) {
 // ============================================================================
 // GESTION ET CHARGEMENT DES FICHIERS GPX (COMPATIBLE NATIVE & WEB)
 // ============================================================================
+function readTextFromFile(file) {
+  return new Promise((resolve, reject) => {
+    if (typeof file.text === 'function') {
+      file.text().then(resolve).catch(() => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Lecture du fichier impossible'));
+        reader.readAsText(file);
+      });
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Lecture du fichier impossible'));
+      reader.readAsText(file);
+    }
+  });
+}
+
 async function handleGpxFileInput(inputEl) {
   if (!inputEl) return;
   const files = Array.from(inputEl.files || []);
@@ -1928,7 +1946,7 @@ async function handleGpxFileInput(inputEl) {
       break;
     }
     try {
-      const text = await file.text();
+      const text = await readTextFromFile(file);
       const parsed = parseGpxContent(text, file.name);
       addTrackToState(parsed);
       countAdded++;

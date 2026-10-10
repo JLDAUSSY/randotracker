@@ -353,17 +353,12 @@ public class RandoMainActivity extends AppCompatActivity {
                     fileUploadCallback = null;
                 }
                 fileUploadCallback = filePathCallback;
-                Intent intent = null;
-                try {
-                    intent = fileChooserParams.createIntent();
-                } catch (Exception e) {
-                    Log.w(TAG, "fileChooserParams.createIntent() a échoué, fallback générique", e);
-                }
-                if (intent == null) {
-                    intent = new Intent(Intent.ACTION_GET_CONTENT);
-                    intent.addCategory(Intent.CATEGORY_OPENABLE);
-                    intent.setType("*/*");
-                }
+
+                // Intent universel */* sans filtrage MIME restrictif
+                // afin que les fichiers .gpx (souvent typés octet-stream par Android) restent 100% sélectionnables et non grisés
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("*/*");
                 intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                 try {
                     startActivityForResult(Intent.createChooser(intent, "Sélectionner un fichier GPX"), FILE_CHOOSER_REQ_CODE);
@@ -568,15 +563,16 @@ public class RandoMainActivity extends AppCompatActivity {
             if (fileUploadCallback == null) return;
             Uri[] results = null;
             if (resultCode == RESULT_OK && data != null) {
-                String dataString = data.getDataString();
                 android.content.ClipData clipData = data.getClipData();
-                if (clipData != null) {
+                if (clipData != null && clipData.getItemCount() > 0) {
                     results = new Uri[clipData.getItemCount()];
                     for (int i = 0; i < clipData.getItemCount(); i++) {
                         results[i] = clipData.getItemAt(i).getUri();
                     }
-                } else if (dataString != null) {
-                    results = new Uri[]{ Uri.parse(dataString) };
+                } else if (data.getData() != null) {
+                    results = new Uri[]{ data.getData() };
+                } else if (data.getDataString() != null) {
+                    results = new Uri[]{ Uri.parse(data.getDataString()) };
                 }
             }
             fileUploadCallback.onReceiveValue(results);
