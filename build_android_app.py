@@ -131,8 +131,8 @@ android {{
         applicationId = "fr.jldaussy.randotracker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 53
-        versionName = "1.4.15"
+        versionCode = 54
+        versionName = "1.4.16"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -442,8 +442,8 @@ public class RandoMainActivity extends AppCompatActivity {
 
             @Override
             public void onReceivedSslError(WebView view, android.webkit.SslErrorHandler handler, android.net.http.SslError error) {
-                Log.w(TAG, "WebView SSL Notice: " + error.toString());
-                handler.proceed();
+                Log.e(TAG, "WebView SSL Error: " + error.toString());
+                handler.cancel();
             }
 
             @Override
@@ -617,7 +617,7 @@ public class RandoMainActivity extends AppCompatActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.15 (53)";
+            return "1.4.16 (54)";
         }
 
         @JavascriptInterface

@@ -362,7 +362,7 @@ public class RandoGpsForegroundService extends Service {
     private synchronized void ensureMqttConnected() {
         try {
             if (mqttClient == null) {
-                String broker = "ssl://broker.emqx.io:8883";
+                String broker = "tcp://broker.emqx.io:1883";
                 String clientId = "RandoTracker_Native_" + (activeUserId.isEmpty() ? "gen" : activeUserId) + "_" + (System.currentTimeMillis() % 100000);
                 mqttClient = new MqttClient(broker, clientId, new MemoryPersistence());
             }
@@ -372,33 +372,11 @@ public class RandoGpsForegroundService extends Service {
                 connOpts.setAutomaticReconnect(true);
                 connOpts.setConnectionTimeout(10);
                 connOpts.setKeepAliveInterval(20);
-                try {
-                    javax.net.ssl.SSLContext sslContext = javax.net.ssl.SSLContext.getDefault();
-                    connOpts.setSocketFactory(sslContext.getSocketFactory());
-                } catch (Exception e) {}
-
-                try {
-                    mqttClient.connect(connOpts);
-                } catch (Exception connEx) {
-                    // Fallback TCP si SSL indisponible
-                    try {
-                        String clientId = "RandoTracker_Native_" + (activeUserId.isEmpty() ? "gen" : activeUserId) + "_" + (System.currentTimeMillis() % 100000);
-                        mqttClient = new MqttClient("tcp://broker.emqx.io:1883", clientId, new MemoryPersistence());
-                        connOpts.setSocketFactory(null);
-                        mqttClient.connect(connOpts);
-                    } catch (Exception tcpEx) {
-                        tcpEx.printStackTrace();
-                    }
-                }
-
-                if (mqttClient.isConnected()) {
-                    mqttClient.subscribe("randotracker/v1/rooms/+/events", 1);
-                    mqttClient.subscribe("randotracker/+/broadcast_announcement", 1);
-                }
+                mqttClient.connect(connOpts);
+                mqttClient.subscribe("randotracker/v1/rooms/+/events", 1);
+                mqttClient.subscribe("randotracker/+/broadcast_announcement", 1);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) {}
     }
 
     private void initMqttListener() {
