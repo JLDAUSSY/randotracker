@@ -1905,6 +1905,15 @@ function renderTrackOnMap(track) {
     </div>
   `);
 
+  // Clic sur la trace : passer au tout premier plan pour faciliter la lecture
+  mainPolyline.on('click', () => {
+    if (track._borderPolyline) track._borderPolyline.bringToFront();
+    mainPolyline.bringToFront();
+  });
+
+  track._borderPolyline = borderPolyline;
+  track._mainPolyline = mainPolyline;
+
   layerGroup.addLayer(borderPolyline);
   layerGroup.addLayer(mainPolyline);
 
@@ -1939,6 +1948,28 @@ function renderTrackOnMap(track) {
   }
 
   state.trackLayers.set(track.id, layerGroup);
+  updateAllTrackOffsets();
+}
+
+/**
+ * Ajuste les décalages parallèles (offsets) de toutes les traces visibles.
+ * Permet d'afficher côte-à-côte les parcours ayant des tronçons communs sans qu'aucun ne soit masqué.
+ */
+function updateAllTrackOffsets() {
+  const visibleTracks = (state.tracks || []).filter(t => t.visible);
+  const total = visibleTracks.length;
+  // Décalage en pixels entre tracés parallèles pour rendre tous les tronçons communs visibles
+  const step = 4.5;
+
+  visibleTracks.forEach((t, index) => {
+    const offset = total <= 1 ? 0 : (index - (total - 1) / 2) * step;
+    if (t._borderPolyline && typeof t._borderPolyline.setOffset === 'function') {
+      t._borderPolyline.setOffset(offset);
+    }
+    if (t._mainPolyline && typeof t._mainPolyline.setOffset === 'function') {
+      t._mainPolyline.setOffset(offset);
+    }
+  });
 }
 
 // ============================================================================
@@ -2243,6 +2274,7 @@ function toggleTrackVisibility(trackId) {
   } else {
     state.map.removeLayer(layer);
   }
+  updateAllTrackOffsets();
   saveHikeSessionToStorage();
   renderQuickTracksBar();
 }
@@ -2258,6 +2290,7 @@ function removeTrack(trackId) {
   }
 
   state.tracks.splice(index, 1);
+  updateAllTrackOffsets();
   saveHikeSessionToStorage();
   updateProfileUI();
   renderQuickTracksBar();
@@ -2266,6 +2299,9 @@ function removeTrack(trackId) {
 function zoomToTrack(trackId) {
   const track = state.tracks.find(t => t.id === trackId);
   if (!track || track.points.length === 0) return;
+
+  if (track._borderPolyline) track._borderPolyline.bringToFront();
+  if (track._mainPolyline) track._mainPolyline.bringToFront();
 
   const latlngs = track.points.map(p => [p.lat, p.lon]);
   const bounds = L.latLngBounds(latlngs);
@@ -7659,6 +7695,7 @@ window.renderLogsList = renderLogsList;
 window.copyLogsToClipboard = copyLogsToClipboard;
 window.downloadLogsFile = downloadLogsFile;
 window.clearAllLogs = clearAllLogs;
+window.updateAllTrackOffsets = updateAllTrackOffsets;
 window.state = state;
 
 

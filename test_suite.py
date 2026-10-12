@@ -249,11 +249,13 @@ exports_to_test = [
     'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName',
     'generateUserPopupHtml', 'refreshActiveUserPopups',
     'initOrdnanceSurveyLayer', 'saveOrdnanceSurveyApiKey', 'updateOsApiKeyUI',
-    'selectEmergencyCountry'
+    'selectEmergencyCountry', 'updateAllTrackOffsets'
 ]
 
 for fn in exports_to_test:
     run_test(f"Export global window.{fn}", lambda fn=fn: f"window.{fn} =" in js_text)
+
+run_test("Traces Parallèles : Leaflet PolylineOffset présent dans index.html et sur disque", lambda: 'leaflet.polylineoffset.js' in html_text and os.path.exists(os.path.join(PROJECT_DIR, 'leaflet.polylineoffset.js')))
 
 run_test("Mode Poche : Container déverrouillage sécurisé (#pocket-unlock-container)", lambda: bool(soup.find(id='pocket-unlock-container')))
 run_test("Mode Poche : Barre de progression déverrouillage (#pocket-unlock-progress)", lambda: bool(soup.find(id='pocket-unlock-progress')))
@@ -557,12 +559,13 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=96',
-    'http://127.0.0.1:8000/app.js?v=96',
+    'http://127.0.0.1:8000/styles.css?v=97',
+    'http://127.0.0.1:8000/app.js?v=97',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
     'http://127.0.0.1:8000/sw.js',
+    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=97',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker.aab',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
