@@ -249,7 +249,7 @@ exports_to_test = [
     'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName',
     'generateUserPopupHtml', 'refreshActiveUserPopups',
     'initOrdnanceSurveyLayer', 'saveOrdnanceSurveyApiKey', 'updateOsApiKeyUI',
-    'selectEmergencyCountry', 'updateAllTrackOffsets'
+    'selectEmergencyCountry', 'updateAllTrackOffsets', 'updatePocketModeButtonVisibility'
 ]
 
 for fn in exports_to_test:
@@ -343,6 +343,7 @@ run_test("Cartographie : Détection automatique Suisse (CH)", lambda: 'lat >= 45
 
 # Tests Mode Poche Anti-Veille & Éco-Énergie
 run_test("Mode Poche : Bouton flottant présent dans le DOM (#btn-enter-pocket-mode)", lambda: bool(soup.find(id='btn-enter-pocket-mode')))
+run_test("Mode Poche : Déclencheur présent dans la modale Profil (#btn-profile-pocket-mode)", lambda: bool(soup.find(id='btn-profile-pocket-mode')))
 run_test("Mode Poche : Écran noir anti-tactile défini dans le DOM (#pocket-mode-overlay)", lambda: bool(soup.find(id='pocket-mode-overlay')))
 run_test("Mode Poche : Container déverrouillage présent (#pocket-unlock-container)", lambda: bool(soup.find(id='pocket-unlock-container')))
 run_test("Application Native : Fichier RandoTracker.apk généré et présent à la racine", lambda: os.path.exists(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) and os.path.getsize(os.path.join(PROJECT_DIR, 'RandoTracker.apk')) > 1000000)
@@ -559,13 +560,13 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=97',
-    'http://127.0.0.1:8000/app.js?v=97',
+    'http://127.0.0.1:8000/styles.css?v=98',
+    'http://127.0.0.1:8000/app.js?v=98',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
     'http://127.0.0.1:8000/sw.js',
-    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=97',
+    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=98',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker.aab',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'

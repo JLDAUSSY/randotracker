@@ -412,6 +412,7 @@ function syncNativeAndroidSession() {
         );
         console.log('[NativeBridge] Session synchronisée avec Android Service (updateSession):', room, name);
       }
+      updatePocketModeButtonVisibility();
     } catch (e) {
       console.warn('[NativeBridge] Erreur sync session:', e);
     }
@@ -420,6 +421,7 @@ function syncNativeAndroidSession() {
 
 window.onNativeAndroidReady = function() {
   syncNativeAndroidSession();
+  updatePocketModeButtonVisibility();
 };
 
 // ============================================================================
@@ -1226,6 +1228,7 @@ function openProfileModal() {
   const profileModal = document.getElementById('profile-modal');
   if (!profileModal) return;
   updateProfileUI();
+  updatePocketModeButtonVisibility();
   renderProfileAdBanner();
   profileModal.classList.remove('hidden');
   profileModal.style.display = 'flex';
@@ -4175,6 +4178,37 @@ function updatePocketModeTelemetry() {
   }
 }
 
+/**
+ * Affiche ou masque les déclencheurs du Mode Poche.
+ * - Sur le Web (Safari iPhone, Chrome Android invité) : Le bouton s'affiche pour permettre le suivi continu en poche sans coupure.
+ * - Dans l'app Android native installée : Masqué car le Foreground Service natif gère déjà le suivi écran éteint.
+ */
+function updatePocketModeButtonVisibility() {
+  const btn = document.getElementById('btn-enter-pocket-mode');
+  const profileBtn = document.getElementById('btn-profile-pocket-mode');
+  const isNative = !!(window.IS_NATIVE_ANDROID_APP || (typeof AndroidBridge !== 'undefined'));
+
+  if (btn) {
+    if (isNative) {
+      btn.classList.add('hidden');
+      btn.style.display = 'none';
+    } else {
+      btn.classList.remove('hidden');
+      btn.style.display = 'flex';
+    }
+  }
+
+  if (profileBtn) {
+    if (isNative) {
+      profileBtn.classList.add('hidden');
+      profileBtn.style.display = 'none';
+    } else {
+      profileBtn.classList.remove('hidden');
+      profileBtn.style.display = 'flex';
+    }
+  }
+}
+
 // ============================================================================
 // INVITATION DES PARTICIPANTS (QR CODE + WHATSAPP / SMS)
 // ============================================================================
@@ -6844,6 +6878,7 @@ function bootApp() {
   } catch(e) { console.error('[Init Lucide]', e); }
 
   try { ensureBarsVisible(); } catch(e) { console.error('[Init EnsureBars]', e); }
+  try { updatePocketModeButtonVisibility(); } catch(e) { console.error('[Init PocketButton]', e); }
 
   // Retries garantis pour le rendu des icônes Lucide et le recalcul géométrique de Leaflet
   setTimeout(() => {
@@ -7696,6 +7731,7 @@ window.copyLogsToClipboard = copyLogsToClipboard;
 window.downloadLogsFile = downloadLogsFile;
 window.clearAllLogs = clearAllLogs;
 window.updateAllTrackOffsets = updateAllTrackOffsets;
+window.updatePocketModeButtonVisibility = updatePocketModeButtonVisibility;
 window.state = state;
 
 

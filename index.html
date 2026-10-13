@@ -37,7 +37,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PolylineOffset pour affichage parallèle des tronçons communs de traces GPX -->
-  <script src="leaflet.polylineoffset.js?v=97"></script>
+  <script src="leaflet.polylineoffset.js?v=98"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -55,8 +55,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v97 -->
-  <link rel="stylesheet" href="styles.css?v=97" />
+  <!-- Custom Styles with Cache-Busting v98 -->
+  <link rel="stylesheet" href="styles.css?v=98" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -167,8 +167,8 @@
       </button>
     </div>
 
-    <!-- BOUTON FLOTTANT MODE POCHE (SÉCURISÉ / CACHÉ PAR DÉFAUT) -->
-    <button id="btn-enter-pocket-mode" onclick="enterPocketMode()" class="hidden absolute bottom-4 left-3 z-20 px-3.5 py-2.5 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 font-black text-xs sm:text-sm flex items-center gap-2 border-2 border-slate-750 hover:border-emerald-500 shadow-2xl backdrop-blur-md transition active:scale-95 cursor-pointer" style="display: none;" title="Verrouiller l'écran et économiser la batterie en poche">
+    <!-- BOUTON FLOTTANT MODE POCHE (POUR NAVIGATEURS WEB / INVITÉS QR CODE) -->
+    <button id="btn-enter-pocket-mode" onclick="enterPocketMode()" class="absolute bottom-4 left-3 z-20 px-3.5 py-2.5 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 font-black text-xs sm:text-sm flex items-center gap-2 border-2 border-slate-750 hover:border-emerald-500 shadow-2xl backdrop-blur-md transition active:scale-95 cursor-pointer" title="Verrouiller l'écran et économiser la batterie en poche">
       <span class="text-base">🔒</span>
       <span>Mode Poche</span>
     </button>
@@ -854,6 +854,10 @@
           <p class="text-[11px] text-slate-400 font-semibold leading-relaxed">
             Le maintien d'activité en arrière-plan et la veille d'écran sont gérés automatiquement : aucune manipulation requise dans les réglages de votre téléphone.
           </p>
+          <button type="button" id="btn-profile-pocket-mode" onclick="closeProfileModal(); enterPocketMode();" class="w-full mt-2 py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-emerald-400 hover:text-emerald-300 font-black text-xs flex items-center justify-center gap-2 border border-slate-700 hover:border-emerald-500 transition active:scale-95 shadow-lg">
+            <span>🔒</span>
+            <span>Activer le Mode Poche maintenant</span>
+          </button>
         </div>
 
         <!-- Alerte Sonore Sortie de Trace GPX (> 50m) -->
@@ -1730,7 +1734,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v97 -->
-  <script src="app.js?v=97"></script>
+  <!-- Main Application Script with Cache-Busting v98 -->
+  <script src="app.js?v=98"></script>
 </body>
 </html>
