@@ -380,7 +380,11 @@ const state = {
   hoverMarker: null,
   activeDrawer: null,
   hasAutoCenteredGps: false,
-  hasAutoDetectedGpsCountry: false
+  hasAutoDetectedGpsCountry: false,
+  waypoints: [],
+  waypointLayers: new Map(),
+  compassHeading: null,
+  compassActive: false
 };
 
 // ============================================================================
@@ -717,7 +721,14 @@ function clearHikeSession() {
   });
   state.otherUsers.clear();
 
-  // 3. Purger les stockages locaux (traces et anciens participants)
+  // 3. Purger les stockages locaux (traces, anciens participants et repères)
+  state.waypoints.forEach(w => {
+    const l = state.waypointLayers.get(w.id);
+    if (l && state.map) state.map.removeLayer(l);
+  });
+  state.waypoints = [];
+  state.waypointLayers.clear();
+  localStorage.removeItem(`rando_waypoints_${state.roomCode}`);
   localStorage.removeItem('rando_saved_session');
   localStorage.removeItem('rando_saved_other_users');
 
@@ -1319,6 +1330,14 @@ function initMap() {
 
   L.control.zoom({ position: 'bottomright' }).addTo(state.map);
 
+  // Échelle métrique dynamique (50m, 100m, 1km...) en bas à gauche de la carte
+  L.control.scale({
+    imperial: false,
+    metric: true,
+    position: 'bottomleft',
+    maxWidth: 140
+  }).addTo(state.map);
+
   // 1. Fond IGN Géoplateforme (Plan IGN V2 France) - Optimisé
   state.layers.ign = L.tileLayer(
     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
@@ -1371,7 +1390,7 @@ function initMap() {
     }
   );
 
-  // 4. Fond IGN Orthophoto (Photos Aériennes Satellite) - Optimisé
+  // 6. Fond IGN Orthophoto (Photos Aériennes Satellite France) - Optimisé
   state.layers.satellite = L.tileLayer(
     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     {
@@ -1383,7 +1402,19 @@ function initMap() {
     }
   );
 
-  // 5. Fond OpenStreetMap standard - Optimisé
+  // 7. Fond Esri World Imagery (Satellite Haute Résolution Monde) - Optimisé
+  state.layers.esri_satellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {
+      maxZoom: 19,
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
+      updateWhenIdle: true,
+      updateInterval: 150,
+      keepBuffer: 1
+    }
+  );
+
+  // 8. Fond OpenStreetMap standard - Optimisé
   state.layers.osm = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
@@ -1395,7 +1426,7 @@ function initMap() {
     }
   );
 
-  // 6. Calque de Surimpression : Pentes Fortes de Montagne IGN (> 30° / 35° / 40° / 45°)
+  // 9. Calque de Surimpression : Pentes Fortes de Montagne IGN (> 30° / 35° / 40° / 45°)
   state.layers.slopes = L.tileLayer(
     'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.SLOPES.MOUNTAIN&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
     {
@@ -1435,6 +1466,13 @@ function initMap() {
   setTimeout(() => {
     if (state.map) state.map.invalidateSize();
   }, 200);
+
+  // Clic droit ou appui long tactile sur la carte : Marquer un repère à cette coordonnée
+  state.map.on('contextmenu', (e) => {
+    if (e && e.latlng) {
+      openWaypointModal({ lat: e.latlng.lat, lon: e.latlng.lng });
+    }
+  });
 
   // Rafraîchir les icônes & activer le déplacement tactile/souris et zoom des popups
   state.map.on('popupopen', (e) => {
@@ -1518,6 +1556,7 @@ function setBaseLayer(layerKey) {
     swisstopo: 'Swisstopo',
     opentopo: 'OpenTopoMap',
     satellite: 'IGN Satellite',
+    esri_satellite: 'Esri Satellite',
     osm: 'OSM Standard'
   };
 
@@ -2038,6 +2077,60 @@ function triggerGpxPicker(e) {
   }
 }
 window.triggerGpxPicker = triggerGpxPicker;
+
+// ============================================================================
+// SYNCHRONISATION DES TRACES GPX AVEC LES INVITÉS QR CODE (COMPRESSION MQTT)
+// ============================================================================
+function prepareTracksForMqtt(tracks) {
+  if (!Array.isArray(tracks) || tracks.length === 0) return [];
+  return tracks.map(t => {
+    let pts = t.points || [];
+    // Si la trace dépasse 800 points, sous-échantillonnage pour rester sous 30 Ko
+    if (pts.length > 800) {
+      const step = Math.ceil(pts.length / 800);
+      pts = pts.filter((_, idx) => idx % step === 0 || idx === pts.length - 1);
+    }
+    return {
+      id: t.id,
+      name: t.name,
+      totalDistance: t.totalDistance,
+      totalEleGain: t.totalEleGain,
+      totalEleLoss: t.totalEleLoss,
+      color: t.color,
+      points: pts.map(p => ({
+        lat: Number(p.lat.toFixed(5)),
+        lon: Number(p.lon.toFixed(5)),
+        ele: Math.round(p.ele || 0)
+      }))
+    };
+  });
+}
+window.prepareTracksForMqtt = prepareTracksForMqtt;
+
+function broadcastTracksToRoom() {
+  if (!state.tracks || state.tracks.length === 0) {
+    showToast('⚠️ Aucun parcours GPX chargé à diffuser.', 'warn');
+    return;
+  }
+  const compactTracks = prepareTracksForMqtt(state.tracks);
+  publishMessage({
+    type: 'sync_tracks',
+    from: state.myUser.id,
+    tracks: compactTracks
+  });
+  showToast(`📡 ${state.tracks.length} parcours diffusé(s) à tous les marcheurs !`, 'success');
+}
+window.broadcastTracksToRoom = broadcastTracksToRoom;
+
+function requestTracksFromRoom() {
+  publishMessage({
+    type: 'request_tracks',
+    from: state.myUser.id,
+    requesterName: state.myUser.name
+  });
+  showToast('📥 Demande de parcours envoyée au groupe...', 'info');
+}
+window.requestTracksFromRoom = requestTracksFromRoom;
 
 // ============================================================================
 // GESTIONNAIRE DES PARCOURS & TRACES GPX (MODALE & SÉLECTEUR HEADER)
@@ -3283,6 +3376,7 @@ function renderUsersList() {
 
           <div class="text-right shrink-0 flex flex-col items-end">
             <div class="font-black text-lg sm:text-xl text-blue-400 font-mono">${distStr}</div>
+            ${timeSinceMs > 15000 ? `<div class="text-[10px] text-slate-400 font-bold">${timeSinceMs > 60000 ? `(il y a ${minAgo} min)` : `(il y a ${Math.round(timeSinceMs / 1000)}s)`}</div>` : ''}
             <div class="text-xs text-slate-300 font-black flex items-center gap-1.5 mt-1">
               <span>${(u.movingAvgSpeed && u.movingAvgSpeed > 0 ? u.movingAvgSpeed : (u.speed || 0)).toFixed(1)} km/h ${u.isAutoPaused ? '⏸️' : ''}</span>
               <span class="text-slate-500">•</span>
@@ -3411,17 +3505,20 @@ function closeAllDrawers() {
 }
 
 // ============================================================================
-// GÉOLOCALISATION GPS AUTOMATIQUE AVEC DURÉE LIMITE (MAX 24H)
+// GÉOLOCALISATION GPS AUTOMATIQUE AVEC DURÉE LIMITE (MAX 8H/24H)
 // ============================================================================
 function checkGpsExpiry() {
   if (!state.isTrackingGps || !state.gpsStartTime) return;
 
   const elapsedMs = Date.now() - state.gpsStartTime;
-  const maxMs = state.shareDurationHours * 3600 * 1000;
+  const maxMs = (state.shareDurationHours || 8) * 3600 * 1000;
 
   if (elapsedMs >= maxMs) {
     stopGpsWatch();
-    showToast(`⏳ Durée de partage (${state.shareDurationHours}h max) atteinte. Partage arrêté.`, 'info');
+    showToast(`⏳ Durée maximale atteinte (${state.shareDurationHours || 8}h). Arrêt automatique du suivi.`, 'info');
+    if (window.AndroidBridge && typeof window.AndroidBridge.closeApp === 'function') {
+      window.AndroidBridge.closeApp();
+    }
   }
 }
 
@@ -3429,16 +3526,16 @@ function checkGpsExpiry() {
 // ALERTE SONORE & VIBRATION EN CAS DE SORTIE DE TRACE GPX (OFF-TRACK)
 // ============================================================================
 function playOffTrackAlertSound() {
+  // Vérifier si l'utilisateur a désactivé les alertes pour les sorties de trace
+  if (!isOffTrackSoundEnabled()) {
+    console.log('[Audio] Alerte sonore et vibration sortie de trace désactivées par l\'utilisateur');
+    return;
+  }
+
   if (navigator.vibrate) {
     try {
       navigator.vibrate([300, 150, 300, 150, 300]);
     } catch (e) {}
-  }
-
-  // Vérifier si l'utilisateur a désactivé le son pour les sorties de trace
-  if (!isOffTrackSoundEnabled()) {
-    console.log('[Audio] Alerte sonore sortie de trace désactivée par l\'utilisateur');
-    return;
   }
 
   try {
@@ -3467,20 +3564,6 @@ function playOffTrackAlertSound() {
   }
 }
 
-// ============================================================================
-// GÉOLOCALISATION GPS AUTOMATIQUE AVEC DURÉE LIMITE (MAX 24H)
-// ============================================================================
-function checkGpsExpiry() {
-  if (!state.isTrackingGps || !state.gpsStartTime) return;
-
-  const elapsedMs = Date.now() - state.gpsStartTime;
-  const maxMs = state.shareDurationHours * 3600 * 1000;
-
-  if (elapsedMs >= maxMs) {
-    stopGpsWatch();
-    showToast(`⏳ Durée de partage (${state.shareDurationHours}h max) atteinte. Partage arrêté.`, 'info');
-  }
-}
 
 function startGpsWatch(useHighAccuracy = true) {
   const navBubble = document.getElementById('nav-gps-bubble');
@@ -4811,12 +4894,12 @@ function handleIncomingMessage(data) {
           user: state.myUser
         });
 
-        // Si nous avons des traces GPX chargées, nous les envoyons au nouvel arrivant
+        // Si nous avons des traces GPX chargées, nous les envoyons au nouvel arrivant (optimisées <30Ko)
         if (state.tracks.length > 0) {
           publishMessage({
             type: 'sync_tracks',
             from: state.myUser.id,
-            tracks: state.tracks
+            tracks: prepareTracksForMqtt(state.tracks)
           });
         }
       }
@@ -4840,6 +4923,41 @@ function handleIncomingMessage(data) {
           refreshActiveUserPopups();
         }
       }
+    } else if (data.type === 'request_tracks') {
+      if (state.tracks && state.tracks.length > 0) {
+        console.log('[MQTT] Demande de parcours reçue de', data.from);
+        publishMessage({
+          type: 'sync_tracks',
+          from: state.myUser.id,
+          tracks: prepareTracksForMqtt(state.tracks)
+        });
+      }
+    } else if (data.type === 'request_presence') {
+      if (data.from !== state.myUser.id) {
+        publishMessage({
+          type: 'respond_presence',
+          user: state.myUser
+        });
+      }
+    } else if (data.type === 'share_waypoint') {
+      if (data.waypoint && data.waypoint.id) {
+        const exists = state.waypoints.some(w => w.id === data.waypoint.id);
+        if (!exists) {
+          state.waypoints.push(data.waypoint);
+          saveWaypointsToStorage();
+          renderWaypointMarker(data.waypoint);
+          showToast(`📍 Nouveau repère partagé : ${data.waypoint.name}`, 'info');
+        }
+      }
+    } else if (data.type === 'delete_waypoint') {
+      if (data.waypointId) {
+        state.waypoints = state.waypoints.filter(w => w.id !== data.waypointId);
+        if (state.waypointLayers.has(data.waypointId)) {
+          try { state.map.removeLayer(state.waypointLayers.get(data.waypointId)); } catch(e) {}
+          state.waypointLayers.delete(data.waypointId);
+        }
+        saveWaypointsToStorage();
+      }
     } else if (data.type === 'sync_tracks') {
       // Réception des traces GPX de la rando envoyées par Jean-Luc ou un participant
       if (Array.isArray(data.tracks) && data.tracks.length > 0) {
@@ -4862,6 +4980,10 @@ function handleIncomingMessage(data) {
             state.tracks.push(track);
             renderTrackOnMap(track);
           });
+
+          if (typeof updateAllTrackOffsets === 'function') {
+            try { updateAllTrackOffsets(); } catch (e) {}
+          }
 
           renderQuickTracksBar();
           fitAllTracks();
@@ -6812,7 +6934,7 @@ function initAllDraggableModals() {
     'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal',
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'about-modal', 'onboarding-modal', 'elevation-drawer', 'users-panel',
-    'emergency-modal'
+    'emergency-modal', 'waypoint-modal'
   ];
   modalIds.forEach(id => {
     const el = document.getElementById(id);
@@ -6821,6 +6943,320 @@ function initAllDraggableModals() {
     }
   });
 }
+
+// ============================================================================
+// RECENTRER SUR LA POSITION DU MARCHEUR
+// ============================================================================
+function recenterMapOnUser() {
+  if (!state.map) return;
+  if (typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat)) {
+    state.map.flyTo([state.myUser.lat, state.myUser.lon], Math.max(state.map.getZoom(), 16), {
+      animate: true,
+      duration: 0.8
+    });
+    showToast('🎯 Carte recentrée sur votre position', 'info');
+  } else {
+    if (!state.isTrackingGps) {
+      startGpsWatch();
+      showToast('📡 Recherche de votre signal GPS...', 'info');
+    } else {
+      showToast('📍 En attente du signal GPS...', 'info');
+    }
+  }
+}
+window.recenterMapOnUser = recenterMapOnUser;
+
+// ============================================================================
+// BOUSSOLE & ORIENTATION SUR CARTE
+// ============================================================================
+let compassListenerActive = false;
+
+function initCompassListener() {
+  if (compassListenerActive) return;
+
+  const handleOrientation = (e) => {
+    let heading = null;
+    if (typeof e.webkitCompassHeading === 'number') {
+      heading = e.webkitCompassHeading;
+    } else if (e.alpha !== null && e.alpha !== undefined) {
+      heading = (360 - e.alpha) % 360;
+    }
+    if (heading !== null && !isNaN(heading)) {
+      updateCompassDisplay(Math.round(heading));
+    }
+  };
+
+  if ('ondeviceorientationabsolute' in window) {
+    window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+    compassListenerActive = true;
+  } else if ('ondeviceorientation' in window) {
+    window.addEventListener('deviceorientation', handleOrientation, true);
+    compassListenerActive = true;
+  }
+}
+window.initCompassListener = initCompassListener;
+
+function updateCompassDisplay(heading) {
+  state.compassHeading = heading;
+  const icon = document.getElementById('compass-fab-icon');
+  if (icon) {
+    icon.style.transform = `rotate(${-heading}deg)`;
+  }
+}
+window.updateCompassDisplay = updateCompassDisplay;
+
+function toggleMapCompass() {
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission().then(response => {
+      if (response === 'granted') {
+        initCompassListener();
+      }
+    }).catch(() => {});
+  } else {
+    initCompassListener();
+  }
+
+  const currentHeading = (typeof state.compassHeading === 'number')
+    ? `${state.compassHeading}°`
+    : (state.myUser.heading ? `${Math.round(state.myUser.heading)}°` : '--°');
+  showToast(`🧭 Cap : ${currentHeading} (Aiguille pointant vers le Nord)`, 'info');
+}
+window.toggleMapCompass = toggleMapCompass;
+
+// ============================================================================
+// GESTIONNAIRE DES REPÈRES & WAYPOINTS SUR LA CARTE (PARKING, SOURCE, DANGER...)
+// ============================================================================
+let pendingWaypointCoords = null;
+let selectedWptIcon = '🅿️';
+let selectedWptName = 'Parking';
+
+function loadWaypointsFromStorage() {
+  try {
+    const raw = localStorage.getItem(`rando_waypoints_${state.roomCode}`);
+    if (raw) {
+      state.waypoints = JSON.parse(raw) || [];
+      renderAllWaypoints();
+    }
+  } catch (e) {
+    console.warn('[Waypoints] Erreur chargement:', e);
+  }
+}
+window.loadWaypointsFromStorage = loadWaypointsFromStorage;
+
+function saveWaypointsToStorage() {
+  try {
+    localStorage.setItem(`rando_waypoints_${state.roomCode}`, JSON.stringify(state.waypoints));
+  } catch (e) {}
+}
+window.saveWaypointsToStorage = saveWaypointsToStorage;
+
+function openWaypointModal(customCoords) {
+  pendingWaypointCoords = customCoords || null;
+  const modal = document.getElementById('waypoint-modal');
+  if (!modal) return;
+
+  const nameInput = document.getElementById('wpt-name-input');
+  if (nameInput) {
+    nameInput.value = selectedWptName || 'Parking';
+  }
+
+  setupWptIconButtons();
+
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+  pushModalState('waypoint-modal');
+  if (nameInput) setTimeout(() => nameInput.focus(), 150);
+}
+window.openWaypointModal = openWaypointModal;
+
+function closeWaypointModal() {
+  const modal = document.getElementById('waypoint-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+  }
+  pendingWaypointCoords = null;
+}
+window.closeWaypointModal = closeWaypointModal;
+
+function setupWptIconButtons() {
+  document.querySelectorAll('.wpt-icon-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.wpt-icon-btn').forEach(b => {
+        b.classList.remove('border-amber-500', 'bg-slate-750');
+        b.classList.add('border-slate-700');
+      });
+      btn.classList.add('border-amber-500', 'bg-slate-750');
+      btn.classList.remove('border-slate-700');
+      selectedWptIcon = btn.getAttribute('data-icon') || '📍';
+      selectedWptName = btn.getAttribute('data-name') || 'Repère';
+      const nameInput = document.getElementById('wpt-name-input');
+      if (nameInput && (!nameInput.value || ['Parking', 'Source', 'Pique-nique', 'Pause', 'Danger', 'Bivouac', 'Sommet', 'Forêt', 'Repère'].includes(nameInput.value))) {
+        nameInput.value = selectedWptName;
+      }
+    };
+  });
+}
+window.setupWptIconButtons = setupWptIconButtons;
+
+function saveWaypointFromModal() {
+  const nameInput = document.getElementById('wpt-name-input');
+  const name = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : (selectedWptName || 'Repère');
+  const share = document.getElementById('wpt-share-checkbox')?.checked ?? true;
+
+  let lat = null, lon = null, ele = 0;
+  if (pendingWaypointCoords && typeof pendingWaypointCoords.lat === 'number') {
+    lat = pendingWaypointCoords.lat;
+    lon = pendingWaypointCoords.lon;
+  } else if (typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat)) {
+    lat = state.myUser.lat;
+    lon = state.myUser.lon;
+    ele = state.myUser.ele || 0;
+  } else if (state.map) {
+    const center = state.map.getCenter();
+    lat = center.lat;
+    lon = center.lng;
+  }
+
+  if (lat === null || lon === null) {
+    alert('Impossible de déterminer la position du repère. Touchez la carte ou activez le GPS.');
+    return;
+  }
+
+  const wpt = {
+    id: 'wpt_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    name: name,
+    icon: selectedWptIcon || '📍',
+    lat: Number(lat.toFixed(6)),
+    lon: Number(lon.toFixed(6)),
+    ele: Math.round(ele),
+    author: state.myUser.name || 'Randonneur',
+    authorId: state.myUser.id,
+    time: Date.now()
+  };
+
+  state.waypoints.push(wpt);
+  saveWaypointsToStorage();
+  renderWaypointMarker(wpt);
+  closeWaypointModal();
+
+  if (share) {
+    publishMessage({
+      type: 'share_waypoint',
+      waypoint: wpt
+    });
+  }
+
+  showToast(`📍 Repère "${wpt.name}" enregistré !`, 'success');
+}
+window.saveWaypointFromModal = saveWaypointFromModal;
+
+function renderWaypointMarker(wpt) {
+  if (!state.map || !wpt || typeof wpt.lat !== 'number' || typeof wpt.lon !== 'number') return;
+
+  if (state.waypointLayers.has(wpt.id)) {
+    try { state.map.removeLayer(state.waypointLayers.get(wpt.id)); } catch (e) {}
+  }
+
+  const iconHtml = `
+    <div class="waypoint-map-marker">
+      <div style="font-size: 26px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));">${wpt.icon || '📍'}</div>
+      <div class="waypoint-badge">${escapeHtml(wpt.name)}</div>
+    </div>
+  `;
+
+  const customIcon = L.divIcon({
+    html: iconHtml,
+    className: 'custom-wpt-marker',
+    iconSize: [80, 50],
+    iconAnchor: [40, 25]
+  });
+
+  const marker = L.marker([wpt.lat, wpt.lon], { icon: customIcon });
+
+  marker.on('click', () => {
+    let distStr = '';
+    if (typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number') {
+      const d = calculateDistance(state.myUser.lat, state.myUser.lon, wpt.lat, wpt.lon);
+      distStr = `<div style="font-weight: 800; color: #0284c7; margin: 4px 0;">Distance : ${d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(2) + ' km'}</div>`;
+    }
+    const popupContent = `
+      <div style="min-width: 170px; font-family: system-ui, sans-serif; color: #0f172a;">
+        <div style="font-size: 16px; font-weight: 900; display: flex; align-items: center; gap: 6px;">
+          <span>${wpt.icon || '📍'}</span>
+          <span>${escapeHtml(wpt.name)}</span>
+        </div>
+        ${distStr}
+        <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">Créé par ${escapeHtml(wpt.author || 'Randonneur')}</div>
+        <button onclick="deleteWaypoint('${wpt.id}')" style="width: 100%; padding: 6px 10px; background: #ef4444; color: white; border: none; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer;">
+          🗑️ Supprimer ce repère
+        </button>
+      </div>
+    `;
+    marker.bindPopup(popupContent).openPopup();
+  });
+
+  marker.addTo(state.map);
+  state.waypointLayers.set(wpt.id, marker);
+}
+window.renderWaypointMarker = renderWaypointMarker;
+
+function renderAllWaypoints() {
+  if (!state.map) return;
+  state.waypointLayers.forEach(l => {
+    try { state.map.removeLayer(l); } catch(e) {}
+  });
+  state.waypointLayers.clear();
+
+  if (Array.isArray(state.waypoints)) {
+    state.waypoints.forEach(wpt => renderWaypointMarker(wpt));
+  }
+}
+window.renderAllWaypoints = renderAllWaypoints;
+
+function deleteWaypoint(wptId) {
+  if (!confirm('Voulez-vous supprimer ce repère ?')) return;
+
+  state.waypoints = state.waypoints.filter(w => w.id !== wptId);
+  if (state.waypointLayers.has(wptId)) {
+    try { state.map.removeLayer(state.waypointLayers.get(wptId)); } catch(e) {}
+    state.waypointLayers.delete(wptId);
+  }
+  saveWaypointsToStorage();
+
+  publishMessage({
+    type: 'delete_waypoint',
+    waypointId: wptId
+  });
+
+  showToast('🗑️ Repère supprimé', 'info');
+}
+window.deleteWaypoint = deleteWaypoint;
+
+// ============================================================================
+// ACTUALISATION MANUELLE DE LA LISTE DES PARTICIPANTS
+// ============================================================================
+function refreshParticipantsList() {
+  const now = Date.now();
+  let purged = 0;
+  state.otherUsers.forEach((u, id) => {
+    if (now - (u.lastSeen || 0) > 10 * 60 * 1000) {
+      removeUserMarker(id);
+      state.otherUsers.delete(id);
+      purged++;
+    }
+  });
+
+  publishMessage({
+    type: 'request_presence',
+    from: state.myUser.id,
+    user: state.myUser
+  });
+
+  renderUsersList();
+  showToast(purged > 0 ? `🔄 Liste actualisée (${purged} inactif(s) retiré(s))` : '🔄 Liste actualisée, signal envoyé', 'info');
+}
+window.refreshParticipantsList = refreshParticipantsList;
 
 // ============================================================================
 // DÉMARRAGE DE L'APPLICATION (BOOTSTRAP DEFENSIVE & ROBUSTE)
@@ -6855,6 +7291,8 @@ function bootApp() {
 
   try { createOrUpdateUserMarker(state.myUser); } catch(e) { console.error('[Init UserMarker]', e); }
   try { loadSavedOtherUsersFromStorage(); } catch(e) { console.error('[Init SavedUsers]', e); }
+  try { loadWaypointsFromStorage(); } catch(e) { console.error('[Init Waypoints]', e); }
+  try { initCompassListener(); } catch(e) { console.error('[Init Compass]', e); }
   try { deduplicateUsersByName(); } catch(e) { console.error('[Init Deduplicate]', e); }
   try { renderUsersList(); } catch(e) { console.error('[Init UsersList]', e); }
 
@@ -7511,7 +7949,18 @@ function stopTrackingAndExitApp() {
 
     closeProfileModal();
     updateConnectionStatus(false);
-    showToast('🛑 Suivi GPS arrêté. Batterie et réseau libérés.', 'info');
+    showToast('🛑 Suivi GPS arrêté. Batterie et processus libérés.', 'info');
+
+    // 6. Si nous sommes sur l'application native Android, tuer tous les processus et fermer
+    if (window.AndroidBridge && typeof window.AndroidBridge.closeApp === 'function') {
+      setTimeout(() => {
+        try {
+          window.AndroidBridge.closeApp();
+        } catch (e) {
+          console.warn('[StopTracking] Erreur fermeture app native Android:', e);
+        }
+      }, 400);
+    }
   } catch (e) {
     console.error('[StopTracking] Erreur lors de l\'arrêt du suivi:', e);
   }
@@ -7732,6 +8181,22 @@ window.downloadLogsFile = downloadLogsFile;
 window.clearAllLogs = clearAllLogs;
 window.updateAllTrackOffsets = updateAllTrackOffsets;
 window.updatePocketModeButtonVisibility = updatePocketModeButtonVisibility;
+window.recenterMapOnUser = recenterMapOnUser;
+window.toggleMapCompass = toggleMapCompass;
+window.initCompassListener = initCompassListener;
+window.updateCompassDisplay = updateCompassDisplay;
+window.openWaypointModal = openWaypointModal;
+window.closeWaypointModal = closeWaypointModal;
+window.saveWaypointFromModal = saveWaypointFromModal;
+window.renderWaypointMarker = renderWaypointMarker;
+window.renderAllWaypoints = renderAllWaypoints;
+window.deleteWaypoint = deleteWaypoint;
+window.loadWaypointsFromStorage = loadWaypointsFromStorage;
+window.saveWaypointsToStorage = saveWaypointsToStorage;
+window.broadcastTracksToRoom = broadcastTracksToRoom;
+window.requestTracksFromRoom = requestTracksFromRoom;
+window.prepareTracksForMqtt = prepareTracksForMqtt;
+window.refreshParticipantsList = refreshParticipantsList;
 window.state = state;
 
 

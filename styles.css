@@ -1747,4 +1747,84 @@ body.has-active-popup #city-search-container {
   letter-spacing: 0.5px;
 }
 
+/* ========================================================================== */
+/* ÉCHELLE CARTOGRAPHIQUE LEAFLET HAUT CONTRASTE                              */
+/* ========================================================================== */
+.leaflet-control-scale {
+  margin-bottom: 24px !important;
+  margin-left: 12px !important;
+}
+
+.leaflet-control-scale-line {
+  background: rgba(15, 23, 42, 0.88) !important;
+  color: #f8fafc !important;
+  border: 2px solid #38bdf8 !important;
+  border-top: none !important;
+  border-radius: 0 0 6px 6px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  padding: 3px 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(4px);
+}
+
+/* ========================================================================== */
+/* BOUTONS FLOTTANTS SUR LA CARTE (BOUSSOLE, RECENTRER, REPÈRES)              */
+/* ========================================================================== */
+.map-fab-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(8px);
+  border: 2px solid #475569;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.map-fab-btn:hover {
+  background: #1e293b;
+  border-color: #38bdf8;
+  transform: scale(1.06);
+}
+
+.map-fab-btn:active {
+  transform: scale(0.94);
+}
+
+.map-compass-needle {
+  transition: transform 0.2s ease-out;
+}
+
+/* WAYPOINTS MARKERS SUR LA CARTE */
+.waypoint-map-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+
+.waypoint-badge {
+  background: rgba(15, 23, 42, 0.94);
+  color: #ffffff;
+  border: 2px solid #f59e0b;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  margin-top: 2px;
+}
+
+
 

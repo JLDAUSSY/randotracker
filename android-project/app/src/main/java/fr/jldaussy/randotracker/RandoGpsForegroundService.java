@@ -50,6 +50,17 @@ public class RandoGpsForegroundService extends Service {
     private static volatile String activeUserIcon = "🥾";
     private static volatile boolean activeIsSos = false;
 
+    public static final long MAX_TRACKING_DURATION_MS = 8 * 3600 * 1000L; // Arrêt forcé garanti après 8 heures
+    private long trackingStartTime = 0L;
+    private final android.os.Handler autoStopHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable autoStopRunnable = new Runnable() {
+        @Override
+        public void run() {
+            stopForeground(true);
+            stopSelf();
+        }
+    };
+
     private LocationManager locationManager;
     private PowerManager.WakeLock wakeLock;
     private LocationListener locationListener;
@@ -87,6 +98,8 @@ public class RandoGpsForegroundService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        trackingStartTime = System.currentTimeMillis();
+        autoStopHandler.postDelayed(autoStopRunnable, MAX_TRACKING_DURATION_MS);
         loadSavedConfig();
         createNotificationChannels();
         startForegroundTracking();
@@ -304,6 +317,12 @@ public class RandoGpsForegroundService extends Service {
         String userName = (activeUserName != null && !activeUserName.trim().isEmpty()) ? activeUserName.trim() : "Randonneur";
 
         long now = System.currentTimeMillis();
+        if (trackingStartTime > 0L && (now - trackingStartTime >= MAX_TRACKING_DURATION_MS)) {
+            stopForeground(true);
+            stopSelf();
+            return;
+        }
+
         float speedKmh = loc.hasSpeed() ? (loc.getSpeed() * 3.6f) : 0f;
         long minInterval = (speedKmh < 0.8f && !activeIsSos) ? 40000L : 3500L;
         if (now - lastNativeBroadcastTime < minInterval) {
@@ -445,6 +464,9 @@ public class RandoGpsForegroundService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        if (autoStopHandler != null && autoStopRunnable != null) {
+            autoStopHandler.removeCallbacks(autoStopRunnable);
+        }
         if (locationManager != null && locationListener != null) {
             try { locationManager.removeUpdates(locationListener); } catch (Exception e) {}
         }

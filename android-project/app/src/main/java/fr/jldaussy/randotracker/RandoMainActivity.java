@@ -421,5 +421,21 @@ public class RandoMainActivity extends AppCompatActivity {
         public void stopTrackingService() {
             stopGpsService();
         }
+
+        @JavascriptInterface
+        public void closeApp() {
+            stopGpsService();
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        finishAffinity();
+                        System.exit(0);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
     }
 }

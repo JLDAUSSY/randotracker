@@ -37,7 +37,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PolylineOffset pour affichage parallèle des tronçons communs de traces GPX -->
-  <script src="leaflet.polylineoffset.js?v=98"></script>
+  <script src="leaflet.polylineoffset.js?v=99"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -55,8 +55,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v98 -->
-  <link rel="stylesheet" href="styles.css?v=98" />
+  <!-- Custom Styles with Cache-Busting v99 -->
+  <link rel="stylesheet" href="styles.css?v=99" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -172,6 +172,23 @@
       <span class="text-base">🔒</span>
       <span>Mode Poche</span>
     </button>
+    <!-- BOUTONS D'ACTION FLOTTANTS SUR LA CARTE (BOUSSOLE, RECENTRER, REPÈRES) -->
+    <div class="absolute bottom-20 right-3 z-20 flex flex-col gap-2.5 pointer-events-auto">
+      <!-- 1. Boussole & Orientation -->
+      <button id="btn-map-compass" onclick="toggleMapCompass()" class="map-fab-btn" title="Boussole : Afficher le cap et l'orientation">
+        <i data-lucide="compass" id="compass-fab-icon" class="w-6 h-6 text-rose-400 map-compass-needle"></i>
+      </button>
+
+      <!-- 2. Marquer un repère (Parking, Source, Danger...) -->
+      <button id="btn-add-waypoint-fab" onclick="openWaypointModal()" class="map-fab-btn" title="Marquer un repère / Point d'intérêt">
+        <span class="text-xl">📍</span>
+      </button>
+
+      <!-- 3. Recentrer sur ma position GPS -->
+      <button id="btn-recenter-map" onclick="recenterMapOnUser()" class="map-fab-btn" title="Recentrer la carte sur ma position GPS">
+        <i data-lucide="crosshair" class="w-6 h-6 text-emerald-400"></i>
+      </button>
+    </div>
   </main>
 
   <!-- VOILE D'ARRIÈRE-PLAN POUR TIROIRS (FERMETURE EN 1 CLIC) -->
@@ -197,6 +214,9 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
+        <button onclick="refreshParticipantsList()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 active:scale-95 transition" title="Actualiser la liste des participants">
+          <i data-lucide="refresh-cw" class="w-4 h-4 text-emerald-400"></i>
+        </button>
         <span id="users-badge" class="text-sm font-black px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border-2 border-blue-500/40">1/10</span>
         <button id="close-users-panel-btn" class="w-12 h-12 rounded-2xl flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 active:scale-90 bg-slate-800/80 border border-slate-700">
           <i data-lucide="x" class="w-7 h-7"></i>
@@ -469,7 +489,7 @@
   </nav>
 
   <!-- Input masqué pour chargement GPX (accessible hors écran pour compatibilité Android WebView & Web) -->
-  <input type="file" id="gpx-file-input" accept=".gpx,application/gpx+xml,application/xml,text/xml,*/*" style="position:fixed;top:-9999px;left:-9999px;opacity:0;width:1px;height:1px;" onchange="handleGpxFileInput(this)" multiple />
+  <input type="file" id="gpx-file-input" accept=".gpx,application/gpx+xml,application/xml,text/xml,*/*" style="position:fixed;top:-9999px;left:-9999px;opacity:0;width:1px;height:1px;" multiple />
 
   <!-- ================================================================= -->
   <!-- MODAL : GESTIONNAIRE DES TRACES GPX (Jusqu'à 5 traces)            -->
@@ -508,6 +528,17 @@
           <button type="button" id="load-another-gpx-btn" onclick="triggerGpxPicker(event)" class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-xl transition active:scale-95 cursor-pointer">
             <i data-lucide="upload-cloud" class="w-5 h-5 pointer-events-none"></i>
             <span class="pointer-events-none">📂 + Charger un autre parcours GPX</span>
+          </button>
+        </div>
+        <!-- Boutons de Synchronisation GPX Manuelle (Résout le cas des invités QR Code) -->
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" onclick="broadcastTracksToRoom()" class="py-2.5 px-3 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 text-blue-200 hover:text-white font-black text-xs flex items-center justify-center gap-1.5 border border-blue-500/50 transition active:scale-95" title="Diffuser immédiatement vos traces à tous les invités connectés">
+            <i data-lucide="radio" class="w-4 h-4 text-blue-400"></i>
+            <span>📡 Diffuser traces</span>
+          </button>
+          <button type="button" onclick="requestTracksFromRoom()" class="py-2.5 px-3 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 hover:text-white font-black text-xs flex items-center justify-center gap-1.5 border border-indigo-500/50 transition active:scale-95" title="Demander aux autres participants de vous renvoyer la trace GPX">
+            <i data-lucide="download" class="w-4 h-4 text-indigo-400"></i>
+            <span>📥 Demander trace</span>
           </button>
         </div>
 
@@ -634,11 +665,20 @@
           <i data-lucide="check" class="w-6 h-6 text-emerald-400 layer-check hidden"></i>
         </button>
 
-        <!-- 6. Satellite -->
+        <!-- 6. Satellite IGN -->
         <button class="layer-opt-btn px-4 py-3.5 rounded-2xl border-2 border-slate-700 bg-slate-800 text-slate-200 text-base font-black flex items-center justify-between transition active:scale-98 shadow-md" data-layer="satellite">
           <span class="flex items-center gap-3.5">
             <i data-lucide="satellite" class="w-6 h-6 text-blue-400"></i>
-            <span>IGN Satellite (Photos Aériennes HD)</span>
+            <span>IGN Satellite (Photos Aériennes France HD)</span>
+          </span>
+          <i data-lucide="check" class="w-6 h-6 text-emerald-400 layer-check hidden"></i>
+        </button>
+
+        <!-- 7. Esri World Imagery Satellite -->
+        <button class="layer-opt-btn px-4 py-3.5 rounded-2xl border-2 border-slate-700 bg-slate-800 text-slate-200 text-base font-black flex items-center justify-between transition active:scale-98 shadow-md" data-layer="esri_satellite">
+          <span class="flex items-center gap-3.5">
+            <span class="text-xl">🛰️</span>
+            <span>Esri World Imagery (Satellite Mondial)</span>
           </span>
           <i data-lucide="check" class="w-6 h-6 text-emerald-400 layer-check hidden"></i>
         </button>
@@ -717,6 +757,84 @@
         </button>
         <button id="save-room-btn" class="px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black shadow-xl shadow-emerald-600/30">
           Valider
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= -->
+  <!-- MODAL : CRÉER UN REPÈRE / POINT D'INTÉRÊT (WAYPOINT)               -->
+  <!-- ================================================================= -->
+  <div id="waypoint-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
+    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b-2 border-slate-800 pb-3">
+        <h3 class="font-black text-xl text-white flex items-center gap-3">
+          <span class="text-2xl">📍</span>
+          <span>Nouveau Repère</span>
+        </h3>
+        <button onclick="closeWaypointModal()" class="modal-close-btn" title="Fermer">
+          <i data-lucide="x" class="w-7 h-7 text-white stroke-[3]"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-black text-slate-400 mb-1.5 uppercase">Nom du repère</label>
+          <input type="text" id="wpt-name-input" placeholder="ex: Parking, Source d'eau, Vue..." class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-4 py-3 text-base text-white font-bold focus:outline-none focus:border-emerald-500 shadow-inner" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-black text-slate-400 mb-2 uppercase">Icône / Catégorie</label>
+          <div class="grid grid-cols-4 gap-2" id="wpt-icon-selector">
+            <button type="button" class="wpt-icon-btn p-3 rounded-2xl bg-slate-800 hover:bg-slate-750 border-2 border-amber-500 flex flex-col items-center gap-1 active:scale-95 transition" data-icon="🅿️" data-name="Parking">
+              <span class="text-2xl">🅿️</span>
+              <span class="text-[10px] font-black text-slate-300">Parking</span>
+            </button>
+            <button type="button" class="wpt-icon-btn p-3 rounded-2xl bg-slate-800 hover:bg-slate-750 border-2 border-slate-700 flex flex-col items-center gap-1 active:scale-95 transition" data-icon="💧" data-name="Source">
+              <span class="text-2xl">💧</span>
+              <span class="text-[10px] font-black text-slate-300">Source</span>
+            </button>
+            <button type="button" class="wpt-icon-btn p-3 rounded-2xl bg-slate-800 hover:bg-slate-750 border-2 border-slate-700 flex flex-col items-center gap-1 active:scale-95 transition" data-icon="🥪" data-name="Pique-nique">
+              <span class="text-2xl">🥪</span>
+              <span class="text-[10px] font-black text-slate-300">Pause</span>
+            </button>
+            <button type="button" class="wpt-icon-btn p-3 rounded-2xl bg-slate-800 hover:bg-slate-750 border-2 border-slate-700 flex flex-col items-center gap-1 active:scale-95 transition" data-icon="⚠️" data-name="Danger">
+              <span class="text-2xl">⚠️</span>
+              <span class="text-[10px] font-black text-slate-300">Danger</span>
+            </button>
+            <button type="button" class="wpt-icon-btn p-3 rounded-2xl bg-slate-800 hover:bg-slate-750 border-2 border-slate-700 flex flex-col items-center gap-1 active:scale-95 transition" data-icon="⛺" data-name="Bivouac">
+              <span class="text-2xl">⛺</span>
+              <span class="text-[10px] font-black text-slate-300">Bivouac</span>
+            </button>
+            <button type="button" class="wpt-icon-btn p-3 rounded-2xl bg-slate-800 hover:bg-slate-750 border-2 border-slate-700 flex flex-col items-center gap-1 active:scale-95 transition" data-icon="🏔️" data-name="Sommet">
+              <span class="text-2xl">🏔️</span>
+              <span class="text-[10px] font-black text-slate-300">Sommet</span>
+            </button>
+            <button type="button" class="wpt-icon-btn p-3 rounded-2xl bg-slate-800 hover:bg-slate-750 border-2 border-slate-700 flex flex-col items-center gap-1 active:scale-95 transition" data-icon="🌲" data-name="Forêt">
+              <span class="text-2xl">🌲</span>
+              <span class="text-[10px] font-black text-slate-300">Forêt</span>
+            </button>
+            <button type="button" class="wpt-icon-btn p-3 rounded-2xl bg-slate-800 hover:bg-slate-750 border-2 border-slate-700 flex flex-col items-center gap-1 active:scale-95 transition" data-icon="📍" data-name="Repère">
+              <span class="text-2xl">📍</span>
+              <span class="text-[10px] font-black text-slate-300">Repère</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="wpt-share-checkbox" checked class="w-5 h-5 rounded accent-emerald-500 cursor-pointer" />
+          <label for="wpt-share-checkbox" class="text-xs font-bold text-slate-300 cursor-pointer">
+            Partager ce repère avec tous les marcheurs du groupe
+          </label>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t-2 border-slate-800 flex justify-end gap-3">
+        <button type="button" onclick="closeWaypointModal()" class="px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-bold">
+          Annuler
+        </button>
+        <button type="button" onclick="saveWaypointFromModal()" class="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black shadow-xl shadow-emerald-600/30">
+          Enregistrer le Repère
         </button>
       </div>
     </div>
@@ -943,23 +1061,23 @@
           </button>
         </div>
 
-        <!-- ARRÊTER LE SUIVI GPS & QUITTER PROPREMENT -->
-        <div class="p-4 bg-red-950/30 rounded-2xl border-2 border-red-500/40 space-y-2.5">
+        <!-- ARRÊTER LE SUIVI GPS & QUITTER PROPREMENT (FERME TOUS LES PROCESSUS) -->
+        <div class="p-4 bg-red-950/40 rounded-2xl border-2 border-red-500/60 space-y-2.5">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <span class="text-xl">🛑</span>
+              <span class="text-2xl">🛑</span>
               <div>
-                <span class="text-xs font-black text-white uppercase block">Arrêter le Suivi GPS</span>
-                <span class="text-[10px] text-red-400 font-bold">Déconnexion immédiate & libération batterie</span>
+                <span class="text-xs font-black text-white uppercase block">Arrêt Complet & Fermeture</span>
+                <span class="text-[10px] text-red-400 font-bold">Clôt tous les processus et libère la batterie</span>
               </div>
             </div>
           </div>
           <p class="text-[11px] text-slate-300 font-semibold leading-relaxed">
-            Arrête la transmission de votre position au groupe, coupe le service d'arrière-plan et préserve la batterie.
+            Arrête définitivement le partage de position, tue le service d'arrière-plan, libère la puce GPS et ferme complètement l'application.
           </p>
-          <button type="button" id="btn-stop-tracking-app" onclick="stopTrackingAndExitApp()" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white text-xs font-black flex items-center justify-center gap-2 shadow-lg transition active:scale-95">
+          <button type="button" id="btn-stop-tracking-app" onclick="stopTrackingAndExitApp()" class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-red-700 hover:from-red-500 hover:to-rose-500 text-white text-xs font-black flex items-center justify-center gap-2 shadow-xl shadow-red-950/50 transition active:scale-95">
             <i data-lucide="power" class="w-4 h-4"></i>
-            <span>🛑 Arrêter le suivi & Quitter la randonnée</span>
+            <span>🛑 Arrêter le suivi & Fermer l'application</span>
           </button>
         </div>
 
@@ -1734,7 +1852,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v98 -->
-  <script src="app.js?v=98"></script>
+  <!-- Main Application Script with Cache-Busting v99 -->
+  <script src="app.js?v=99"></script>
 </body>
 </html>
