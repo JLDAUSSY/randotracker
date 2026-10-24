@@ -3646,6 +3646,12 @@ function startGpsWatch(useHighAccuracy = true) {
     state.myUser.speed = isMoving ? instantSpeed : 0.0;
     state.myUser.movingAvgSpeed = state.myUser.movingAvgSpeed || (isMoving ? instantSpeed : 0.0);
     state.myUser.accuracy = pos.coords.accuracy || 10;
+    if (typeof pos.coords.heading === 'number' && !isNaN(pos.coords.heading) && pos.coords.heading >= 0) {
+      state.myUser.heading = pos.coords.heading;
+      if (!compassListenerActive) {
+        updateCompassDisplay(Math.round(pos.coords.heading));
+      }
+    }
 
     try {
       localStorage.setItem('rando_last_lat', String(lat));
@@ -6967,9 +6973,24 @@ function recenterMapOnUser() {
 window.recenterMapOnUser = recenterMapOnUser;
 
 // ============================================================================
-// BOUSSOLE & ORIENTATION SUR CARTE
+// BOUSSOLE & ORIENTATION SUR CARTE (STYLE GOOGLE MAPS)
 // ============================================================================
 let compassListenerActive = false;
+
+function getCardinalDirection(heading) {
+  if (typeof heading !== 'number' || isNaN(heading)) return '';
+  const normalized = ((heading % 360) + 360) % 360;
+  if (normalized >= 337.5 || normalized < 22.5) return 'N (Nord)';
+  if (normalized >= 22.5 && normalized < 67.5) return 'NE (Nord-Est)';
+  if (normalized >= 67.5 && normalized < 112.5) return 'E (Est)';
+  if (normalized >= 112.5 && normalized < 157.5) return 'SE (Sud-Est)';
+  if (normalized >= 157.5 && normalized < 202.5) return 'S (Sud)';
+  if (normalized >= 202.5 && normalized < 247.5) return 'SO (Sud-Ouest)';
+  if (normalized >= 247.5 && normalized < 292.5) return 'O (Ouest)';
+  if (normalized >= 292.5 && normalized < 337.5) return 'NO (Nord-Ouest)';
+  return 'N (Nord)';
+}
+window.getCardinalDirection = getCardinalDirection;
 
 function initCompassListener() {
   if (compassListenerActive) return;
@@ -7000,6 +7021,7 @@ function updateCompassDisplay(heading) {
   state.compassHeading = heading;
   const icon = document.getElementById('compass-fab-icon');
   if (icon) {
+    icon.style.transformOrigin = '19px 19px';
     icon.style.transform = `rotate(${-heading}deg)`;
   }
 }
@@ -7016,10 +7038,16 @@ function toggleMapCompass() {
     initCompassListener();
   }
 
-  const currentHeading = (typeof state.compassHeading === 'number')
-    ? `${state.compassHeading}°`
-    : (state.myUser.heading ? `${Math.round(state.myUser.heading)}°` : '--°');
-  showToast(`🧭 Cap : ${currentHeading} (Aiguille pointant vers le Nord)`, 'info');
+  const h = (typeof state.compassHeading === 'number')
+    ? state.compassHeading
+    : (typeof state.myUser.heading === 'number' ? Math.round(state.myUser.heading) : null);
+
+  if (h !== null) {
+    const card = getCardinalDirection(h);
+    showToast(`🧭 Boussole : Cap ${h}° ${card}`, 'info');
+  } else {
+    showToast('🧭 Boussole active : Orientez votre téléphone (Flèche rouge et N = Nord)', 'info');
+  }
 }
 window.toggleMapCompass = toggleMapCompass;
 

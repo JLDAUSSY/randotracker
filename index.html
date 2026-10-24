@@ -37,7 +37,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PolylineOffset pour affichage parallèle des tronçons communs de traces GPX -->
-  <script src="leaflet.polylineoffset.js?v=100"></script>
+  <script src="leaflet.polylineoffset.js?v=101"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -55,8 +55,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v100 -->
-  <link rel="stylesheet" href="styles.css?v=100" />
+  <!-- Custom Styles with Cache-Busting v101 -->
+  <link rel="stylesheet" href="styles.css?v=101" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -174,9 +174,27 @@
     </button>
     <!-- BOUTONS D'ACTION FLOTTANTS SUR LA CARTE (BOUSSOLE, RECENTRER, REPÈRES) -->
     <div id="map-fab-container" class="map-fab-container pointer-events-auto">
-      <!-- 1. Boussole & Orientation -->
-      <button id="btn-map-compass" onclick="toggleMapCompass()" class="map-fab-btn" title="Boussole : Afficher le cap et l'orientation">
-        <i data-lucide="compass" id="compass-fab-icon" class="w-6 h-6 text-rose-400 map-compass-needle"></i>
+      <!-- 1. Boussole & Orientation Style Google Maps avec flèche Nord rouge et "N" -->
+      <button id="btn-map-compass" onclick="toggleMapCompass()" class="map-fab-btn" title="Boussole : Afficher le cap et l'orientation (Nord)">
+        <svg width="38" height="38" viewBox="0 0 38 38" class="pointer-events-none select-none">
+          <!-- Cadran & repère fixe du haut (direction du téléphone) -->
+          <circle cx="19" cy="19" r="17.5" fill="none" stroke="#334155" stroke-width="1.2" stroke-dasharray="1 3"/>
+          <line x1="19" y1="1" x2="19" y2="3.5" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round"/>
+          
+          <!-- Aiguille rotative (Flèche Nord rouge avec "N" blanc + Flèche Sud argentée) -->
+          <g id="compass-fab-icon" class="map-compass-needle">
+            <!-- Flèche Nord (Rouge avec facettes 3D) -->
+            <polygon points="19,3.5 13,19 19,16.5" fill="#f43f5e"/>
+            <polygon points="19,3.5 25,19 19,16.5" fill="#dc2626"/>
+            <!-- Lettre N Blanche Haute Lisibilité Style Google Maps -->
+            <text x="19" y="11.5" text-anchor="middle" dominant-baseline="central" fill="#ffffff" font-size="9" font-weight="900" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" letter-spacing="-0.5px">N</text>
+            <!-- Flèche Sud (Argentée avec facettes 3D) -->
+            <polygon points="19,34.5 13,19 19,21.5" fill="#e2e8f0"/>
+            <polygon points="19,34.5 25,19 19,21.5" fill="#94a3b8"/>
+            <!-- Pivot central -->
+            <circle cx="19" cy="19" r="2.8" fill="#0f172a" stroke="#f8fafc" stroke-width="1.2"/>
+          </g>
+        </svg>
       </button>
 
       <!-- 2. Marquer un repère (Parking, Source, Danger...) -->
@@ -1852,7 +1870,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v100 -->
-  <script src="app.js?v=100"></script>
+  <!-- Main Application Script with Cache-Busting v101 -->
+  <script src="app.js?v=101"></script>
 </body>
 </html>

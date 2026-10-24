@@ -1822,8 +1822,16 @@ body.has-active-popup #city-search-container {
   pointer-events: none;
 }
 
+#btn-map-compass svg {
+  width: 36px;
+  height: 36px;
+  pointer-events: none;
+}
+
 .map-compass-needle {
-  transition: transform 0.2s ease-out;
+  transform-origin: 19px 19px;
+  transform-box: view-box;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @media (max-height: 520px) {
