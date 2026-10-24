@@ -37,7 +37,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PolylineOffset pour affichage parallèle des tronçons communs de traces GPX -->
-  <script src="leaflet.polylineoffset.js?v=99"></script>
+  <script src="leaflet.polylineoffset.js?v=100"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -55,8 +55,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v99 -->
-  <link rel="stylesheet" href="styles.css?v=99" />
+  <!-- Custom Styles with Cache-Busting v100 -->
+  <link rel="stylesheet" href="styles.css?v=100" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -173,7 +173,7 @@
       <span>Mode Poche</span>
     </button>
     <!-- BOUTONS D'ACTION FLOTTANTS SUR LA CARTE (BOUSSOLE, RECENTRER, REPÈRES) -->
-    <div class="absolute bottom-20 right-3 z-20 flex flex-col gap-2.5 pointer-events-auto">
+    <div id="map-fab-container" class="map-fab-container pointer-events-auto">
       <!-- 1. Boussole & Orientation -->
       <button id="btn-map-compass" onclick="toggleMapCompass()" class="map-fab-btn" title="Boussole : Afficher le cap et l'orientation">
         <i data-lucide="compass" id="compass-fab-icon" class="w-6 h-6 text-rose-400 map-compass-needle"></i>
@@ -1852,7 +1852,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v99 -->
-  <script src="app.js?v=99"></script>
+  <!-- Main Application Script with Cache-Busting v100 -->
+  <script src="app.js?v=100"></script>
 </body>
 </html>

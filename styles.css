@@ -1773,36 +1773,67 @@ body.has-active-popup #city-search-container {
 /* ========================================================================== */
 /* BOUTONS FLOTTANTS SUR LA CARTE (BOUSSOLE, RECENTRER, REPÈRES)              */
 /* ========================================================================== */
+#map-fab-container,
+.map-fab-container {
+  position: fixed !important;
+  bottom: calc(var(--bottom-nav-height, 88px) + 85px) !important;
+  right: 14px !important;
+  z-index: 850 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  pointer-events: auto !important;
+}
+
 .map-fab-btn {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(15, 23, 42, 0.92);
+  background: rgba(15, 23, 42, 0.94);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 2px solid #475569;
   color: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  pointer-events: auto !important;
+  z-index: 851 !important;
 }
 
 .map-fab-btn:hover {
   background: #1e293b;
   border-color: #38bdf8;
-  transform: scale(1.06);
+  transform: scale(1.08);
 }
 
 .map-fab-btn:active {
-  transform: scale(0.94);
+  transform: scale(0.92);
+}
+
+.map-fab-btn svg {
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
 }
 
 .map-compass-needle {
   transition: transform 0.2s ease-out;
+}
+
+@media (max-height: 520px) {
+  #map-fab-container,
+  .map-fab-container {
+    bottom: calc(var(--bottom-nav-height, 88px) + 10px) !important;
+    right: 65px !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+  }
 }
 
 /* WAYPOINTS MARKERS SUR LA CARTE */
