@@ -1771,24 +1771,48 @@ body.has-active-popup #city-search-container {
 }
 
 /* ========================================================================== */
-/* BOUTONS FLOTTANTS SUR LA CARTE (BOUSSOLE, RECENTRER, REPÈRES)              */
+/* CONTRÔLE DE ZOOM LEAFLET & BOUTONS FLOTTANTS SUR LA CARTE                   */
+/* ALIGNEMENT STRICT SUR LE MÊME AXE VERTICAL (CENTRE ET MARGE DROITE UNIFIÉS) */
 /* ========================================================================== */
+.leaflet-right .leaflet-control-zoom {
+  margin-right: 10px !important;
+}
+
+.leaflet-bar {
+  border: 2px solid rgba(0, 0, 0, 0.2) !important;
+  box-sizing: border-box !important;
+}
+
+.leaflet-touch .leaflet-bar a,
+.leaflet-bar a {
+  width: 30px !important;
+  height: 30px !important;
+  line-height: 30px !important;
+  box-sizing: content-box !important;
+}
+
 #map-fab-container,
 .map-fab-container {
   position: fixed !important;
-  bottom: calc(var(--bottom-nav-height, 88px) + 85px) !important;
-  right: 14px !important;
+  bottom: calc(var(--bottom-nav-height, 88px) + 106px) !important;
+  right: 10px !important;
+  width: 34px !important;
+  align-items: center !important;
   z-index: 850 !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 10px !important;
+  gap: 8px !important;
   pointer-events: auto !important;
 }
 
 .map-fab-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  position: relative !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  min-height: 34px !important;
+  box-sizing: border-box !important;
+  border-radius: 50% !important;
   background: rgba(15, 23, 42, 0.94);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -1797,13 +1821,21 @@ body.has-active-popup #city-search-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   pointer-events: auto !important;
   z-index: 851 !important;
+}
+
+/* Zone tactile étendue (46px) garantissant une frappe aisée en extérieur et avec gants */
+.map-fab-btn::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  pointer-events: auto;
 }
 
 .map-fab-btn:hover {
@@ -1817,14 +1849,14 @@ body.has-active-popup #city-search-container {
 }
 
 .map-fab-btn svg {
-  width: 24px;
-  height: 24px;
+  width: 18px !important;
+  height: 18px !important;
   pointer-events: none;
 }
 
 #btn-map-compass svg {
-  width: 36px;
-  height: 36px;
+  width: 30px !important;
+  height: 30px !important;
   pointer-events: none;
 }
 
@@ -1838,7 +1870,8 @@ body.has-active-popup #city-search-container {
   #map-fab-container,
   .map-fab-container {
     bottom: calc(var(--bottom-nav-height, 88px) + 10px) !important;
-    right: 65px !important;
+    right: 55px !important;
+    width: auto !important;
     flex-direction: row !important;
     gap: 8px !important;
   }

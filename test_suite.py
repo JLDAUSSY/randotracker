@@ -527,6 +527,7 @@ run_test("Boussole Style Google Maps avec repère Nord N", lambda: "N</text>" in
 run_test("Bouton FAB Repères Waypoints sur carte (#btn-add-waypoint-fab)", lambda: bool(soup.find(id='btn-add-waypoint-fab')) and "openWaypointModal" in js_text)
 run_test("Bouton FAB Recentrer sur marcheur (#btn-recenter-map)", lambda: bool(soup.find(id='btn-recenter-map')) and "recenterMapOnUser" in js_text)
 run_test("Conteneur FAB au-dessus de la carte (#map-fab-container z-index 850)", lambda: bool(soup.find(id='map-fab-container')) and "#map-fab-container" in css_text and "z-index: 850" in css_text)
+run_test("Alignement strict FAB et Zoom Leaflet (+ -) (right: 10px, width: 34px, margin-right: 10px)", lambda: "right: 10px !important" in css_text and "width: 34px !important" in css_text and ".leaflet-right .leaflet-control-zoom" in css_text)
 run_test("Modale Repères / Waypoints (#waypoint-modal)", lambda: bool(soup.find(id='waypoint-modal')) and "saveWaypointFromModal" in js_text)
 run_test("Gestionnaire Waypoints : Suppression et persistance", lambda: "deleteWaypoint" in js_text and "loadWaypointsFromStorage" in js_text)
 run_test("Diffusion & Demande de trace manuelle (broadcastTracksToRoom & requestTracksFromRoom)", lambda: "broadcastTracksToRoom" in js_text and "requestTracksFromRoom" in js_text)
@@ -579,13 +580,13 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=102',
-    'http://127.0.0.1:8000/app.js?v=102',
+    'http://127.0.0.1:8000/styles.css?v=103',
+    'http://127.0.0.1:8000/app.js?v=103',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
     'http://127.0.0.1:8000/sw.js',
-    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=102',
+    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=103',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker.aab',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'

@@ -37,7 +37,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PolylineOffset pour affichage parallèle des tronçons communs de traces GPX -->
-  <script src="leaflet.polylineoffset.js?v=102"></script>
+  <script src="leaflet.polylineoffset.js?v=103"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -56,7 +56,7 @@
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
   <!-- Custom Styles with Cache-Busting v101 -->
-  <link rel="stylesheet" href="styles.css?v=102" />
+  <link rel="stylesheet" href="styles.css?v=103" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -176,7 +176,7 @@
     <div id="map-fab-container" class="map-fab-container pointer-events-auto">
       <!-- 1. Boussole & Orientation Style Google Maps avec flèche Nord rouge et "N" -->
       <button id="btn-map-compass" onclick="toggleMapCompass()" class="map-fab-btn" title="Boussole : Afficher le cap et l'orientation (Nord)">
-        <svg width="38" height="38" viewBox="0 0 38 38" class="pointer-events-none select-none">
+        <svg width="30" height="30" viewBox="0 0 38 38" class="pointer-events-none select-none">
           <!-- Cadran & repère fixe du haut (direction du téléphone) -->
           <circle cx="19" cy="19" r="17.5" fill="none" stroke="#334155" stroke-width="1.2" stroke-dasharray="1 3"/>
           <line x1="19" y1="1" x2="19" y2="3.5" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round"/>
@@ -199,12 +199,12 @@
 
       <!-- 2. Marquer un repère (Parking, Source, Danger...) -->
       <button id="btn-add-waypoint-fab" onclick="openWaypointModal()" class="map-fab-btn" title="Marquer un repère / Point d'intérêt">
-        <span class="text-xl">📍</span>
+        <span class="text-base leading-none select-none">📍</span>
       </button>
 
       <!-- 3. Recentrer sur ma position GPS -->
       <button id="btn-recenter-map" onclick="recenterMapOnUser()" class="map-fab-btn" title="Recentrer la carte sur ma position GPS">
-        <i data-lucide="crosshair" class="w-6 h-6 text-emerald-400"></i>
+        <i data-lucide="crosshair" class="w-4 h-4 text-emerald-400"></i>
       </button>
     </div>
   </main>
@@ -1871,6 +1871,6 @@
   </div>
 
   <!-- Main Application Script with Cache-Busting v101 -->
-  <script src="app.js?v=102"></script>
+  <script src="app.js?v=103"></script>
 </body>
 </html>
