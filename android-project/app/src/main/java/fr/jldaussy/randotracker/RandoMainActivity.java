@@ -2,7 +2,10 @@ package fr.jldaussy.randotracker;
 
 import android.Manifest;
 import android.annotation.TargetApi;
+import android.content.Context;
 import android.content.Intent;
+import android.os.Message;
+import android.webkit.DownloadListener;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -73,6 +76,8 @@ public class RandoMainActivity extends AppCompatActivity {
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
         settings.setGeolocationEnabled(true);
+        settings.setSupportMultipleWindows(true);
+        settings.setJavaScriptCanOpenWindowsAutomatically(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setAllowFileAccess(true);
@@ -90,6 +95,19 @@ public class RandoMainActivity extends AppCompatActivity {
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
         webView.setBackgroundColor(Color.parseColor("#0a1926"));
+
+        // Écouteur de téléchargement (pour APKs, traces GPX, documents PDF)
+        webView.setDownloadListener(new DownloadListener() {
+            @Override
+            public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    startActivity(intent);
+                } catch (Exception e) {
+                    Log.e(TAG, "Erreur déclenchement téléchargement WebView: " + url, e);
+                }
+            }
+        });
 
         // Injection du pont natif JavaScript
         webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
@@ -118,6 +136,40 @@ public class RandoMainActivity extends AppCompatActivity {
             @Override
             public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
                 Log.d("RandoTrackerJS", consoleMessage.message() + " [" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber() + "]");
+                return true;
+            }
+
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                WebView.HitTestResult result = view.getHitTestResult();
+                String data = result != null ? result.getExtra() : null;
+                Context context = view.getContext();
+                if (data != null && !data.isEmpty()) {
+                    try {
+                        Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(data));
+                        context.startActivity(browserIntent);
+                        return true;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Erreur ouverture lien nouvelle fenêtre: " + data, e);
+                    }
+                }
+                // Fallback sécurisé pour capturer l'URL ciblée par window.open ou target="_blank"
+                WebView newWebView = new WebView(context);
+                newWebView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                        try {
+                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                            context.startActivity(intent);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Erreur intent nouvelle fenêtre: " + url, e);
+                        }
+                        return true;
+                    }
+                });
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(newWebView);
+                resultMsg.sendToTarget();
                 return true;
             }
 
@@ -175,6 +227,20 @@ public class RandoMainActivity extends AppCompatActivity {
                         return true;
                     } catch (Exception e) {
                         Log.e(TAG, "Erreur intent externe: " + url, e);
+                        return true;
+                    }
+                }
+
+                // Documents PDF, APK ou modes d'emploi : ouvrir systématiquement via Intent externe (lecteur PDF système / navigateur)
+                String lowerUrl = url.toLowerCase();
+                if (lowerUrl.endsWith(".pdf") || lowerUrl.endsWith(".apk") || lowerUrl.contains(".pdf?") || lowerUrl.contains(".apk?") ||
+                    lowerUrl.contains("mode_d_emploi") || lowerUrl.contains("user_manual") || lowerUrl.contains("manual_de_uso")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        startActivity(intent);
+                        return true;
+                    } catch (Exception e) {
+                        Log.e(TAG, "Erreur ouverture document externe: " + url, e);
                         return true;
                     }
                 }
@@ -420,6 +486,39 @@ public class RandoMainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void stopTrackingService() {
             stopGpsService();
+        }
+
+        @JavascriptInterface
+        public void openManual(String lang) {
+            String filename;
+            if ("es".equalsIgnoreCase(lang)) {
+                filename = "RandoTracker_Manual_de_Uso_ES.pdf";
+            } else if ("en".equalsIgnoreCase(lang)) {
+                filename = "RandoTracker_User_Manual_EN.pdf";
+            } else {
+                filename = "RandoTracker_Mode_d_emploi_FR.pdf";
+            }
+            openPdf(BASE_URL + filename);
+        }
+
+        @JavascriptInterface
+        public void openPdf(String url) {
+            openExternalUrl(url);
+        }
+
+        @JavascriptInterface
+        public void openExternalUrl(final String url) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Impossible d'ouvrir l'URL externe via le pont: " + url, e);
+                    }
+                }
+            });
         }
 
         @JavascriptInterface

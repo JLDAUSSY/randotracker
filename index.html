@@ -37,7 +37,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PolylineOffset pour affichage parallèle des tronçons communs de traces GPX -->
-  <script src="leaflet.polylineoffset.js?v=103"></script>
+  <script src="leaflet.polylineoffset.js?v=104"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -56,7 +56,7 @@
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
   <!-- Custom Styles with Cache-Busting v101 -->
-  <link rel="stylesheet" href="styles.css?v=103" />
+  <link rel="stylesheet" href="styles.css?v=104" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -1149,25 +1149,31 @@
       <div class="flex flex-col gap-1.5 pt-1">
         <div class="text-[11px] font-black uppercase text-emerald-400 tracking-wider">Modes d'Emploi Officiels (PDF)</div>
         <div class="grid grid-cols-3 gap-1.5">
-          <a href="RandoTracker_Mode_d_emploi_FR.pdf" target="_blank" download="RandoTracker_Mode_d_emploi_FR.pdf" class="py-2 px-1 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white border border-slate-700 text-xs font-bold flex flex-col items-center justify-center gap-0.5 no-underline active:scale-95 transition" title="Mode d'emploi en français">
-            <span class="text-base">🇫🇷</span>
-            <span class="text-[10px]">Français</span>
-          </a>
-          <a href="RandoTracker_User_Manual_EN.pdf" target="_blank" download="RandoTracker_User_Manual_EN.pdf" class="py-2 px-1 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white border border-slate-700 text-xs font-bold flex flex-col items-center justify-center gap-0.5 no-underline active:scale-95 transition" title="User guide in English">
-            <span class="text-base">🇬🇧</span>
-            <span class="text-[10px]">English</span>
-          </a>
-          <a href="RandoTracker_Manual_de_Uso_ES.pdf" target="_blank" download="RandoTracker_Manual_de_Uso_ES.pdf" class="py-2 px-1 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 hover:text-white border border-slate-700 text-xs font-bold flex flex-col items-center justify-center gap-0.5 no-underline active:scale-95 transition" title="Manual de uso en español">
-            <span class="text-base">🇪🇸</span>
-            <span class="text-[10px]">Español</span>
-          </a>
+          <button type="button" onclick="openUserManual('fr')" data-pdf="RandoTracker_Mode_d_emploi_FR.pdf" class="py-2.5 px-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-100 hover:text-white border border-slate-600 text-xs font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition cursor-pointer shadow-md" title="Ouvrir le mode d'emploi en français">
+            <span class="text-xl">🇫🇷</span>
+            <span class="text-[11px] font-black">Français</span>
+          </button>
+          <button type="button" onclick="openUserManual('en')" data-pdf="RandoTracker_User_Manual_EN.pdf" class="py-2.5 px-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-100 hover:text-white border border-slate-600 text-xs font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition cursor-pointer shadow-md" title="Open user manual in English">
+            <span class="text-xl">🇬🇧</span>
+            <span class="text-[11px] font-black">English</span>
+          </button>
+          <button type="button" onclick="openUserManual('es')" data-pdf="RandoTracker_Manual_de_Uso_ES.pdf" class="py-2.5 px-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-100 hover:text-white border border-slate-600 text-xs font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition cursor-pointer shadow-md" title="Abrir el manual de uso en español">
+            <span class="text-xl">🇪🇸</span>
+            <span class="text-[11px] font-black">Español</span>
+          </button>
+        </div>
+        <div class="flex items-center justify-center gap-2 pt-0.5 text-[10px] text-slate-400 font-bold">
+          <span>🌐 Lire en ligne :</span>
+          <button type="button" onclick="openUserManual('fr', 'html')" class="text-emerald-400 hover:underline cursor-pointer">FR</button> •
+          <button type="button" onclick="openUserManual('en', 'html')" class="text-emerald-400 hover:underline cursor-pointer">EN</button> •
+          <button type="button" onclick="openUserManual('es', 'html')" class="text-emerald-400 hover:underline cursor-pointer">ES</button>
         </div>
       </div>
 
-      <a href="RandoTracker.apk" download="RandoTracker.apk" class="w-full py-3 px-3 rounded-2xl bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs flex items-center justify-center gap-2 border border-emerald-500/60 shadow-lg active:scale-95 transition no-underline">
-        <span>🤖</span>
+      <button type="button" onclick="downloadAndroidApk()" class="w-full py-3 px-3 rounded-2xl bg-gradient-to-r from-emerald-700 to-teal-800 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs flex items-center justify-center gap-2 border border-emerald-500/60 shadow-lg active:scale-95 transition cursor-pointer">
+        <span class="text-base">🤖</span>
         <span>Télécharger l'App Android (.APK)</span>
-      </a>
+      </button>
 
       <button id="ok-about-modal-btn" class="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base shadow-xl shadow-emerald-600/30 active:scale-95 transition">
         OK
@@ -1890,6 +1896,6 @@
   </div>
 
   <!-- Main Application Script with Cache-Busting v101 -->
-  <script src="app.js?v=103"></script>
+  <script src="app.js?v=104"></script>
 </body>
 </html>

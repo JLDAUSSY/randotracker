@@ -144,7 +144,7 @@ const RandoLogger = (function() {
       const lines = [
         `=== RANDOTRACKER RAPPORT DE DIAGNOSTIC & LOGS ===`,
         `Généré le : ${new Date().toLocaleString('fr-FR')}`,
-        `Version : v1.4.15 (53) • Cache v94`,
+        `Version : v1.4.16 (54) • Cache v104`,
         `User Agent : ${navigator.userAgent}`,
         `Salon : ${typeof state !== 'undefined' ? state.roomCode : 'N/A'}`,
         `Moi : ${typeof state !== 'undefined' && state.myUser ? state.myUser.name : 'N/A'} (ID: ${typeof state !== 'undefined' && state.myUser ? state.myUser.id : 'N/A'})`,
@@ -7327,7 +7327,7 @@ function bootApp() {
       if (window.AndroidBridge && typeof window.AndroidBridge.getVersionName === 'function') {
         vEl.textContent = 'v' + window.AndroidBridge.getVersionName().split(' ')[0];
       } else {
-        vEl.textContent = 'v1.4.15';
+        vEl.textContent = 'v1.4.16';
       }
     }
   } catch(e) {}
@@ -8246,6 +8246,83 @@ window.broadcastTracksToRoom = broadcastTracksToRoom;
 window.requestTracksFromRoom = requestTracksFromRoom;
 window.prepareTracksForMqtt = prepareTracksForMqtt;
 window.refreshParticipantsList = refreshParticipantsList;
+
+// ============================================================================
+// MODES D'EMPLOI MULTI-LANGUES & TÉLÉCHARGEMENT OFFICIEL (FR / EN / ES)
+// ============================================================================
+function openUserManual(lang, format = 'pdf') {
+  const pdfMap = {
+    'fr': 'RandoTracker_Mode_d_emploi_FR.pdf',
+    'en': 'RandoTracker_User_Manual_EN.pdf',
+    'es': 'RandoTracker_Manual_de_Uso_ES.pdf'
+  };
+  const htmlMap = {
+    'fr': 'mode_d_emploi_fr.html',
+    'en': 'mode_d_emploi_en.html',
+    'es': 'mode_d_emploi_es.html'
+  };
+
+  const targetFile = (format === 'html')
+    ? (htmlMap[lang] || htmlMap['fr'])
+    : (pdfMap[lang] || pdfMap['fr']);
+
+  const fullUrl = new URL(targetFile, window.location.href).href;
+
+  if (typeof showToast === 'function') {
+    showToast('📄 Ouverture du mode d\'emploi...', 'info');
+  }
+
+  // 1. Android Bridge natif (si exécuté dans l\'App Android APK)
+  if (window.AndroidBridge) {
+    try {
+      if (typeof window.AndroidBridge.openManual === 'function') {
+        window.AndroidBridge.openManual(lang);
+        return;
+      } else if (typeof window.AndroidBridge.openPdf === 'function') {
+        window.AndroidBridge.openPdf(fullUrl);
+        return;
+      } else if (typeof window.AndroidBridge.openExternalUrl === 'function') {
+        window.AndroidBridge.openExternalUrl(fullUrl);
+        return;
+      }
+    } catch (bridgeErr) {
+      console.warn('[AndroidBridge] Erreur ouverture PDF via bridge:', bridgeErr);
+    }
+  }
+
+  // 2. Sur navigateur Web mobile / PWA / Bureau
+  try {
+    const opened = window.open(fullUrl, '_blank');
+    if (!opened || opened.closed || typeof opened.closed === 'undefined') {
+      window.location.assign(fullUrl);
+    }
+  } catch (e) {
+    window.location.href = fullUrl;
+  }
+}
+
+function downloadAndroidApk() {
+  const fullUrl = new URL('RandoTracker.apk', window.location.href).href;
+  if (typeof showToast === 'function') {
+    showToast('🤖 Téléchargement de l\'APK Android...', 'info');
+  }
+  if (window.AndroidBridge && typeof window.AndroidBridge.openExternalUrl === 'function') {
+    window.AndroidBridge.openExternalUrl(fullUrl);
+    return;
+  }
+  try {
+    const w = window.open(fullUrl, '_blank');
+    if (!w || w.closed) {
+      window.location.assign(fullUrl);
+    }
+  } catch(e) {
+    window.location.href = fullUrl;
+  }
+}
+
+window.openUserManual = openUserManual;
+window.downloadAndroidApk = downloadAndroidApk;
+
 window.state = state;
 
 

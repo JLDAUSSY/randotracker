@@ -388,6 +388,11 @@ if os.path.exists(main_activity_path):
     run_test("MainActivity : Guard permission avant demarrage GPS (Anti-crash Android 14+)", lambda: 'hasLocationPermission()' in main_act_content)
     run_test("MainActivity : Routage dynamique de salon via Intent", lambda: 'window.joinRoomDirectly' in main_act_content)
     run_test("MainActivity : Gestionnaire BackPress délégué à JS (Anti-régression Pixel)", lambda: 'handleNativeBackPress' in main_act_content)
+    run_test("MainActivity : Support multi-fenêtres et fenêtres automatiques actifs", lambda: 'settings.setSupportMultipleWindows(true)' in main_act_content and 'settings.setJavaScriptCanOpenWindowsAutomatically(true)' in main_act_content)
+    run_test("MainActivity : Écouteur DownloadListener natif configuré", lambda: 'setDownloadListener' in main_act_content)
+    run_test("MainActivity : onCreateWindow dans WebChromeClient avec fallback Intent", lambda: 'onCreateWindow' in main_act_content)
+    run_test("MainActivity : Redirection des documents PDF/APK vers Intent externe", lambda: '.pdf' in main_act_content and '.apk' in main_act_content)
+    run_test("MainActivity : Pont Natif openManual, openPdf et openExternalUrl", lambda: 'openManual(' in main_act_content and 'openPdf(' in main_act_content and 'openExternalUrl(' in main_act_content)
 
 if os.path.exists(service_path):
     with open(service_path, 'r', encoding='utf-8') as f:
@@ -538,6 +543,7 @@ run_test("Arrêt 8h Android Service (MAX_TRACKING_DURATION_MS)", lambda: os.path
 run_test("Arrêt de tous les processus Android (closeApp bridge)", lambda: 'public void closeApp()' in open(os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoMainActivity.java'), 'r', encoding='utf-8').read() and 'window.AndroidBridge.closeApp()' in js_text)
 run_test("Non-Régression Sortie Trace : Vibration protégée par isOffTrackSoundEnabled", lambda: js_text.find("isOffTrackSoundEnabled()") < js_text.find("navigator.vibrate([300, 150, 300, 150, 300])"))
 run_test("Non-Régression GPX Double : Absence d'attribut onchange inline sur gpx-file-input", lambda: 'id="gpx-file-input"' in html_text and 'onchange="handleGpxFileInput' not in html_text)
+run_test("Fonction JavaScript openUserManual et downloadAndroidApk exportées", lambda: 'window.openUserManual = openUserManual' in js_text and 'window.downloadAndroidApk = downloadAndroidApk' in js_text)
 
 # ----------------------------------------------------------------------
 # 6. TESTS DE LIVRAISON SERVEUR HTTP (LOCAL) & STATIQUES
@@ -581,19 +587,22 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=103',
-    'http://127.0.0.1:8000/app.js?v=103',
+    'http://127.0.0.1:8000/styles.css?v=104',
+    'http://127.0.0.1:8000/app.js?v=104',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
     'http://127.0.0.1:8000/sw.js',
-    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=103',
+    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=104',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker.aab',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi_FR.pdf',
     'http://127.0.0.1:8000/RandoTracker_User_Manual_EN.pdf',
-    'http://127.0.0.1:8000/RandoTracker_Manual_de_Uso_ES.pdf'
+    'http://127.0.0.1:8000/RandoTracker_Manual_de_Uso_ES.pdf',
+    'http://127.0.0.1:8000/mode_d_emploi_fr.html',
+    'http://127.0.0.1:8000/mode_d_emploi_en.html',
+    'http://127.0.0.1:8000/mode_d_emploi_es.html'
 ]
 
 for u in urls_to_test:
