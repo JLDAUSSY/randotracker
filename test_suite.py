@@ -366,7 +366,7 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 54 configuré", lambda: 'versionCode = 54' in gradle_content)
+    run_test("Android Gradle : VersionCode 55 configuré", lambda: 'versionCode = 55' in gradle_content)
     run_test("Android Gradle : VersionName 1.4.16 configuré", lambda: 'versionName = "1.4.16"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
@@ -379,7 +379,7 @@ if os.path.exists(main_activity_path):
     run_test("MainActivity : WebChromeClient avec auto-grant Geolocation et Caméra QR", lambda: 'onGeolocationPermissionsShowPrompt' in main_act_content and 'onPermissionRequest' in main_act_content)
     run_test("MainActivity : WebViewClient isolant l'app et déléguant tel/sms/mailto aux Intents", lambda: 'handleUrlNavigation' in main_act_content and 'tel:' in main_act_content)
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.16 (54) dans le bridge natif", lambda: '1.4.16 (54)' in main_act_content)
+    run_test("MainActivity : Version 1.4.16 (55) dans le bridge natif", lambda: '1.4.16 (55)' in main_act_content)
     run_test("Sécurité Play Store : WebView SSL Error Handler sécurisé (handler.cancel)", lambda: 'handler.cancel()' in main_act_content and 'handler.proceed()' not in main_act_content)
     run_test("MainActivity : Support natif onShowFileChooser (sélection fichier GPX)", lambda: 'onShowFileChooser' in main_act_content)
     run_test("MainActivity : Support natif onActivityResult (réception URI GPX)", lambda: 'onActivityResult' in main_act_content and 'FILE_CHOOSER_REQ_CODE' in main_act_content)
