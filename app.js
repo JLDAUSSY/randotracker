@@ -2108,17 +2108,27 @@ function prepareTracksForMqtt(tracks) {
 window.prepareTracksForMqtt = prepareTracksForMqtt;
 
 function broadcastTracksToRoom() {
-  if (!state.tracks || state.tracks.length === 0) {
-    showToast('⚠️ Aucun parcours GPX chargé à diffuser.', 'warn');
+  if ((!state.tracks || state.tracks.length === 0) && (!state.waypoints || state.waypoints.length === 0)) {
+    showToast("⚠️ Aucun parcours GPX ni repère à diffuser.", "warn");
     return;
   }
-  const compactTracks = prepareTracksForMqtt(state.tracks);
-  publishMessage({
-    type: 'sync_tracks',
-    from: state.myUser.id,
-    tracks: compactTracks
-  });
-  showToast(`📡 ${state.tracks.length} parcours diffusé(s) à tous les marcheurs !`, 'success');
+  if (state.tracks && state.tracks.length > 0) {
+    const compactTracks = prepareTracksForMqtt(state.tracks);
+    publishMessage({
+      type: "sync_tracks",
+      from: state.myUser.id,
+      tracks: compactTracks
+    });
+  }
+  if (state.waypoints && state.waypoints.length > 0) {
+    state.waypoints.forEach(wpt => {
+      publishMessage({
+        type: "share_waypoint",
+        waypoint: wpt
+      });
+    });
+  }
+  showToast("📡 Données et repères diffusés au groupe !", "success");
 }
 window.broadcastTracksToRoom = broadcastTracksToRoom;
 
@@ -4524,6 +4534,7 @@ function joinRoomDirectly(newRoomCode) {
   state.roomCode = sanitized;
   updateRoomDisplay();
   loadSavedOtherUsersFromStorage();
+  loadWaypointsFromStorage();
 
   // Fermer les modales ouvertes
   const modalsToClose = ['room-modal', 'invite-modal', 'qr-scan-modal'];
@@ -4638,6 +4649,7 @@ function initRealtimeSync() {
   }
   updateRoomDisplay();
   loadSavedOtherUsersFromStorage();
+  loadWaypointsFromStorage();
 
   try {
     state.broadcastChannel = new BroadcastChannel(`rando_${state.roomCode}`);
@@ -4938,6 +4950,14 @@ function handleIncomingMessage(data) {
           tracks: prepareTracksForMqtt(state.tracks)
         });
       }
+        if (state.waypoints && state.waypoints.length > 0) {
+          state.waypoints.forEach(wpt => {
+            publishMessage({
+              type: "share_waypoint",
+              waypoint: wpt
+            });
+          });
+        }
     } else if (data.type === 'request_presence') {
       if (data.from !== state.myUser.id) {
         publishMessage({
@@ -6361,6 +6381,7 @@ function setupEventListeners() {
           state.roomCode = val;
           updateRoomDisplay();
           loadSavedOtherUsersFromStorage();
+          loadWaypointsFromStorage();
           initMqttSync();
           syncNativeAndroidSession();
           saveHikeSessionToStorage();

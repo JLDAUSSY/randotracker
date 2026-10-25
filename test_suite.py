@@ -27,6 +27,7 @@ if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+os.chdir(PROJECT_DIR)
 INDEX_PATH = os.path.join(PROJECT_DIR, 'index.html')
 STYLES_PATH = os.path.join(PROJECT_DIR, 'styles.css')
 APP_JS_PATH = os.path.join(PROJECT_DIR, 'app.js')
@@ -578,13 +579,13 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=101',
-    'http://127.0.0.1:8000/app.js?v=101',
+    'http://127.0.0.1:8000/styles.css?v=102',
+    'http://127.0.0.1:8000/app.js?v=102',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
     'http://127.0.0.1:8000/sw.js',
-    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=101',
+    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=102',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker.aab',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf'
