@@ -252,6 +252,7 @@
       page-break-inside: avoid;
       break-inside: avoid;
     }
+      @media print { .no-print { display: none !important; } }
   </style>
 </head>
 <body>
@@ -731,7 +732,8 @@
     <div class="card">
       <div class="card-title">1️⃣ Avant de partir (À la maison sur Wi-Fi)</div>
       <ol class="steps-list" style="font-size: 9.1px; padding-left: 13px; margin: 0;">
-        <li>Ouvrez RandoTracker et chargez les GPX (<b>« TRACES »</b> $ightarrow$ <b>« + Importer »</b>).</li>
+        <li>Ouvrez RandoTracker et chargez les GPX (<b>« TRACES »</b> $
+ightarrow$ <b>« + Importer »</b>).</li>
         <li><b>Préchargement carto</b> : Survolez et zoomez (14 à 16) sur le parcours pendant 30 s pour stocker les dalles IGN HD.</li>
         <li>Attribuez une couleur distincte à chaque circuit (palette 10 teintes).</li>
       </ol>
@@ -773,8 +775,13 @@
     <div class="card" style="border-left: 3.5px solid #10b981;">
       <div class="card-title">📍 1. Mon GPS s'arrête lorsque le téléphone est en poche</div>
       <ul class="steps-list" style="font-size: 8.9px;">
-        <li><b>Batterie Android :</b> Allez dans <i>Paramètres $ightarrow$ Applications $ightarrow$ RandoTracker $ightarrow$ Batterie</i> et cochez <b>« Non restreinte »</b>. Évitez le mode « Optimisée » qui bride le GPS en veille.</li>
-        <li><b>Position exacte :</b> Dans <i>Paramètres $ightarrow$ Localisation $ightarrow$ RandoTracker</i>, vérifiez que <b>« Position exacte »</b> est bien activé.</li>
+        <li><b>Batterie Android :</b> Allez dans <i>Paramètres $
+ightarrow$ Applications $
+ightarrow$ RandoTracker $
+ightarrow$ Batterie</i> et cochez <b>« Non restreinte »</b>. Évitez le mode « Optimisée » qui bride le GPS en veille.</li>
+        <li><b>Position exacte :</b> Dans <i>Paramètres $
+ightarrow$ Localisation $
+ightarrow$ RandoTracker</i>, vérifiez que <b>« Position exacte »</b> est bien activé.</li>
       </ul>
     </div>
 

@@ -252,6 +252,7 @@
       page-break-inside: avoid;
       break-inside: avoid;
     }
+      @media print { .no-print { display: none !important; } }
   </style>
 </head>
 <body>
@@ -731,7 +732,8 @@
     <div class="card">
       <div class="card-title">1️⃣ Before Leaving (At Home on Wi-Fi)</div>
       <ol class="steps-list" style="font-size: 9.1px; padding-left: 13px; margin: 0;">
-        <li>Open RandoTracker and load GPX files (<b>"TRACKS"</b> $ightarrow$ <b>"+ Import"</b>).</li>
+        <li>Open RandoTracker and load GPX files (<b>"TRACKS"</b> $
+ightarrow$ <b>"+ Import"</b>).</li>
         <li><b>Map Pre-caching</b>: Pan and zoom (levels 14-16) along route for 30s to store Topo HD tiles.</li>
         <li>Assign distinct colors to each circuit (10-color outdoor palette).</li>
       </ol>
@@ -773,8 +775,13 @@
     <div class="card" style="border-left: 3.5px solid #10b981;">
       <div class="card-title">📍 1. GPS stops updating when phone is in pocket</div>
       <ul class="steps-list" style="font-size: 8.9px;">
-        <li><b>Android Battery Setting:</b> Go to <i>Settings $ightarrow$ Apps $ightarrow$ RandoTracker $ightarrow$ Battery</i> and select <b>"Unrestricted"</b>. Avoid "Optimized" which suspends standby GPS.</li>
-        <li><b>Precise Location:</b> Under <i>Settings $ightarrow$ Location $ightarrow$ RandoTracker</i>, ensure <b>"Use precise location"</b> is enabled.</li>
+        <li><b>Android Battery Setting:</b> Go to <i>Settings $
+ightarrow$ Apps $
+ightarrow$ RandoTracker $
+ightarrow$ Battery</i> and select <b>"Unrestricted"</b>. Avoid "Optimized" which suspends standby GPS.</li>
+        <li><b>Precise Location:</b> Under <i>Settings $
+ightarrow$ Location $
+ightarrow$ RandoTracker</i>, ensure <b>"Use precise location"</b> is enabled.</li>
       </ul>
     </div>
 

@@ -252,6 +252,7 @@
       page-break-inside: avoid;
       break-inside: avoid;
     }
+      @media print { .no-print { display: none !important; } }
   </style>
 </head>
 <body>
@@ -731,7 +732,8 @@
     <div class="card">
       <div class="card-title">1️⃣ Antes de Salir (En Casa con Wi-Fi)</div>
       <ol class="steps-list" style="font-size: 9.1px; padding-left: 13px; margin: 0;">
-        <li>Abra RandoTracker y cargue los tracks (<b>«RUTAS»</b> $ightarrow$ <b>«+ Importar GPX»</b>).</li>
+        <li>Abra RandoTracker y cargue los tracks (<b>«RUTAS»</b> $
+ightarrow$ <b>«+ Importar GPX»</b>).</li>
         <li><b>Precarga de mapas</b>: Recorra la ruta haciendo zoom (niveles 14 a 16) durante 30s para guardar las teselas IGN HD.</li>
         <li>Asigne un color diferenciado a cada itinerario (paleta de 10 tonos).</li>
       </ol>
@@ -773,8 +775,13 @@
     <div class="card" style="border-left: 3.5px solid #10b981;">
       <div class="card-title">📍 1. El GPS se detiene al llevar el móvil en el bolsillo</div>
       <ul class="steps-list" style="font-size: 8.9px;">
-        <li><b>Batería Android:</b> Entre en <i>Ajustes $ightarrow$ Aplicaciones $ightarrow$ RandoTracker $ightarrow$ Batería</i> y elija <b>«Sin restricciones»</b>. Evite el modo «Optimizado» que suspende el GPS.</li>
-        <li><b>Ubicación precisa:</b> En <i>Ajustes $ightarrow$ Ubicación $ightarrow$ RandoTracker</i>, verifique que <b>«Ubicación precisa»</b> esté activada.</li>
+        <li><b>Batería Android:</b> Entre en <i>Ajustes $
+ightarrow$ Aplicaciones $
+ightarrow$ RandoTracker $
+ightarrow$ Batería</i> y elija <b>«Sin restricciones»</b>. Evite el modo «Optimizado» que suspende el GPS.</li>
+        <li><b>Ubicación precisa:</b> En <i>Ajustes $
+ightarrow$ Ubicación $
+ightarrow$ RandoTracker</i>, verifique que <b>«Ubicación precisa»</b> esté activada.</li>
       </ul>
     </div>
 

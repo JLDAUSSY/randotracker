@@ -1290,9 +1290,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=91')
+    navigator.serviceWorker.register('./sw.js?v=104')
       .then((reg) => {
-        console.log('[PWA] Service Worker v91 actif:', reg.scope);
+        console.log('[PWA] Service Worker v104 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -8272,7 +8272,7 @@ function openUserManual(lang, format = 'pdf') {
     showToast('📄 Ouverture du mode d\'emploi...', 'info');
   }
 
-  // 1. Android Bridge natif (si exécuté dans l\'App Android APK)
+  // 1. Android Bridge natif v1.4.16+ (si exécuté dans l\'App Android APK récente)
   if (window.AndroidBridge) {
     try {
       if (typeof window.AndroidBridge.openManual === 'function') {
@@ -8287,6 +8287,21 @@ function openUserManual(lang, format = 'pdf') {
       }
     } catch (bridgeErr) {
       console.warn('[AndroidBridge] Erreur ouverture PDF via bridge:', bridgeErr);
+    }
+
+    // 1b. RÉTRO-COMPATIBILITÉ AVEC L\'ANCIENNE VERSION APK 1.4.15 :
+    // Dans le conteneur APK 1.4.15, la WebView interne ne dispose pas d\'un lecteur PDF
+    // et intercepte les liens internes jldaussy.github.io.
+    // En revanche, 1.4.15 redirige TOUS les liens externes HTTP vers l\'Intent système externe !
+    // En ciblant l\'URL externe raw.githubusercontent.com, l\'APK 1.4.15 ouvre immédiatement le PDF dans le lecteur système / navigateur.
+    if (format === 'pdf') {
+      const rawExternalPdf = `https://raw.githubusercontent.com/JLDAUSSY/randotracker/main/${targetFile}`;
+      window.location.href = rawExternalPdf;
+      return;
+    } else {
+      // Lecture HTML en ligne : s\'affiche directement dans la WebView
+      window.location.href = fullUrl;
+      return;
     }
   }
 
@@ -8308,6 +8323,11 @@ function downloadAndroidApk() {
   }
   if (window.AndroidBridge && typeof window.AndroidBridge.openExternalUrl === 'function') {
     window.AndroidBridge.openExternalUrl(fullUrl);
+    return;
+  }
+  // Rétro-compatibilité APK 1.4.15
+  if (window.AndroidBridge) {
+    window.location.href = 'https://raw.githubusercontent.com/JLDAUSSY/randotracker/main/RandoTracker.apk';
     return;
   }
   try {
