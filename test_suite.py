@@ -74,7 +74,7 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.16 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.16' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.17 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.17' in soup.find(id='header-app-version').text)
 run_test("Presence de la barre de recherche de ville (#city-search-container)", lambda: soup.find(id='city-search-container') is not None)
 run_test("Presence du champ input de recherche de ville (#city-search-input)", lambda: soup.find(id='city-search-input') is not None)
 run_test("Presence du bouton d'arret du suivi dans le profil (#btn-stop-tracking-app)", lambda: soup.find(id='btn-stop-tracking-app') is not None)
@@ -366,8 +366,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 55 configuré", lambda: 'versionCode = 55' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.16 configuré", lambda: 'versionName = "1.4.16"' in gradle_content)
+    run_test("Android Gradle : VersionCode 56 configuré", lambda: 'versionCode = 56' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.17 configuré", lambda: 'versionName = "1.4.17"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -379,7 +379,7 @@ if os.path.exists(main_activity_path):
     run_test("MainActivity : WebChromeClient avec auto-grant Geolocation et Caméra QR", lambda: 'onGeolocationPermissionsShowPrompt' in main_act_content and 'onPermissionRequest' in main_act_content)
     run_test("MainActivity : WebViewClient isolant l'app et déléguant tel/sms/mailto aux Intents", lambda: 'handleUrlNavigation' in main_act_content and 'tel:' in main_act_content)
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.16 (55) dans le bridge natif", lambda: '1.4.16 (55)' in main_act_content)
+    run_test("MainActivity : Version 1.4.17 (56) dans le bridge natif", lambda: '1.4.17 (56)' in main_act_content)
     run_test("Sécurité Play Store : WebView SSL Error Handler sécurisé (handler.cancel)", lambda: 'handler.cancel()' in main_act_content and 'handler.proceed()' not in main_act_content)
     run_test("MainActivity : Support natif onShowFileChooser (sélection fichier GPX)", lambda: 'onShowFileChooser' in main_act_content)
     run_test("MainActivity : Support natif onActivityResult (réception URI GPX)", lambda: 'onActivityResult' in main_act_content and 'FILE_CHOOSER_REQ_CODE' in main_act_content)
@@ -544,6 +544,11 @@ run_test("Arrêt de tous les processus Android (closeApp bridge)", lambda: 'publ
 run_test("Non-Régression Sortie Trace : Vibration protégée par isOffTrackSoundEnabled", lambda: js_text.find("isOffTrackSoundEnabled()") < js_text.find("navigator.vibrate([300, 150, 300, 150, 300])"))
 run_test("Non-Régression GPX Double : Absence d'attribut onchange inline sur gpx-file-input", lambda: 'id="gpx-file-input"' in html_text and 'onchange="handleGpxFileInput' not in html_text)
 run_test("Fonction JavaScript openUserManual et downloadAndroidApk exportées", lambda: 'window.openUserManual = openUserManual' in js_text and 'window.downloadAndroidApk = downloadAndroidApk' in js_text)
+run_test("Convertisseurs Coordonnées GPS (DD, DMS, UTM) exportés", lambda: 'window.formatDD = formatDD' in js_text and 'window.formatDMS = formatDMS' in js_text and 'window.latLonToUTM = latLonToUTM' in js_text and 'window.formatUTM = formatUTM' in js_text)
+run_test("Repère Modale Création : Affichage DD, DMS et UTM (#wpt-coords-preview)", lambda: bool(soup.find(id='wpt-coords-dd')) and bool(soup.find(id='wpt-coords-dms')) and bool(soup.find(id='wpt-coords-utm')) and 'updateWaypointModalCoords' in js_text)
+run_test("Repère Clic Popup : Affichage GPS (DD/DMS) et UTM + Contraste sombre", lambda: 'GPS (DD) :' in js_text and 'GPS (DMS) :' in js_text and 'copyWaypointCoords' in js_text)
+run_test("Volet GPS SOS : Affichage DD, DMS et UTM (#emergency-gps-utm)", lambda: bool(soup.find(id='emergency-gps-decimal')) and bool(soup.find(id='emergency-gps-dms')) and bool(soup.find(id='emergency-gps-utm')) and bool(soup.find(id='dictate-utm')))
+run_test("Messages Groupe : Header GPS en DD, DMS et UTM (Compose & Réception)", lambda: bool(soup.find(id='announcement-gps-header')) and bool(soup.find(id='ann-gps-utm')) and bool(soup.find(id='rx-announcement-gps-header')) and bool(soup.find(id='rx-ann-gps-utm')))
 
 # ----------------------------------------------------------------------
 # 6. TESTS DE LIVRAISON SERVEUR HTTP (LOCAL) & STATIQUES
@@ -587,13 +592,13 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=104',
-    'http://127.0.0.1:8000/app.js?v=104',
+    'http://127.0.0.1:8000/styles.css?v=105',
+    'http://127.0.0.1:8000/app.js?v=105',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
     'http://127.0.0.1:8000/sw.js',
-    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=104',
+    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=105',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker.aab',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf',
@@ -819,6 +824,37 @@ try:
     test_btn("Ouvrir Modale Confirmation", lambda: sim_driver.execute_script("window.showConfirmDialog({ title: 'Confirmation test', message: 'Test message' });"), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'confirm-modal').get_attribute('class'))
     test_btn("Bouton Annuler Confirmation", lambda: sim_click('confirm-modal-cancel-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'confirm-modal').get_attribute('class'))
     test_btn("Bouton Confirmer Suppression", lambda: (sim_driver.execute_script("window.showConfirmDialog({ title: 'Confirmation test 2' });"), sim_click('confirm-modal-ok-btn')), lambda: 'hidden' in sim_driver.find_element(By.ID, 'confirm-modal').get_attribute('class'))
+
+    # 10b. Vérification Runtime Coordonnées GPS (DD, DMS) & UTM : Repères, SOS & Messages Groupe
+    test_btn("Calcul UTM WGS84 exact (Tour Eiffel 48.85837, 2.29448 -> 31U E 448251 N 5411952)", lambda: None, lambda: sim_driver.execute_script("return window.formatUTM(48.85837, 2.29448);") == '31U E 448251 N 5411952')
+    test_btn("Calcul DMS & Arrondi 60s sans débordement", lambda: None, lambda: "60\"" not in sim_driver.execute_script("return window.toDMS(45.99999, true);") and sim_driver.execute_script("return window.formatDMS(43.12244, 5.77957);").startswith("43° 07'"))
+    test_btn("Création Repère : Affiche DD, DMS & UTM dans #waypoint-modal", lambda: sim_driver.execute_script("window.openWaypointModal({ lat: 48.85837, lon: 2.29448 });"), lambda: (
+        '48.85837° N' in sim_driver.find_element(By.ID, 'wpt-coords-dd').text and
+        '48° 51\'' in sim_driver.find_element(By.ID, 'wpt-coords-dms').text and
+        '31U E 448251 N 5411952' in sim_driver.find_element(By.ID, 'wpt-coords-utm').text
+    ))
+    test_btn("Clic Repère : Popup affiche GPS (DD/DMS) & UTM", lambda: (
+        sim_driver.execute_script("document.getElementById('wpt-name-input').value = 'Tour Eiffel Test'; window.saveWaypointFromModal();"),
+        sim_driver.execute_script("const w = window.state.waypoints[window.state.waypoints.length - 1]; const m = window.state.waypointLayers.get(w.id); if (m) m.fire('click');")
+    ), lambda: sim_driver.execute_script("const el = document.querySelector('.leaflet-popup-content'); return el ? el.innerText : '';").find('31U E 448251 N 5411952') >= 0 and 'GPS (DMS)' in sim_driver.execute_script("const el = document.querySelector('.leaflet-popup-content'); return el ? el.innerText : '';"))
+    sim_driver.execute_script("if (window.state.map) window.state.map.closePopup();")
+
+    test_btn("Volet GPS SOS : Affiche DD, DMS & UTM (#emergency-gps-utm)", lambda: sim_driver.execute_script("window.state.myUser.lat = 43.12244; window.state.myUser.lon = 5.77957; window.state.myUser.ele = 142; window.openEmergencyModal();"), lambda: (
+        '43.12244° N' in sim_driver.find_element(By.ID, 'emergency-gps-decimal').text and
+        '43° 07\' 21" N' in sim_driver.find_element(By.ID, 'emergency-gps-dms').text and
+        '31T E 726114 N 4778162' in sim_driver.find_element(By.ID, 'emergency-gps-utm').text and
+        '31T E 726114 N 4778162' in sim_driver.find_element(By.ID, 'dictate-utm').text
+    ))
+    sim_click('close-emergency-modal-btn')
+
+    test_btn("Messages Groupe : Header Compose (#announcement-gps-header) & Préfixe DD/DMS/UTM", lambda: sim_driver.execute_script("window.state.myUser.lat = 43.12244; window.state.myUser.lon = 5.77957; window.state.myUser.ele = 142; window.openAnnouncementModal();"), lambda: (
+        '43.12244° N' in sim_driver.find_element(By.ID, 'ann-gps-dd').text and
+        '43° 07\' 21" N' in sim_driver.find_element(By.ID, 'ann-gps-dms').text and
+        '31T E 726114 N 4778162' in sim_driver.find_element(By.ID, 'ann-gps-utm').text and
+        'DMS:' in sim_driver.find_element(By.ID, 'announcement-custom-input').get_attribute('value') and
+        'UTM:' in sim_driver.find_element(By.ID, 'announcement-custom-input').get_attribute('value')
+    ))
+    sim_driver.execute_script("window.closeAnnouncementModal(); window.closeAnnouncementBanner();")
 
     # 11. Audit Logs DevTools
     sim_logs = sim_driver.get_log('browser')

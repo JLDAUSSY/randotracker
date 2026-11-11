@@ -144,7 +144,7 @@ const RandoLogger = (function() {
       const lines = [
         `=== RANDOTRACKER RAPPORT DE DIAGNOSTIC & LOGS ===`,
         `Généré le : ${new Date().toLocaleString('fr-FR')}`,
-        `Version : v1.4.16 (55) • Cache v104`,
+        `Version : v1.4.17 (56) • Cache v105`,
         `User Agent : ${navigator.userAgent}`,
         `Salon : ${typeof state !== 'undefined' ? state.roomCode : 'N/A'}`,
         `Moi : ${typeof state !== 'undefined' && state.myUser ? state.myUser.name : 'N/A'} (ID: ${typeof state !== 'undefined' && state.myUser ? state.myUser.id : 'N/A'})`,
@@ -1290,9 +1290,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=104')
+    navigator.serviceWorker.register('./sw.js?v=105')
       .then((reg) => {
-        console.log('[PWA] Service Worker v104 actif:', reg.scope);
+        console.log('[PWA] Service Worker v105 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
       })
@@ -3715,6 +3715,16 @@ function startGpsWatch(useHighAccuracy = true) {
       updateEmergencyModalGpsData();
     }
 
+    const waypointModal = document.getElementById('waypoint-modal');
+    if (waypointModal && !waypointModal.classList.contains('hidden') && !pendingWaypointCoords) {
+      updateWaypointModalCoords();
+    }
+
+    const announcementModal = document.getElementById('announcement-modal');
+    if (announcementModal && !announcementModal.classList.contains('hidden')) {
+      updateAnnouncementModalGpsHeader();
+    }
+
     if (!state.hasAutoCenteredGps) {
       state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
       state.hasAutoCenteredGps = true;
@@ -5105,6 +5115,41 @@ function markAnnouncementSeen(msgKey) {
 // ============================================================================
 // DIFFUSION DE MESSAGES EN DIRECT POUR TOUT LE GROUPE (TOUS LES MARCHEURS)
 // ============================================================================
+function extractAnnouncementCoordsFromText(text) {
+  if (!text) return null;
+  const match = text.match(/📍 GPS:\s*([\d.]+)[°\s]*([NS]),\s*([\d.]+)[°\s]*([EO])/i);
+  if (!match) return null;
+  const lat = parseFloat(match[1]) * (match[2].toUpperCase() === 'S' ? -1 : 1);
+  const lon = parseFloat(match[3]) * (match[4].toUpperCase() === 'O' || match[4].toUpperCase() === 'W' ? -1 : 1);
+  if (isNaN(lat) || isNaN(lon)) return null;
+  return { lat, lon };
+}
+
+function updateAnnouncementModalGpsHeader() {
+  const hasGps = state.myUser.lat !== null && state.myUser.lat !== undefined && !isNaN(state.myUser.lat) &&
+                 state.myUser.lon !== null && state.myUser.lon !== undefined && !isNaN(state.myUser.lon);
+  const ddEl = document.getElementById('ann-gps-dd');
+  const dmsEl = document.getElementById('ann-gps-dms');
+  const utmEl = document.getElementById('ann-gps-utm');
+  const altEl = document.getElementById('ann-gps-alt');
+
+  if (!ddEl) return;
+  if (hasGps) {
+    const lat = state.myUser.lat;
+    const lon = state.myUser.lon;
+    const ele = state.myUser.ele;
+    ddEl.textContent = formatDD(lat, lon);
+    if (dmsEl) dmsEl.textContent = formatDMS(lat, lon);
+    if (utmEl) utmEl.textContent = formatUTM(lat, lon);
+    if (altEl) altEl.textContent = (ele !== undefined && ele !== null && !isNaN(ele)) ? `Alt: ${Math.round(ele)} m` : '';
+  } else {
+    ddEl.textContent = '📡 Acquisition du signal GPS...';
+    if (dmsEl) dmsEl.textContent = '--';
+    if (utmEl) utmEl.textContent = '--';
+    if (altEl) altEl.textContent = '';
+  }
+}
+
 function getMyGpsString() {
   if (state.myUser.lat === null || state.myUser.lat === undefined || isNaN(state.myUser.lat) ||
       state.myUser.lon === null || state.myUser.lon === undefined || isNaN(state.myUser.lon)) {
@@ -5112,13 +5157,15 @@ function getMyGpsString() {
   }
   const lat = state.myUser.lat;
   const lon = state.myUser.lon;
-  const latDir = lat >= 0 ? 'N' : 'S';
-  const lonDir = lon >= 0 ? 'E' : 'O';
+  const ddStr = formatDD(lat, lon);
+  const dmsStr = formatDMS(lat, lon);
+  const utmStr = formatUTM(lat, lon);
   const altStr = (state.myUser.ele !== undefined && state.myUser.ele !== null && !isNaN(state.myUser.ele)) ? ` (Alt: ${Math.round(state.myUser.ele)}m)` : '';
-  return `📍 GPS: ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}${altStr} - `;
+  return `📍 GPS: ${ddStr} | DMS: ${dmsStr} | UTM: ${utmStr}${altStr} - `;
 }
 
 function insertGpsInCustomAnnouncement() {
+  updateAnnouncementModalGpsHeader();
   const customInput = document.getElementById('announcement-custom-input');
   if (customInput) {
     const gpsStr = getMyGpsString();
@@ -5143,6 +5190,7 @@ function insertGpsInCustomAnnouncement() {
 }
 
 function openAnnouncementModal() {
+  updateAnnouncementModalGpsHeader();
   const modal = document.getElementById('announcement-modal');
   const customInput = document.getElementById('announcement-custom-input');
   if (customInput) {
@@ -5178,12 +5226,13 @@ function sendAnnouncement(text) {
   const lon = hasRealGps ? state.myUser.lon : null;
   const ele = hasRealGps ? state.myUser.ele : null;
 
-  // Enrichir systématiquement avec la position GPS exacte UNIQUEMENT si le GPS réel est acquis
+  // Enrichir systématiquement avec la position GPS exacte (DD, DMS et UTM) UNIQUEMENT si le GPS réel est acquis
   if (hasRealGps && !msgText.includes('📍 GPS:')) {
-    const latDir = lat >= 0 ? 'N' : 'S';
-    const lonDir = lon >= 0 ? 'E' : 'O';
+    const ddStr = formatDD(lat, lon);
+    const dmsStr = formatDMS(lat, lon);
+    const utmStr = formatUTM(lat, lon);
     const altStr = (ele !== undefined && ele !== null && !isNaN(ele)) ? ` (Alt: ${Math.round(ele)}m)` : '';
-    msgText = `${msgText}\n📍 GPS: ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}${altStr}`;
+    msgText = `${msgText}\n📍 GPS: ${ddStr} | DMS: ${dmsStr} | UTM: ${utmStr}${altStr}`;
   }
 
   const payload = {
@@ -5210,7 +5259,7 @@ function sendAnnouncement(text) {
   showToast(`📢 Message diffusé au groupe !`, 'success');
 
   // Afficher également le bandeau sur son propre écran
-  displayAnnouncementBanner(payload.author, payload.icon, payload.role, payload.text, payload.timestamp);
+  displayAnnouncementBanner(payload.author, payload.icon, payload.role, payload.text, payload.timestamp, payload.lat, payload.lon, payload.ele);
 }
 
 function sendCustomAnnouncement() {
@@ -5220,9 +5269,10 @@ function sendCustomAnnouncement() {
   }
 }
 
-function displayAnnouncementBanner(author, icon, role, text, timestamp) {
+function displayAnnouncementBanner(author, icon, role, text, timestamp, lat = null, lon = null, ele = null) {
   const banner = document.getElementById('active-announcement-banner');
   const senderTime = document.getElementById('announcement-sender-time');
+  const bannerCoords = document.getElementById('announcement-banner-coords');
   const bannerText = document.getElementById('announcement-banner-text');
 
   if (banner && senderTime && bannerText) {
@@ -5230,6 +5280,26 @@ function displayAnnouncementBanner(author, icon, role, text, timestamp) {
     const authorStr = icon ? `${icon} ${author}` : author;
     const roleStr = role ? ` (${role})` : '';
     senderTime.textContent = `📢 ${authorStr}${roleStr} • ${timeStr}`;
+
+    let bLat = (typeof lat === 'number' && !isNaN(lat)) ? lat : null;
+    let bLon = (typeof lon === 'number' && !isNaN(lon)) ? lon : null;
+    if ((bLat === null || bLon === null) && text) {
+      const extracted = extractAnnouncementCoordsFromText(text);
+      if (extracted) {
+        bLat = extracted.lat;
+        bLon = extracted.lon;
+      }
+    }
+    if (bannerCoords) {
+      if (bLat !== null && bLon !== null) {
+        const altStr = (typeof ele === 'number' && !isNaN(ele)) ? ` • Alt ${Math.round(ele)}m` : '';
+        bannerCoords.textContent = `${formatDD(bLat, bLon)} • ${formatDMS(bLat, bLon)} • UTM ${formatUTM(bLat, bLon)}${altStr}`;
+        bannerCoords.classList.remove('hidden');
+      } else {
+        bannerCoords.classList.add('hidden');
+      }
+    }
+
     bannerText.textContent = text;
     banner.classList.remove('hidden');
   }
@@ -5261,15 +5331,16 @@ function handleReceivedAnnouncement(data) {
   let annLat = (data.lat !== undefined && data.lat !== null) ? Number(data.lat) : null;
   let annLon = (data.lon !== undefined && data.lon !== null) ? Number(data.lon) : null;
   if ((annLat === null || isNaN(annLat)) && data.text) {
-    const match = data.text.match(/📍 GPS:\s*([\d.]+)[°\s]*([NS]),\s*([\d.]+)[°\s]*([EO])/i);
-    if (match) {
-      annLat = parseFloat(match[1]) * (match[2].toUpperCase() === 'S' ? -1 : 1);
-      annLon = parseFloat(match[3]) * (match[4].toUpperCase() === 'O' || match[4].toUpperCase() === 'W' ? -1 : 1);
+    const extracted = extractAnnouncementCoordsFromText(data.text);
+    if (extracted) {
+      annLat = extracted.lat;
+      annLon = extracted.lon;
     }
   }
 
+  const hasAnnGps = annLat !== null && !isNaN(annLat) && annLon !== null && !isNaN(annLon);
   const locateBtn = document.getElementById('rx-announcement-locate-btn');
-  if (annLat !== null && !isNaN(annLat) && annLon !== null && !isNaN(annLon)) {
+  if (hasAnnGps) {
     state.lastAnnouncementCoords = { lat: annLat, lon: annLon, author };
     if (locateBtn) locateBtn.classList.remove('hidden');
   } else {
@@ -5305,12 +5376,17 @@ function handleReceivedAnnouncement(data) {
     timestamp: data.timestamp || Date.now()
   });
 
-  // 4. Afficher la popup modale de réception
+  // 4. Afficher la popup modale de réception avec Header GPS (DD, DMS, UTM)
   const rxModal = document.getElementById('received-announcement-modal');
   const rxSender = document.getElementById('rx-announcement-sender');
   const rxTime = document.getElementById('rx-announcement-time');
   const rxText = document.getElementById('rx-announcement-text');
   const rxBubble = document.getElementById('rx-announcement-icon-bubble');
+  const rxGpsHeader = document.getElementById('rx-announcement-gps-header');
+  const rxGpsAlt = document.getElementById('rx-ann-gps-alt');
+  const rxGpsDd = document.getElementById('rx-ann-gps-dd');
+  const rxGpsDms = document.getElementById('rx-ann-gps-dms');
+  const rxGpsUtm = document.getElementById('rx-ann-gps-utm');
 
   if (rxSender) rxSender.textContent = `Message de ${author} (${role})`;
   if (rxTime) rxTime.textContent = `Reçu à ${timeStr}`;
@@ -5319,11 +5395,22 @@ function handleReceivedAnnouncement(data) {
     rxBubble.innerHTML = formatAvatarHtml(icon);
     if (data.color) rxBubble.style.borderColor = data.color;
   }
+  if (rxGpsHeader) {
+    if (hasAnnGps) {
+      if (rxGpsDd) rxGpsDd.textContent = formatDD(annLat, annLon);
+      if (rxGpsDms) rxGpsDms.textContent = formatDMS(annLat, annLon);
+      if (rxGpsUtm) rxGpsUtm.textContent = formatUTM(annLat, annLon);
+      if (rxGpsAlt) rxGpsAlt.textContent = (data.ele !== undefined && data.ele !== null && !isNaN(data.ele)) ? `Alt: ${Math.round(data.ele)} m` : '';
+      rxGpsHeader.classList.remove('hidden');
+    } else {
+      rxGpsHeader.classList.add('hidden');
+    }
+  }
 
   if (rxModal) rxModal.classList.remove('hidden');
 
   // 5. Afficher le bandeau persistant en haut de la carte
-  displayAnnouncementBanner(author, icon, role, text, data.timestamp);
+  displayAnnouncementBanner(author, icon, role, text, data.timestamp, annLat, annLon, data.ele);
 }
 
 function closeReceivedAnnouncementModal() {
@@ -5403,15 +5490,138 @@ function playAnnouncementAlert() {
 // ============================================================================
 // GESTION DES SECOURS & APPELS D'URGENCE (15 SAMU / 112 POMPIERS / COORDONNÉES GPS)
 // ============================================================================
+function formatDD(lat, lon) {
+  if (typeof lat !== 'number' || isNaN(lat) || typeof lon !== 'number' || isNaN(lon)) return '--';
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lonDir = lon >= 0 ? 'E' : 'O';
+  return `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
+}
+
 function toDMS(val, isLat) {
   if (typeof val !== 'number' || isNaN(val)) return '--';
   const absVal = Math.abs(val);
-  const deg = Math.floor(absVal);
+  let deg = Math.floor(absVal);
   const minFloat = (absVal - deg) * 60;
-  const min = Math.floor(minFloat);
-  const sec = Math.round((minFloat - min) * 60);
+  let min = Math.floor(minFloat);
+  let sec = Math.round((minFloat - min) * 60);
+  if (sec >= 60) {
+    sec = 0;
+    min += 1;
+  }
+  if (min >= 60) {
+    min = 0;
+    deg += 1;
+  }
   const dir = isLat ? (val >= 0 ? 'N' : 'S') : (val >= 0 ? 'E' : 'O');
   return `${deg}° ${min.toString().padStart(2, '0')}' ${sec.toString().padStart(2, '0')}" ${dir}`;
+}
+
+function formatDMS(lat, lon) {
+  if (typeof lat !== 'number' || isNaN(lat) || typeof lon !== 'number' || isNaN(lon)) return '--';
+  return `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
+}
+
+function latLonToUTM(lat, lon) {
+  if (typeof lat !== 'number' || isNaN(lat) || typeof lon !== 'number' || isNaN(lon)) return null;
+  if (lat < -80 || lat > 84) {
+    return {
+      zone: null,
+      band: lat >= 0 ? 'Z' : 'A',
+      easting: 0,
+      northing: 0,
+      outOfRange: true,
+      formatted: 'Hors grille UTM (Zone polaire)'
+    };
+  }
+
+  const a = 6378137.0;
+  const f = 1.0 / 298.257223563;
+  const e2 = f * (2.0 - f);
+  const ep2 = e2 / (1.0 - e2);
+  const k0 = 0.9996;
+
+  const lonTemp = (lon + 180.0) - Math.floor((lon + 180.0) / 360.0) * 360.0 - 180.0;
+  const latRad = lat * Math.PI / 180.0;
+  const lonRad = lonTemp * Math.PI / 180.0;
+
+  let zone = Math.floor((lonTemp + 180.0) / 6.0) + 1;
+  if (zone > 60) zone = 60;
+  if (zone < 1) zone = 1;
+
+  // Exceptions Norvège et Svalbard
+  if (lat >= 56.0 && lat < 64.0 && lonTemp >= 3.0 && lonTemp < 12.0) {
+    zone = 32;
+  }
+  if (lat >= 72.0 && lat < 84.0) {
+    if (lonTemp >= 0.0 && lonTemp < 9.0) zone = 31;
+    else if (lonTemp >= 9.0 && lonTemp < 21.0) zone = 33;
+    else if (lonTemp >= 21.0 && lonTemp < 33.0) zone = 35;
+    else if (lonTemp >= 33.0 && lonTemp < 42.0) zone = 37;
+  }
+
+  const lonOrigin = (zone - 1) * 6.0 - 180.0 + 3.0;
+  const lonOriginRad = lonOrigin * Math.PI / 180.0;
+
+  const bands = 'CDEFGHJKLMNPQRSTUVWX';
+  const bandIdx = lat >= 72.0 ? 19 : Math.max(0, Math.min(19, Math.floor((lat + 80.0) / 8.0)));
+  const band = bands[bandIdx];
+
+  const sinLat = Math.sin(latRad);
+  const cosLat = Math.cos(latRad);
+  const tanLat = Math.tan(latRad);
+
+  const N = a / Math.sqrt(1.0 - e2 * sinLat * sinLat);
+  const T = tanLat * tanLat;
+  const C = ep2 * cosLat * cosLat;
+  const A = cosLat * (lonRad - lonOriginRad);
+
+  const e4 = e2 * e2;
+  const e6 = e4 * e2;
+  const M = a * (
+    (1.0 - e2 / 4.0 - 3.0 * e4 / 64.0 - 5.0 * e6 / 256.0) * latRad
+    - (3.0 * e2 / 8.0 + 3.0 * e4 / 32.0 + 45.0 * e6 / 1024.0) * Math.sin(2.0 * latRad)
+    + (15.0 * e4 / 256.0 + 45.0 * e6 / 1024.0) * Math.sin(4.0 * latRad)
+    - (35.0 * e6 / 3072.0) * Math.sin(6.0 * latRad)
+  );
+
+  const A2 = A * A;
+  const A3 = A2 * A;
+  const A4 = A3 * A;
+  const A5 = A4 * A;
+  const A6 = A5 * A;
+
+  const easting = Math.round(k0 * N * (
+    A
+    + (1.0 - T + C) * A3 / 6.0
+    + (5.0 - 18.0 * T + T * T + 72.0 * C - 58.0 * ep2) * A5 / 120.0
+  ) + 500000.0);
+
+  let northingVal = k0 * (
+    M + N * tanLat * (
+      A2 / 2.0
+      + (5.0 - T + 9.0 * C + 4.0 * C * C) * A4 / 24.0
+      + (61.0 - 58.0 * T + T * T + 600.0 * C - 330.0 * ep2) * A6 / 720.0
+    )
+  );
+  if (lat < 0) northingVal += 10000000.0;
+  const northing = Math.round(northingVal);
+
+  const eStr = easting.toString().padStart(6, '0');
+  const nStr = northing.toString().padStart(7, '0');
+
+  return {
+    zone,
+    band,
+    easting,
+    northing,
+    outOfRange: false,
+    formatted: `${zone}${band} E ${eStr} N ${nStr}`
+  };
+}
+
+function formatUTM(lat, lon) {
+  const res = latLonToUTM(lat, lon);
+  return res ? res.formatted : '--';
 }
 
 function updateEmergencyModalGpsData() {
@@ -5428,28 +5638,27 @@ function updateEmergencyModalGpsData() {
   const country = state.selectedEmergencyCountry || autoCountry;
 
   // 1. Affichage Degrés Décimaux (DD)
-  let ddStr = 'Recherche du signal GPS...';
+  const ddStr = hasGps ? formatDD(lat, lon) : 'Recherche du signal GPS...';
   const decimalEl = document.getElementById('emergency-gps-decimal');
-  if (hasGps) {
-    const latDir = lat >= 0 ? 'N' : 'S';
-    const lonDir = lon >= 0 ? 'E' : 'O';
-    ddStr = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
-    if (decimalEl) decimalEl.textContent = ddStr;
-  } else {
-    if (decimalEl) decimalEl.textContent = `📡 Recherche du signal GPS...`;
+  if (decimalEl) {
+    decimalEl.textContent = hasGps ? ddStr : '📡 Recherche du signal GPS...';
   }
 
   // 2. Affichage Degrés Minutes Secondes (DMS)
+  const dmsStr = hasGps ? formatDMS(lat, lon) : 'Patientez pour le verrouillage satellite';
   const dmsEl = document.getElementById('emergency-gps-dms');
   if (dmsEl) {
-    if (hasGps) {
-      dmsEl.textContent = `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
-    } else {
-      dmsEl.textContent = `Patientez pour le verrouillage satellite`;
-    }
+    dmsEl.textContent = dmsStr;
   }
 
-  // 3. Métadonnées (Altitude, Précision)
+  // 3. Affichage Coordonnées UTM (WGS84)
+  const utmStr = hasGps ? formatUTM(lat, lon) : 'Patientez pour le verrouillage satellite';
+  const utmEl = document.getElementById('emergency-gps-utm');
+  if (utmEl) {
+    utmEl.textContent = utmStr;
+  }
+
+  // 4. Métadonnées (Altitude, Précision)
   const metaEl = document.getElementById('emergency-gps-meta');
   if (metaEl) {
     if (hasGps) {
@@ -5460,10 +5669,14 @@ function updateEmergencyModalGpsData() {
     }
   }
 
-  // 4. Guide de dictée vocale
+  // 5. Guide de dictée vocale (DD, DMS, UTM, Alt)
   const dictateCoords = document.getElementById('dictate-coords');
+  const dictateDms = document.getElementById('dictate-dms');
+  const dictateUtm = document.getElementById('dictate-utm');
   const dictateAlt = document.getElementById('dictate-alt');
   if (dictateCoords) dictateCoords.textContent = ddStr;
+  if (dictateDms) dictateDms.textContent = hasGps ? dmsStr : '--';
+  if (dictateUtm) dictateUtm.textContent = hasGps ? utmStr : '--';
   if (dictateAlt) dictateAlt.textContent = hasGps ? `${Math.round(ele)} m` : '-- m';
 
   // 5. Tag Pays
@@ -5903,11 +6116,10 @@ function sendEmergencySms(number) {
 
   let posInfo = "Position : Signal GPS en cours d'acquisition";
   if (hasGps) {
-    const latDir = lat >= 0 ? 'N' : 'S';
-    const lonDir = lon >= 0 ? 'E' : 'O';
-    const dmsStr = `${toDMS(lat, true)}, ${toDMS(lon, false)}`;
-    const ddStr = `${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
-    posInfo = `Position : ${ddStr}\nFormat DMS : ${dmsStr}\nAlt : ${Math.round(ele)}m (±${Math.round(acc || 10)}m)`;
+    const ddStr = formatDD(lat, lon);
+    const dmsStr = formatDMS(lat, lon);
+    const utmStr = formatUTM(lat, lon);
+    posInfo = `Position : ${ddStr}\nFormat DMS : ${dmsStr}\nFormat UTM : ${utmStr}\nAlt : ${Math.round(ele)}m (±${Math.round(acc || 10)}m)`;
   }
 
   const smsText = `🚨 URGENCE RANDOTRACKER (${myName})\n${posInfo}\nHeure : ${time}`;
@@ -5934,10 +6146,8 @@ function sendGpsNotification(customTitle, customBody, extraData) {
   let defaultTitle = `🚨 GPS Secours : En attente de signal...`;
   let defaultBody = `Acquisition satellite en cours (Ciel ouvert conseillé)`;
   if (hasGps) {
-    const latDir = lat >= 0 ? 'N' : 'S';
-    const lonDir = lon >= 0 ? 'E' : 'O';
-    defaultTitle = `🚨 GPS Secours : ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}`;
-    defaultBody = `Alt : ${Math.round(ele)}m • ${toDMS(lat, true)} ${toDMS(lon, false)} (Copié au presse-papier)`;
+    defaultTitle = `🚨 GPS Secours : ${formatDD(lat, lon)}`;
+    defaultBody = `Alt : ${Math.round(ele)}m • ${formatDMS(lat, lon)} • UTM ${formatUTM(lat, lon)} (Copié au presse-papier)`;
   }
 
   const title = customTitle || defaultTitle;
@@ -6130,6 +6340,19 @@ function closeEmergencyModal() {
   }
 }
 
+function copyToClipboard(text, successToast, promptTitle, onCopied) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      if (successToast) showToast(successToast, 'success');
+      if (typeof onCopied === 'function') onCopied();
+    }).catch(() => {
+      prompt(promptTitle || 'Copiez le texte :', text);
+    });
+  } else {
+    prompt(promptTitle || 'Copiez le texte :', text);
+  }
+}
+
 function copyEmergencyGpsCoords() {
   const hasGps = state.myUser.lat !== null && state.myUser.lat !== undefined && !isNaN(state.myUser.lat) &&
                  state.myUser.lon !== null && state.myUser.lon !== undefined && !isNaN(state.myUser.lon);
@@ -6143,25 +6366,15 @@ function copyEmergencyGpsCoords() {
   const acc = state.myUser.accuracy || 10;
   const time = new Date().toLocaleTimeString();
 
-  const latDir = lat >= 0 ? 'N' : 'S';
-  const lonDir = lon >= 0 ? 'E' : 'O';
+  const textToCopy = `🚨 URGENCE RANDOTRACKER\nCoordonnées GPS (DD) : ${formatDD(lat, lon)}\nFormat DMS : ${formatDMS(lat, lon)}\nFormat UTM : ${formatUTM(lat, lon)}\nAltitude : ${Math.round(ele)} m (Précision : ±${Math.round(acc)} m)\nRelevé à : ${time}`;
 
-  const textToCopy = `🚨 URGENCE RANDOTRACKER\nCoordonnées GPS : ${Math.abs(lat).toFixed(5)}° ${latDir}, ${Math.abs(lon).toFixed(5)}° ${lonDir}\nFormat DMS : ${toDMS(lat, true)}, ${toDMS(lon, false)}\nAltitude : ${Math.round(ele)} m (Précision : ±${Math.round(acc)} m)\nRelevé à : ${time}`;
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      showToast('📋 Coordonnées GPS copiées dans le presse-papier !', 'success');
-      const copyTextEl = document.getElementById('copy-emergency-gps-text');
-      if (copyTextEl) {
-        copyTextEl.textContent = '✅ Coordonnées copiées !';
-        setTimeout(() => { copyTextEl.textContent = 'Copier GPS'; }, 3000);
-      }
-    }).catch(() => {
-      prompt('Copiez vos coordonnées GPS :', textToCopy);
-    });
-  } else {
-    prompt('Copiez vos coordonnées GPS :', textToCopy);
-  }
+  copyToClipboard(textToCopy, '📋 Coordonnées GPS & UTM copiées dans le presse-papier !', 'Copiez vos coordonnées GPS :', () => {
+    const copyTextEl = document.getElementById('copy-emergency-gps-text');
+    if (copyTextEl) {
+      copyTextEl.textContent = '✅ Coordonnées copiées !';
+      setTimeout(() => { copyTextEl.textContent = 'Copier GPS'; }, 3000);
+    }
+  });
 }
 
 function toggleGroupSosAlert() {
@@ -7099,6 +7312,61 @@ function saveWaypointsToStorage() {
 }
 window.saveWaypointsToStorage = saveWaypointsToStorage;
 
+function resolvePendingWaypointPosition() {
+  if (pendingWaypointCoords && typeof pendingWaypointCoords.lat === 'number' && !isNaN(pendingWaypointCoords.lat) &&
+      typeof pendingWaypointCoords.lon === 'number' && !isNaN(pendingWaypointCoords.lon)) {
+    return {
+      lat: pendingWaypointCoords.lat,
+      lon: pendingWaypointCoords.lon,
+      ele: pendingWaypointCoords.ele || 0,
+      sourceLabel: '📍 Point sélectionné sur la carte'
+    };
+  }
+  if (typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat) && !isNaN(state.myUser.lon)) {
+    return {
+      lat: state.myUser.lat,
+      lon: state.myUser.lon,
+      ele: state.myUser.ele || 0,
+      sourceLabel: '📍 Ma position GPS actuelle'
+    };
+  }
+  if (state.map) {
+    const center = state.map.getCenter();
+    return {
+      lat: center.lat,
+      lon: center.lng,
+      ele: 0,
+      sourceLabel: '📍 Centre actuel de la carte'
+    };
+  }
+  return null;
+}
+
+function updateWaypointModalCoords() {
+  const pos = resolvePendingWaypointPosition();
+  const srcEl = document.getElementById('wpt-coords-source');
+  const altEl = document.getElementById('wpt-coords-alt');
+  const ddEl = document.getElementById('wpt-coords-dd');
+  const dmsEl = document.getElementById('wpt-coords-dms');
+  const utmEl = document.getElementById('wpt-coords-utm');
+
+  if (!ddEl) return;
+  if (pos) {
+    if (srcEl) srcEl.textContent = pos.sourceLabel;
+    if (altEl) altEl.textContent = pos.ele ? `Alt: ${Math.round(pos.ele)} m` : '';
+    ddEl.textContent = formatDD(pos.lat, pos.lon);
+    if (dmsEl) dmsEl.textContent = formatDMS(pos.lat, pos.lon);
+    if (utmEl) utmEl.textContent = formatUTM(pos.lat, pos.lon);
+  } else {
+    if (srcEl) srcEl.textContent = '📍 Coordonnées du repère';
+    if (altEl) altEl.textContent = '';
+    ddEl.textContent = 'Position non disponible';
+    if (dmsEl) dmsEl.textContent = '--';
+    if (utmEl) utmEl.textContent = '--';
+  }
+}
+window.updateWaypointModalCoords = updateWaypointModalCoords;
+
 function openWaypointModal(customCoords) {
   pendingWaypointCoords = customCoords || null;
   const modal = document.getElementById('waypoint-modal');
@@ -7110,6 +7378,7 @@ function openWaypointModal(customCoords) {
   }
 
   setupWptIconButtons();
+  updateWaypointModalCoords();
 
   modal.classList.remove('hidden');
   modal.style.display = 'flex';
@@ -7153,21 +7422,8 @@ function saveWaypointFromModal() {
   const name = (nameInput && nameInput.value.trim()) ? nameInput.value.trim() : (selectedWptName || 'Repère');
   const share = document.getElementById('wpt-share-checkbox')?.checked ?? true;
 
-  let lat = null, lon = null, ele = 0;
-  if (pendingWaypointCoords && typeof pendingWaypointCoords.lat === 'number') {
-    lat = pendingWaypointCoords.lat;
-    lon = pendingWaypointCoords.lon;
-  } else if (typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat)) {
-    lat = state.myUser.lat;
-    lon = state.myUser.lon;
-    ele = state.myUser.ele || 0;
-  } else if (state.map) {
-    const center = state.map.getCenter();
-    lat = center.lat;
-    lon = center.lng;
-  }
-
-  if (lat === null || lon === null) {
+  const pos = resolvePendingWaypointPosition();
+  if (!pos) {
     alert('Impossible de déterminer la position du repère. Touchez la carte ou activez le GPS.');
     return;
   }
@@ -7176,9 +7432,9 @@ function saveWaypointFromModal() {
     id: 'wpt_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
     name: name,
     icon: selectedWptIcon || '📍',
-    lat: Number(lat.toFixed(6)),
-    lon: Number(lon.toFixed(6)),
-    ele: Math.round(ele),
+    lat: Number(pos.lat.toFixed(6)),
+    lon: Number(pos.lon.toFixed(6)),
+    ele: Math.round(pos.ele || 0),
     author: state.myUser.name || 'Randonneur',
     authorId: state.myUser.id,
     time: Date.now()
@@ -7199,6 +7455,15 @@ function saveWaypointFromModal() {
   showToast(`📍 Repère "${wpt.name}" enregistré !`, 'success');
 }
 window.saveWaypointFromModal = saveWaypointFromModal;
+
+function copyWaypointCoords(wptId) {
+  const wpt = (state.waypoints || []).find(w => w.id === wptId);
+  if (!wpt) return;
+  const altLine = (typeof wpt.ele === 'number' && wpt.ele > 0) ? `\nAltitude : ${Math.round(wpt.ele)} m` : '';
+  const textToCopy = `${wpt.icon || '📍'} ${wpt.name}\nGPS (DD) : ${formatDD(wpt.lat, wpt.lon)}\nGPS (DMS) : ${formatDMS(wpt.lat, wpt.lon)}\nUTM : ${formatUTM(wpt.lat, wpt.lon)}${altLine}`;
+  copyToClipboard(textToCopy, '📋 Coordonnées GPS & UTM du repère copiées !', 'Coordonnées du repère :');
+}
+window.copyWaypointCoords = copyWaypointCoords;
 
 function renderWaypointMarker(wpt) {
   if (!state.map || !wpt || typeof wpt.lat !== 'number' || typeof wpt.lon !== 'number') return;
@@ -7225,21 +7490,49 @@ function renderWaypointMarker(wpt) {
 
   marker.on('click', () => {
     let distStr = '';
-    if (typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number') {
+    if (typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat)) {
       const d = calculateDistance(state.myUser.lat, state.myUser.lon, wpt.lat, wpt.lon);
-      distStr = `<div style="font-weight: 800; color: #0284c7; margin: 4px 0;">Distance : ${d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(2) + ' km'}</div>`;
+      distStr = `<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40 text-[11px]">📏 ${d < 1 ? Math.round(d * 1000) + ' m' : d.toFixed(2) + ' km'}</span>`;
     }
+    const altBadge = (typeof wpt.ele === 'number' && wpt.ele > 0)
+      ? `<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold border border-slate-700 text-[11px]">⛰️ ${Math.round(wpt.ele)} m</span>`
+      : '';
+    const ddStr = formatDD(wpt.lat, wpt.lon);
+    const dmsStr = formatDMS(wpt.lat, wpt.lon);
+    const utmStr = formatUTM(wpt.lat, wpt.lon);
+
     const popupContent = `
-      <div style="min-width: 170px; font-family: system-ui, sans-serif; color: #0f172a;">
-        <div style="font-size: 16px; font-weight: 900; display: flex; align-items: center; gap: 6px;">
-          <span>${wpt.icon || '📍'}</span>
-          <span>${escapeHtml(wpt.name)}</span>
+      <div class="space-y-2.5 text-slate-100 select-text" style="min-width: 240px;">
+        <div class="flex items-center gap-2 pb-2 border-b border-slate-700/80 pr-7">
+          <span class="text-2xl leading-none shrink-0">${wpt.icon || '📍'}</span>
+          <div class="min-w-0 flex-1">
+            <div class="font-black text-base text-white leading-tight break-words">${escapeHtml(wpt.name)}</div>
+            <div class="text-[11px] text-slate-400 font-semibold mt-0.5">Créé par ${escapeHtml(wpt.author || 'Randonneur')}</div>
+          </div>
         </div>
-        ${distStr}
-        <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">Créé par ${escapeHtml(wpt.author || 'Randonneur')}</div>
-        <button onclick="deleteWaypoint('${wpt.id}')" style="width: 100%; padding: 6px 10px; background: #ef4444; color: white; border: none; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer;">
-          🗑️ Supprimer ce repère
-        </button>
+        ${(distStr || altBadge) ? `<div class="flex flex-wrap items-center gap-1.5">${distStr}${altBadge}</div>` : ''}
+        <div class="rounded-2xl bg-slate-950/90 border border-emerald-500/40 p-2.5 space-y-1 text-xs font-mono">
+          <div class="flex items-baseline justify-between gap-2">
+            <span class="text-[10px] font-sans font-black uppercase text-slate-400 shrink-0">GPS (DD) :</span>
+            <span class="font-bold text-white text-right select-all">${ddStr}</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-2">
+            <span class="text-[10px] font-sans font-black uppercase text-slate-400 shrink-0">GPS (DMS) :</span>
+            <span class="font-bold text-emerald-300 text-right select-all">${dmsStr}</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-2">
+            <span class="text-[10px] font-sans font-black uppercase text-slate-400 shrink-0">UTM :</span>
+            <span class="font-bold text-amber-300 text-right select-all">${utmStr}</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5 pt-0.5">
+          <button type="button" onclick="copyWaypointCoords('${wpt.id}')" class="py-2 px-2 rounded-xl bg-slate-800 hover:bg-slate-750 text-emerald-300 border border-emerald-500/40 font-black text-xs cursor-pointer active:scale-95 transition">
+            📋 Copier GPS
+          </button>
+          <button type="button" onclick="deleteWaypoint('${wpt.id}')" class="py-2 px-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-xs cursor-pointer active:scale-95 transition">
+            🗑️ Supprimer
+          </button>
+        </div>
       </div>
     `;
     marker.bindPopup(popupContent).openPopup();
@@ -7327,7 +7620,7 @@ function bootApp() {
       if (window.AndroidBridge && typeof window.AndroidBridge.getVersionName === 'function') {
         vEl.textContent = 'v' + window.AndroidBridge.getVersionName().split(' ')[0];
       } else {
-        vEl.textContent = 'v1.4.16';
+        vEl.textContent = 'v1.4.17';
       }
     }
   } catch(e) {}
@@ -8342,6 +8635,15 @@ function downloadAndroidApk() {
 
 window.openUserManual = openUserManual;
 window.downloadAndroidApk = downloadAndroidApk;
+window.formatDD = formatDD;
+window.toDMS = toDMS;
+window.formatDMS = formatDMS;
+window.latLonToUTM = latLonToUTM;
+window.formatUTM = formatUTM;
+window.updateAnnouncementModalGpsHeader = updateAnnouncementModalGpsHeader;
+window.updateWaypointModalCoords = updateWaypointModalCoords;
+window.copyWaypointCoords = copyWaypointCoords;
+window.resolvePendingWaypointPosition = resolvePendingWaypointPosition;
 
 window.state = state;
 

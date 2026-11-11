@@ -37,7 +37,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PolylineOffset pour affichage parallèle des tronçons communs de traces GPX -->
-  <script src="leaflet.polylineoffset.js?v=104"></script>
+  <script src="leaflet.polylineoffset.js?v=105"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -55,8 +55,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v101 -->
-  <link rel="stylesheet" href="styles.css?v=104" />
+  <!-- Custom Styles with Cache-Busting v105 -->
+  <link rel="stylesheet" href="styles.css?v=105" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -98,7 +98,7 @@
           <span class="text-[9px] sm:text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider transition items-center gap-0.5 hidden min-[380px]:flex">
             <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
           </span>
-          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.4.16</span>
+          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.4.17</span>
         </div>
       </div>
     </div>
@@ -159,6 +159,7 @@
         <span class="text-2xl animate-bounce">📢</span>
         <div class="min-w-0 flex-1">
           <div class="text-[10px] font-black uppercase tracking-wider text-slate-900 opacity-80" id="announcement-sender-time">Message de l'Organisateur</div>
+          <div class="hidden text-[9.5px] font-mono font-black text-slate-950/90 leading-tight truncate" id="announcement-banner-coords"></div>
           <div class="text-sm sm:text-base font-black truncate text-slate-950" id="announcement-banner-text">Pause 10 minutes !</div>
         </div>
       </div>
@@ -784,7 +785,7 @@
   <!-- MODAL : CRÉER UN REPÈRE / POINT D'INTÉRÊT (WAYPOINT)               -->
   <!-- ================================================================= -->
   <div id="waypoint-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4" style="display: none;">
-    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4">
+    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b-2 border-slate-800 pb-3">
         <h3 class="font-black text-xl text-white flex items-center gap-3">
           <span class="text-2xl">📍</span>
@@ -793,6 +794,26 @@
         <button onclick="closeWaypointModal()" class="modal-close-btn" title="Fermer">
           <i data-lucide="x" class="w-7 h-7 text-white stroke-[3]"></i>
         </button>
+      </div>
+
+      <!-- Coordonnées GPS (DD, DMS) et UTM du repère en cours de création -->
+      <div id="wpt-coords-preview" class="rounded-2xl bg-slate-950/95 border border-emerald-500/50 p-3 flex flex-col gap-1.5 shadow-inner shrink-0">
+        <div class="flex items-center justify-between gap-2 text-[11px] font-black uppercase tracking-wider text-emerald-400">
+          <span id="wpt-coords-source">📍 Coordonnées du repère</span>
+          <span id="wpt-coords-alt" class="text-slate-300 font-mono text-[10px]"></span>
+        </div>
+        <div class="flex items-baseline justify-between gap-2 text-xs font-mono font-bold text-white">
+          <span class="text-[10px] text-slate-400 font-sans font-black uppercase shrink-0">GPS (DD) :</span>
+          <span id="wpt-coords-dd" class="truncate select-all text-right">--</span>
+        </div>
+        <div class="flex items-baseline justify-between gap-2 text-xs font-mono font-bold text-emerald-300">
+          <span class="text-[10px] text-slate-400 font-sans font-black uppercase shrink-0">GPS (DMS) :</span>
+          <span id="wpt-coords-dms" class="truncate select-all text-right">--</span>
+        </div>
+        <div class="flex items-baseline justify-between gap-2 text-xs font-mono font-bold text-amber-300">
+          <span class="text-[10px] text-slate-400 font-sans font-black uppercase shrink-0">UTM :</span>
+          <span id="wpt-coords-utm" class="truncate select-all text-right">--</span>
+        </div>
       </div>
 
       <div class="space-y-4">
@@ -1200,6 +1221,26 @@
         Diffusez un message ou une alerte instantanée sur les téléphones de tous les marcheurs connectés (avec signal sonore & vibreur) :
       </p>
 
+      <!-- Header Position GPS (Décimal, Degrés Minutes Secondes et UTM) -->
+      <div id="announcement-gps-header" class="rounded-2xl bg-slate-950/95 border border-emerald-500/50 p-3 flex flex-col gap-1 shadow-inner shrink-0">
+        <div class="flex items-center justify-between gap-2 text-[11px] font-black uppercase tracking-wider text-emerald-400">
+          <span>📍 Position GPS du message</span>
+          <span id="ann-gps-alt" class="text-slate-300 font-mono text-[10px]"></span>
+        </div>
+        <div class="flex items-baseline justify-between gap-2 text-xs font-mono font-bold text-white">
+          <span class="text-[10px] text-slate-400 font-sans font-black uppercase shrink-0">Décimal (DD) :</span>
+          <span id="ann-gps-dd" class="truncate select-all text-right">📡 Acquisition du signal GPS...</span>
+        </div>
+        <div class="flex items-baseline justify-between gap-2 text-xs font-mono font-bold text-emerald-300">
+          <span class="text-[10px] text-slate-400 font-sans font-black uppercase shrink-0">Degrés ° ' " :</span>
+          <span id="ann-gps-dms" class="truncate select-all text-right">--</span>
+        </div>
+        <div class="flex items-baseline justify-between gap-2 text-xs font-mono font-bold text-amber-300">
+          <span class="text-[10px] text-slate-400 font-sans font-black uppercase shrink-0">UTM :</span>
+          <span id="ann-gps-utm" class="truncate select-all text-right">--</span>
+        </div>
+      </div>
+
       <!-- Messages Rapides en 1 Clic (Optimisé Outdoor pour tous les marcheurs) -->
       <div>
         <label class="block text-xs font-black text-amber-400 uppercase mb-2.5">⚡ Messages Rapides (1 clic)</label>
@@ -1248,7 +1289,7 @@
             <span>Actualiser GPS</span>
           </button>
         </div>
-        <textarea id="announcement-custom-input" rows="3" placeholder="Ex: On ralentit l'allure, attendez le serre-file..." class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-3.5 text-sm sm:text-base text-white font-bold focus:outline-none focus:border-amber-500 shadow-inner resize-none"></textarea>
+        <textarea id="announcement-custom-input" rows="4" placeholder="Ex: On ralentit l'allure, attendez le serre-file..." class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-3.5 text-sm sm:text-base text-white font-bold focus:outline-none focus:border-amber-500 shadow-inner resize-none"></textarea>
       </div>
 
       <div class="pt-2 border-t-2 border-slate-800 flex justify-end gap-3">
@@ -1279,6 +1320,25 @@
         </div>
         <div class="text-xs font-mono font-bold text-slate-900/80 mt-0.5" id="rx-announcement-time">
           Reçu à 14:35
+        </div>
+        <!-- Header Coordonnées GPS (DD, DMS, UTM) du message reçu -->
+        <div id="rx-announcement-gps-header" class="hidden mt-2.5 rounded-2xl bg-slate-950/90 border border-white/30 p-2.5 text-left flex flex-col gap-0.5 shadow-md">
+          <div class="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-emerald-400">
+            <span>📍 Position GPS de l'émetteur</span>
+            <span id="rx-ann-gps-alt" class="text-slate-300 font-mono"></span>
+          </div>
+          <div class="text-[11px] font-mono font-bold text-white flex justify-between gap-2">
+            <span class="text-slate-400 font-sans font-black text-[10px] shrink-0">DD :</span>
+            <span id="rx-ann-gps-dd" class="truncate select-all text-right">--</span>
+          </div>
+          <div class="text-[11px] font-mono font-bold text-emerald-300 flex justify-between gap-2">
+            <span class="text-slate-400 font-sans font-black text-[10px] shrink-0">DMS :</span>
+            <span id="rx-ann-gps-dms" class="truncate select-all text-right">--</span>
+          </div>
+          <div class="text-[11px] font-mono font-bold text-amber-300 flex justify-between gap-2">
+            <span class="text-slate-400 font-sans font-black text-[10px] shrink-0">UTM :</span>
+            <span id="rx-ann-gps-utm" class="truncate select-all text-right">--</span>
+          </div>
         </div>
       </div>
       <div class="bg-slate-950 text-white p-5 rounded-2xl border-2 border-white/20 shadow-inner">
@@ -1328,10 +1388,10 @@
           </button>
         </div>
 
-        <!-- CARTOUCHE GPS GÉANT (DD, DMS, ALTITUDE) - 2 LIGNES INDÉPENDANTES -->
-        <div class="rounded-2xl bg-slate-950/95 border-2 border-emerald-500/80 p-3.5 shadow-xl flex flex-col gap-2.5 shrink-0">
+        <!-- CARTOUCHE GPS GÉANT (DD, DMS, UTM, ALTITUDE) -->
+        <div class="rounded-2xl bg-slate-950/95 border-2 border-emerald-500/80 p-2.5 shadow-xl flex flex-col gap-1.5 shrink-0">
           <!-- Ligne 1 : Format Décimal (DD) -->
-          <div class="bg-slate-900/95 rounded-2xl p-3 border-2 border-slate-800 flex flex-col justify-center">
+          <div class="bg-slate-900/95 rounded-xl px-2.5 py-1.5 border border-slate-800 flex flex-col justify-center">
             <span class="emergency-gps-label">1. Degrés Décimaux (DD) :</span>
             <div id="emergency-gps-decimal" class="font-mono font-black select-all text-white">
               43.12244° N, 5.77957° E
@@ -1339,17 +1399,25 @@
           </div>
 
           <!-- Ligne 2 : Format Degrés Minutes Secondes (DMS) -->
-          <div class="bg-slate-900/95 rounded-2xl p-3 border-2 border-slate-800 flex flex-col justify-center">
+          <div class="bg-slate-900/95 rounded-xl px-2.5 py-1.5 border border-slate-800 flex flex-col justify-center">
             <span class="emergency-gps-label">2. Degrés Minutes Secondes (DMS) :</span>
             <div id="emergency-gps-dms" class="font-mono font-black select-all text-emerald-300">
               43° 07' 21" N, 5° 46' 46" E
             </div>
           </div>
 
+          <!-- Ligne 3 : Format UTM (WGS84) -->
+          <div class="bg-slate-900/95 rounded-xl px-2.5 py-1.5 border border-slate-800 flex flex-col justify-center">
+            <span class="emergency-gps-label">3. Coordonnées UTM (WGS84) :</span>
+            <div id="emergency-gps-utm" class="font-mono font-black select-all text-amber-300">
+              31T E 726114 N 4778162
+            </div>
+          </div>
+
           <!-- Métadonnées & Copier -->
           <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800">
             <span id="emergency-gps-meta" class="font-black text-slate-200 truncate">Alt : -- m • Précision : ±-- m</span>
-            <button onclick="copyEmergencyGpsCoords()" class="py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-emerald-300 text-xs sm:text-sm font-black flex items-center gap-2 border-2 border-slate-700 active:scale-95 transition shrink-0" title="Copier les coordonnées GPS">
+            <button onclick="copyEmergencyGpsCoords()" class="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-emerald-300 text-xs sm:text-sm font-black flex items-center gap-1.5 border-2 border-slate-700 active:scale-95 transition shrink-0" title="Copier les coordonnées GPS">
               <i data-lucide="copy" class="w-4 h-4 text-emerald-400"></i>
               <span id="copy-emergency-gps-text">Copier GPS</span>
             </button>
@@ -1357,10 +1425,10 @@
         </div>
 
         <!-- GUIDE DE DICTÉE VOCALE DIRECTEMENT VISIBLE -->
-        <div class="p-3.5 rounded-2xl bg-slate-900/95 border-2 border-emerald-500/60 flex items-center gap-3 shrink-0 shadow-lg">
-          <span class="text-2xl sm:text-3xl shrink-0">🗣️</span>
-          <div class="text-sm sm:text-base md:text-lg font-black leading-snug text-slate-100" id="emergency-dictation-preview">
-            « Je suis en détresse à <b class="text-emerald-400" id="dictate-coords">43.12244° N, 5.77957° E</b>, alt. <b class="text-white" id="dictate-alt">-- m</b> »
+        <div class="p-2.5 rounded-2xl bg-slate-900/95 border-2 border-emerald-500/60 flex items-center gap-2.5 shrink-0 shadow-lg">
+          <span class="text-xl sm:text-2xl shrink-0">🗣️</span>
+          <div class="text-xs sm:text-sm font-black leading-snug text-slate-100" id="emergency-dictation-preview">
+            « Je suis en détresse à <b class="text-emerald-400" id="dictate-coords">43.12244° N, 5.77957° E</b> • DMS <b class="text-emerald-300" id="dictate-dms">43° 07' 21" N, 5° 46' 46" E</b> • UTM <b class="text-amber-300" id="dictate-utm">31T E 726114 N 4778162</b>, alt. <b class="text-white" id="dictate-alt">-- m</b> »
           </div>
         </div>
       </div>
@@ -1895,7 +1963,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v101 -->
-  <script src="app.js?v=104"></script>
+  <!-- Main Application Script with Cache-Busting v105 -->
+  <script src="app.js?v=105"></script>
 </body>
 </html>
