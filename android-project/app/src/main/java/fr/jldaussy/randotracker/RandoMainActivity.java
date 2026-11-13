@@ -459,7 +459,7 @@ public class RandoMainActivity extends AppCompatActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.17 (56)";
+            return "1.4.19 (58)";
         }
 
         @JavascriptInterface

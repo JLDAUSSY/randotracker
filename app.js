@@ -2956,6 +2956,11 @@ function generateUserPopupHtml(userId) {
   const userDMS = userHasPos ? formatDMS(user.lat, user.lon) : '--';
   const userUTM = userHasPos ? formatUTM(user.lat, user.lon) : '--';
 
+  // Si le nom de la ville est absent ou était un pays par erreur ("France"), forcer la résolution
+  if (user.cityName === 'France' || user.cityName === 'Espagne' || user.cityName === 'Suisse' || user.cityName === 'Royaume-Uni' || user.cityName === 'Zone internationale') {
+    user.cityName = null;
+  }
+
   if (userHasPos && !user.cityName) {
     fetchCityName(user.lat, user.lon).then(city => {
       if (city) {
@@ -5692,7 +5697,7 @@ function formatUTM(lat, lon) {
 }
 
 // ============================================================================
-// RÉSOLUTION GÉOGRAPHIQUE COMMUNE / VILLE (API GOUV & PHOTON KOMOOT)
+// RÉSOLUTION GÉOGRAPHIQUE COMMUNE / VILLE (BAN DATA GOUV, API GOUV & PHOTON)
 // ============================================================================
 const cityResolutionCache = new Map();
 
@@ -5705,16 +5710,43 @@ async function fetchCityName(lat, lon) {
   const latNum = Number(lat);
   const lonNum = Number(lon);
   const cacheKey = `${latNum.toFixed(3)},${lonNum.toFixed(3)}`;
-  if (cityResolutionCache.has(cacheKey)) {
-    return cityResolutionCache.get(cacheKey);
+  const cached = cityResolutionCache.get(cacheKey);
+  if (cached && cached !== 'France' && cached !== 'Espagne' && cached !== 'Suisse' && cached !== 'Royaume-Uni' && cached !== 'Zone internationale') {
+    return cached;
   }
 
-  // 1. Priorité France : API officielle Découpage Administratif Gouv.fr (rapide, sans clé, nom officiel + département)
   const isFrance = (detectCountry(latNum, lonNum) === 'FR');
+
+  // 1. Priorité France : Base Adresse Nationale (BAN / data.gouv.fr)
+  // Endpoint officiel le plus stable et rapide en France, avec support CORS natif et code postal/département
   if (isFrance) {
     try {
+      const banController = new AbortController();
+      const banTimeout = setTimeout(() => banController.abort(), 3500);
+      const res = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lat=${latNum}&lon=${lonNum}`, {
+        signal: banController.signal
+      });
+      clearTimeout(banTimeout);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.features) && data.features.length > 0) {
+          const props = data.features[0].properties || {};
+          const city = props.city || props.name || '';
+          const dept = props.citycode ? props.citycode.slice(0, 2) : (props.postcode ? props.postcode.slice(0, 2) : '');
+          if (city && city.toLowerCase() !== 'france') {
+            const cityName = dept ? `${city} (${dept})` : city;
+            cityResolutionCache.set(cacheKey, cityName);
+            return cityName;
+          }
+        }
+      }
+    } catch (e) {
+      // Poursuivre vers API Découpage Administratif
+    }
+
+    try {
       const gouvController = new AbortController();
-      const gouvTimeout = setTimeout(() => gouvController.abort(), 2500);
+      const gouvTimeout = setTimeout(() => gouvController.abort(), 3500);
       const res = await fetch(`https://geo.api.gouv.fr/communes?lat=${latNum}&lon=${lonNum}&fields=nom,codeDepartement`, {
         signal: gouvController.signal
       });
@@ -5729,14 +5761,14 @@ async function fetchCityName(lat, lon) {
         }
       }
     } catch (e) {
-      // Poursuivre vers fallback
+      // Poursuivre vers Photon
     }
   }
 
   // 2. Recherche mondiale : Photon Komoot (OpenStreetMap mondial, sentiers, parcs, communes)
   try {
     const pController = new AbortController();
-    const pTimeout = setTimeout(() => pController.abort(), 2500);
+    const pTimeout = setTimeout(() => pController.abort(), 3500);
     const pRes = await fetch(`https://photon.komoot.io/reverse?lat=${latNum}&lon=${lonNum}`, {
       signal: pController.signal
     });
@@ -5747,9 +5779,15 @@ async function fetchCityName(lat, lon) {
         const props = pData.features[0].properties || {};
         const place = props.city || props.town || props.village || props.municipality || props.locality || props.name || '';
         const country = props.country || '';
-        if (place) {
-          const isFr = (country.toLowerCase() === 'france');
-          const fullPlace = (!isFr && country) ? `${place} (${country})` : place;
+        const isFr = (country.toLowerCase() === 'france' || (props.countrycode && props.countrycode.toUpperCase() === 'FR'));
+        if (place && place.toLowerCase() !== 'france') {
+          let fullPlace = place;
+          if (isFr) {
+            const dept = props.postcode ? ` (${props.postcode.slice(0, 2)})` : '';
+            fullPlace = `${place}${dept}`;
+          } else if (country) {
+            fullPlace = `${place} (${country})`;
+          }
           cityResolutionCache.set(cacheKey, fullPlace);
           return fullPlace;
         }
@@ -5762,7 +5800,7 @@ async function fetchCityName(lat, lon) {
   // 3. Fallback Nominatim OSM
   try {
     const nomController = new AbortController();
-    const nomTimeout = setTimeout(() => nomController.abort(), 2500);
+    const nomTimeout = setTimeout(() => nomController.abort(), 3500);
     const nRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latNum}&lon=${lonNum}&zoom=14&addressdetails=1`, {
       headers: { 'Accept-Language': 'fr' },
       signal: nomController.signal
@@ -5774,30 +5812,26 @@ async function fetchCityName(lat, lon) {
         const addr = nData.address;
         const place = addr.village || addr.town || addr.city || addr.municipality || addr.hamlet || addr.suburb || '';
         const country = addr.country || '';
-        if (place) {
-          const isFr = (country.toLowerCase() === 'france');
-          const fullPlace = (!isFr && country) ? `${place} (${country})` : place;
+        const isFr = (country.toLowerCase() === 'france');
+        if (place && place.toLowerCase() !== 'france') {
+          let fullPlace = place;
+          if (isFr) {
+            const dept = addr.postcode ? ` (${addr.postcode.slice(0, 2)})` : '';
+            fullPlace = `${place}${dept}`;
+          } else if (country) {
+            fullPlace = `${place} (${country})`;
+          }
           cityResolutionCache.set(cacheKey, fullPlace);
           return fullPlace;
         }
       }
     }
   } catch (e) {
-    // Poursuivre vers repli pays
+    // Échec réseau temporaire
   }
 
-  // 4. Repli pays selon coordonnées
-  const fallbackCountry = detectCountry(latNum, lonNum);
-  const fallbackNames = {
-    FR: 'France',
-    ES: 'Espagne',
-    CH: 'Suisse',
-    UK: 'Royaume-Uni',
-    OTHER: 'Zone internationale'
-  };
-  const fallback = fallbackNames[fallbackCountry] || '';
-  if (fallback) cityResolutionCache.set(cacheKey, fallback);
-  return fallback;
+  // Ne JAMAIS retourner "France" comme nom de ville !
+  return '';
 }
 window.fetchCityName = fetchCityName;
 
@@ -5818,6 +5852,9 @@ function updateEmergencyModalGpsData() {
   const cityEl = document.getElementById('emergency-gps-city');
   const dictateCity = document.getElementById('dictate-city');
   if (hasGps) {
+    if (state.lastResolvedCity === 'France' || state.lastResolvedCity === 'Espagne' || state.lastResolvedCity === 'Suisse' || state.lastResolvedCity === 'Royaume-Uni' || state.lastResolvedCity === 'Zone internationale') {
+      state.lastResolvedCity = null;
+    }
     if (state.lastResolvedCity) {
       if (cityEl) cityEl.textContent = state.lastResolvedCity;
       if (dictateCity) dictateCity.textContent = state.lastResolvedCity;
@@ -6319,6 +6356,7 @@ function sendEmergencySms(number) {
     const ddStr = formatDD(lat, lon);
     const dmsStr = formatDMS(lat, lon);
     const utmStr = formatUTM(lat, lon);
+    if (state.lastResolvedCity === 'France' || state.lastResolvedCity === 'Espagne' || state.lastResolvedCity === 'Suisse' || state.lastResolvedCity === 'Royaume-Uni' || state.lastResolvedCity === 'Zone internationale') state.lastResolvedCity = null;
     const cityStr = state.lastResolvedCity ? `Commune / Ville : ${state.lastResolvedCity}\n` : '';
     posInfo = `${cityStr}Position : ${ddStr}\nFormat DMS : ${dmsStr}\nFormat UTM : ${utmStr}\nAlt : ${Math.round(ele)}m (±${Math.round(acc || 10)}m)`;
   }
@@ -6566,6 +6604,7 @@ function copyEmergencyGpsCoords() {
   const ele = state.myUser.ele || 0;
   const acc = state.myUser.accuracy || 10;
   const time = new Date().toLocaleTimeString();
+  if (state.lastResolvedCity === 'France' || state.lastResolvedCity === 'Espagne' || state.lastResolvedCity === 'Suisse' || state.lastResolvedCity === 'Royaume-Uni' || state.lastResolvedCity === 'Zone internationale') state.lastResolvedCity = null;
   const cityLine = state.lastResolvedCity ? `Commune / Ville : ${state.lastResolvedCity}\n` : '';
 
   const textToCopy = `🚨 URGENCE RANDOTRACKER\n${cityLine}Coordonnées GPS (DD) : ${formatDD(lat, lon)}\nFormat DMS : ${formatDMS(lat, lon)}\nFormat UTM : ${formatUTM(lat, lon)}\nAltitude : ${Math.round(ele)} m (Précision : ±${Math.round(acc)} m)\nRelevé à : ${time}`;
@@ -7639,7 +7678,10 @@ function saveWaypointFromModal() {
   }
 
   const cityEl = document.getElementById('wpt-coords-city');
-  const city = (cityEl && cityEl.textContent && !cityEl.textContent.includes('...')) ? cityEl.textContent.trim() : '';
+  let city = (cityEl && cityEl.textContent && !cityEl.textContent.includes('...')) ? cityEl.textContent.trim() : '';
+  if (city === 'France' || city === 'Espagne' || city === 'Suisse' || city === 'Royaume-Uni' || city === 'Zone internationale' || city === '--' || city === 'Inconnue') {
+    city = '';
+  }
 
   const wpt = {
     id: 'wpt_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
@@ -7704,6 +7746,9 @@ function renderWaypointMarker(wpt) {
   const marker = L.marker([wpt.lat, wpt.lon], { icon: customIcon });
 
   marker.on('click', () => {
+    if (wpt.cityName === 'France' || wpt.cityName === 'Espagne' || wpt.cityName === 'Suisse' || wpt.cityName === 'Royaume-Uni' || wpt.cityName === 'Zone internationale') {
+      wpt.cityName = null;
+    }
     let distStr = '';
     if (typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat)) {
       const d = calculateDistance(state.myUser.lat, state.myUser.lon, wpt.lat, wpt.lon);
@@ -7756,7 +7801,8 @@ function renderWaypointMarker(wpt) {
     `;
     marker.bindPopup(popupContent).openPopup();
 
-    if (!wpt.cityName) {
+    if (!wpt.cityName || wpt.cityName === 'France' || wpt.cityName === 'Espagne' || wpt.cityName === 'Suisse' || wpt.cityName === 'Royaume-Uni' || wpt.cityName === 'Zone internationale') {
+      wpt.cityName = null;
       fetchCityName(wpt.lat, wpt.lon).then(city => {
         if (city) {
           wpt.cityName = city;
