@@ -98,7 +98,7 @@
           <span class="text-[9px] sm:text-[10px] text-slate-400 group-hover:text-slate-100 font-bold tracking-wider transition items-center gap-0.5 hidden min-[380px]:flex">
             <span class="opacity-60 font-medium">by</span> <span class="font-black text-slate-200 group-hover:text-emerald-400">JLD</span>
           </span>
-          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.4.17</span>
+          <span class="text-[8.5px] sm:text-[9.5px] px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-black border border-emerald-500/30 shrink-0" id="header-app-version">v1.4.18</span>
         </div>
       </div>
     </div>
@@ -116,7 +116,7 @@
       <!-- Choix Fond de Carte (IGN / Topo) -->
       <button id="open-layer-modal-btn" onclick="openLayerModal()" class="app-header-btn bg-slate-800 hover:bg-slate-750 text-slate-100 border-2 border-slate-700 text-xs sm:text-sm font-black flex items-center gap-1 transition active:scale-95 shadow-xl !px-2 sm:!px-3 shrink-0" title="Choisir le fond de carte">
         <i data-lucide="layers" class="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400 shrink-0"></i>
-        <span id="active-layer-label" class="hidden md:inline font-bold text-xs sm:text-sm">IGN France</span>
+        <span id="active-layer-label" class="hidden md:inline font-bold text-xs sm:text-sm">IGN TOP 25 France</span>
       </button>
 
       <!-- Mon Profil & Paramètres (Toujours 100% visible et shrink-0) -->
@@ -639,11 +639,11 @@
       </div>
 
       <div class="grid grid-cols-1 gap-3.5">
-        <!-- 1. IGN France -->
+        <!-- 1. IGN France TOP 25 -->
         <button class="layer-opt-btn px-4 py-3.5 rounded-2xl border-2 border-emerald-500 bg-emerald-600/25 text-white text-base font-black flex items-center justify-between transition active:scale-98 shadow-md" data-layer="ign">
           <span class="flex items-center gap-3.5">
             <span class="text-xl">🇫🇷</span>
-            <span>IGN France (Plan & Topo)</span>
+            <span>France (IGN TOP 25 officiel)</span>
           </span>
           <i data-lucide="check" class="w-6 h-6 text-emerald-400 layer-check"></i>
         </button>
@@ -801,6 +801,10 @@
         <div class="flex items-center justify-between gap-2 text-[11px] font-black uppercase tracking-wider text-emerald-400">
           <span id="wpt-coords-source">📍 Coordonnées du repère</span>
           <span id="wpt-coords-alt" class="text-slate-300 font-mono text-[10px]"></span>
+        </div>
+        <div class="flex items-baseline justify-between gap-2 text-xs font-bold text-sky-300">
+          <span class="text-[10px] text-slate-400 font-sans font-black uppercase shrink-0">Commune / Ville :</span>
+          <span id="wpt-coords-city" class="truncate select-all text-right font-sans">Recherche...</span>
         </div>
         <div class="flex items-baseline justify-between gap-2 text-xs font-mono font-bold text-white">
           <span class="text-[10px] text-slate-400 font-sans font-black uppercase shrink-0">GPS (DD) :</span>
@@ -1388,8 +1392,16 @@
           </button>
         </div>
 
-        <!-- CARTOUCHE GPS GÉANT (DD, DMS, UTM, ALTITUDE) -->
+        <!-- CARTOUCHE GPS GÉANT (DD, DMS, UTM, VILLE, ALTITUDE) -->
         <div class="rounded-2xl bg-slate-950/95 border-2 border-emerald-500/80 p-2.5 shadow-xl flex flex-col gap-1.5 shrink-0">
+          <!-- Ligne 0 : Commune / Ville -->
+          <div class="bg-slate-900/95 rounded-xl px-2.5 py-1.5 border border-slate-800 flex items-center justify-between">
+            <span class="emergency-gps-label">Commune / Ville :</span>
+            <div id="emergency-gps-city" class="font-bold select-all text-sky-300 text-sm truncate text-right">
+              Recherche...
+            </div>
+          </div>
+
           <!-- Ligne 1 : Format Décimal (DD) -->
           <div class="bg-slate-900/95 rounded-xl px-2.5 py-1.5 border border-slate-800 flex flex-col justify-center">
             <span class="emergency-gps-label">1. Degrés Décimaux (DD) :</span>
@@ -1428,7 +1440,7 @@
         <div class="p-2.5 rounded-2xl bg-slate-900/95 border-2 border-emerald-500/60 flex items-center gap-2.5 shrink-0 shadow-lg">
           <span class="text-xl sm:text-2xl shrink-0">🗣️</span>
           <div class="text-xs sm:text-sm font-black leading-snug text-slate-100" id="emergency-dictation-preview">
-            « Je suis en détresse à <b class="text-emerald-400" id="dictate-coords">43.12244° N, 5.77957° E</b> • DMS <b class="text-emerald-300" id="dictate-dms">43° 07' 21" N, 5° 46' 46" E</b> • UTM <b class="text-amber-300" id="dictate-utm">31T E 726114 N 4778162</b>, alt. <b class="text-white" id="dictate-alt">-- m</b> »
+            « Je suis en détresse à <b class="text-sky-300" id="dictate-city">...</b> • GPS <b class="text-emerald-400" id="dictate-coords">43.12244° N, 5.77957° E</b> • DMS <b class="text-emerald-300" id="dictate-dms">43° 07' 21" N, 5° 46' 46" E</b> • UTM <b class="text-amber-300" id="dictate-utm">31T E 726114 N 4778162</b>, alt. <b class="text-white" id="dictate-alt">-- m</b> »
           </div>
         </div>
       </div>
@@ -1964,6 +1976,6 @@
   </div>
 
   <!-- Main Application Script with Cache-Busting v105 -->
-  <script src="app.js?v=105"></script>
+  <script src="app.js?v=106"></script>
 </body>
 </html>

@@ -74,7 +74,7 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.17 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.17' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.18 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.18' in soup.find(id='header-app-version').text)
 run_test("Presence de la barre de recherche de ville (#city-search-container)", lambda: soup.find(id='city-search-container') is not None)
 run_test("Presence du champ input de recherche de ville (#city-search-input)", lambda: soup.find(id='city-search-input') is not None)
 run_test("Presence du bouton d'arret du suivi dans le profil (#btn-stop-tracking-app)", lambda: soup.find(id='btn-stop-tracking-app') is not None)
@@ -113,6 +113,10 @@ run_test("Secours : Onglet Espagne 🇪🇸 present", lambda: bool(soup.find(lam
 run_test("Secours : Onglet Europe 🇪🇺 present", lambda: bool(soup.find(lambda t: t.get('data-country') == 'OTHER')))
 run_test("Secours 50/50 : Moitié haute GPS épinglée (#emergency-gps-top-half)", lambda: soup.find(id='emergency-gps-top-half') is not None)
 run_test("Secours 50/50 : Guide vocal de dictée (#emergency-dictation-preview)", lambda: soup.find(id='emergency-dictation-preview') is not None)
+run_test("Secours : Champ Commune / Ville présent (#emergency-gps-city)", lambda: soup.find(id='emergency-gps-city') is not None)
+run_test("Secours : Guide vocal inclut la commune (#dictate-city)", lambda: soup.find(id='dictate-city') is not None)
+run_test("Repères : Champ Commune / Ville présent (#wpt-coords-city)", lambda: soup.find(id='wpt-coords-city') is not None)
+run_test("Cartographie : France IGN TOP 25 officiel présent", lambda: 'TOP 25' in html_text)
 run_test("Secours 50/50 : Moitié basse actions (#emergency-actions-bottom-half)", lambda: soup.find(id='emergency-actions-bottom-half') is not None)
 run_test("Secours : Liste des services (#emergency-numbers-list)", lambda: soup.find(id='emergency-numbers-list') is not None)
 run_test("Presence de l'interrupteur calque de pentes montagne (#toggle-slopes-layer)", lambda: soup.find(id='toggle-slopes-layer') is not None)
@@ -220,7 +224,7 @@ required_functions = [
     'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName',
     'generateUserPopupHtml', 'refreshActiveUserPopups',
     'initOrdnanceSurveyLayer', 'saveOrdnanceSurveyApiKey', 'updateOsApiKeyUI',
-    'selectEmergencyCountry'
+    'selectEmergencyCountry', 'fetchCityName', 'copyUserCoords'
 ]
 
 for fn in required_functions:
@@ -250,7 +254,8 @@ exports_to_test = [
     'checkAndPromptUserName', 'openNamePromptModal', 'closeNamePromptModal', 'savePromptUserName',
     'generateUserPopupHtml', 'refreshActiveUserPopups',
     'initOrdnanceSurveyLayer', 'saveOrdnanceSurveyApiKey', 'updateOsApiKeyUI',
-    'selectEmergencyCountry', 'updateAllTrackOffsets', 'updatePocketModeButtonVisibility'
+    'selectEmergencyCountry', 'updateAllTrackOffsets', 'updatePocketModeButtonVisibility',
+    'fetchCityName', 'copyUserCoords'
 ]
 
 for fn in exports_to_test:
@@ -366,8 +371,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 56 configuré", lambda: 'versionCode = 56' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.17 configuré", lambda: 'versionName = "1.4.17"' in gradle_content)
+    run_test("Android Gradle : VersionCode 57 configuré", lambda: 'versionCode = 57' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.18 configuré", lambda: 'versionName = "1.4.18"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -855,6 +860,17 @@ try:
         'UTM:' in sim_driver.find_element(By.ID, 'announcement-custom-input').get_attribute('value')
     ))
     sim_driver.execute_script("window.closeAnnouncementModal(); window.closeAnnouncementBanner();")
+
+    test_btn("Fiche Randonneur : Popup Leaflet contient DD, DMS, UTM et Ville", lambda: (
+        sim_driver.execute_script("window.state.myUser.lat = 43.1187; window.state.myUser.lon = 5.8037;"),
+        sim_driver.execute_script("const html = window.generateUserPopupHtml(window.state.myUser.id); const div = document.createElement('div'); div.id = 'test-user-popup-container'; div.innerHTML = html; document.body.appendChild(div);")
+    ), lambda: (
+        '43.11870° N' in sim_driver.find_element(By.ID, 'test-user-popup-container').text and
+        '43° 07\'' in sim_driver.find_element(By.ID, 'test-user-popup-container').text and
+        '31T E' in sim_driver.find_element(By.ID, 'test-user-popup-container').text and
+        'user-popup-city-' in sim_driver.execute_script("return document.getElementById('test-user-popup-container').innerHTML;")
+    ))
+    sim_driver.execute_script("const el = document.getElementById('test-user-popup-container'); if (el) el.remove();")
 
     # 11. Audit Logs DevTools
     sim_logs = sim_driver.get_log('browser')

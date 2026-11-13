@@ -1338,17 +1338,26 @@ function initMap() {
     maxWidth: 140
   }).addTo(state.map);
 
-  // 1. Fond IGN Géoplateforme (Plan IGN V2 France) - Optimisé
+  // 1. Fond IGN Géoplateforme TOP 25 officiel (SCAN 25® & Cartes IGN multi-échelles)
   state.layers.ign = L.tileLayer(
-    'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+    'https://data.geopf.fr/private/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image%2Fjpeg&apikey=ign_scan_ws',
     {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.ign.fr/" target="_blank">IGN France</a>',
+      maxNativeZoom: 18,
+      attribution: '&copy; <a href="https://www.ign.fr/" target="_blank">IGN France</a> - Carte TOPO 25 (SCAN 25®)',
       updateWhenIdle: true,
       updateInterval: 150,
       keepBuffer: 1
     }
   );
+
+  // Repli automatique dalle par dalle vers Plan IGN V2 si une dalle SCAN 25 n'est pas disponible
+  state.layers.ign.on('tileerror', function(error) {
+    if (error && error.tile && error.coords) {
+      const c = error.coords;
+      error.tile.src = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILEMATRIXSET=PM&TILEMATRIX=${c.z}&TILEROW=${c.y}&TILECOL=${c.x}`;
+    }
+  });
 
   // 2. Fond IGN España (MTN Topographique 1:25 000 / CNIG Espagne) - Optimisé
   state.layers.ign_es = L.tileLayer(
@@ -1550,7 +1559,7 @@ function setBaseLayer(layerKey) {
   }
 
   const names = {
-    ign: 'IGN France',
+    ign: 'IGN TOP 25 France',
     ign_es: 'IGN España',
     uk_topo: 'UK Ordnance',
     swisstopo: 'Swisstopo',
@@ -1735,7 +1744,7 @@ function autoSelectMapLayerForCoords(lat, lon, reason = 'gps') {
     if (current === 'ign_es' || current === 'uk_topo' || current === 'swisstopo') {
       setBaseLayer('ign');
       const prefix = reason === 'gpx' ? '🇫🇷 Trace en France' : '🇫🇷 Position en France';
-      showToast(`${prefix} : Fond IGN France activé`, 'info');
+      showToast(`${prefix} : Fond IGN TOP 25 France activé`, 'info');
     }
   } else {
     // Zone internationale (Italie, etc.)
@@ -2942,6 +2951,21 @@ function generateUserPopupHtml(userId) {
     ecartStatusTag = 'Dist. / Vous';
   }
 
+  const userHasPos = (typeof user.lat === 'number' && typeof user.lon === 'number' && !isNaN(user.lat) && !isNaN(user.lon));
+  const userDD = userHasPos ? formatDD(user.lat, user.lon) : 'Position en cours...';
+  const userDMS = userHasPos ? formatDMS(user.lat, user.lon) : '--';
+  const userUTM = userHasPos ? formatUTM(user.lat, user.lon) : '--';
+
+  if (userHasPos && !user.cityName) {
+    fetchCityName(user.lat, user.lon).then(city => {
+      if (city) {
+        user.cityName = city;
+        const cityEl = document.getElementById(`user-popup-city-${user.id}`);
+        if (cityEl) cityEl.textContent = city;
+      }
+    });
+  }
+
   return `
     <div class="p-1.5 space-y-2.5 min-w-[260px] max-w-[320px] overflow-hidden box-border">
       <!-- Barre de déplacement & Zoom de la fenêtre popup -->
@@ -2999,6 +3023,32 @@ function generateUserPopupHtml(userId) {
           <span class="text-sm sm:text-base font-black ${ecartDisplayColor} mt-0.5 font-mono truncate">${ecartDisplayVal}</span>
         </div>
       </div>
+
+      <!-- Coordonnées GPS, DMS, UTM & Ville du Randonneur -->
+      ${userHasPos ? `
+        <div class="p-2.5 rounded-2xl bg-slate-950/95 border border-emerald-500/50 space-y-1 text-xs font-mono shadow-inner">
+          <div class="flex items-center justify-between pb-1 border-b border-slate-800 text-[11px] font-black font-sans uppercase">
+            <span class="text-emerald-400 flex items-center gap-1 font-bold">📍 Position & Coordonnées</span>
+            <button type="button" onclick="copyUserCoords('${user.id}')" class="py-0.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold active:scale-95 transition cursor-pointer" title="Copier les coordonnées du randonneur">📋 Copier</button>
+          </div>
+          <div class="flex items-baseline justify-between gap-2 text-sky-300 font-sans">
+            <span class="text-[10px] font-black uppercase text-slate-400 shrink-0">Ville :</span>
+            <span class="font-bold text-right select-all" id="user-popup-city-${user.id}">${user.cityName || 'Recherche...'}</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-2 text-white">
+            <span class="text-[10px] font-sans font-black uppercase text-slate-400 shrink-0">GPS (DD) :</span>
+            <span class="font-bold text-right select-all">${userDD}</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-2 text-emerald-300">
+            <span class="text-[10px] font-sans font-black uppercase text-slate-400 shrink-0">GPS (DMS) :</span>
+            <span class="font-bold text-right select-all">${userDMS}</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-2 text-amber-300">
+            <span class="text-[10px] font-sans font-black uppercase text-slate-400 shrink-0">UTM :</span>
+            <span class="font-bold text-right select-all">${userUTM}</span>
+          </div>
+        </div>
+      ` : ''}
 
       <!-- Distances directes aux autres marcheurs (à vol d'oiseau) -->
       ${otherGroupMembers.length > 0 ? `
@@ -3082,6 +3132,23 @@ function generateUserPopupHtml(userId) {
     </div>
   `;
 }
+
+function copyUserCoords(userId) {
+  const isMe = (userId === state.myUser.id);
+  const user = isMe ? state.myUser : state.otherUsers.get(userId);
+  if (!user || typeof user.lat !== 'number' || typeof user.lon !== 'number' || isNaN(user.lat) || isNaN(user.lon)) {
+    showToast('❌ Position du randonneur indisponible', 'error');
+    return;
+  }
+  const name = user.name || (isMe ? 'Moi' : 'Randonneur');
+  const dd = formatDD(user.lat, user.lon);
+  const dms = formatDMS(user.lat, user.lon);
+  const utm = formatUTM(user.lat, user.lon);
+  const city = user.cityName ? `📍 Commune : ${user.cityName}\n` : '';
+  const text = `🥾 RANDONNEUR : ${name}\n${city}1. GPS (DD) : ${dd}\n2. GPS (DMS) : ${dms}\n3. UTM (WGS84) : ${utm}`;
+  copyToClipboard(text, `📋 Coordonnées de ${name} copiées !`, 'Coordonnées du randonneur :');
+}
+window.copyUserCoords = copyUserCoords;
 
 function refreshActiveUserPopups() {
   state.userMarkers.forEach((marker, userId) => {
@@ -5624,6 +5691,116 @@ function formatUTM(lat, lon) {
   return res ? res.formatted : '--';
 }
 
+// ============================================================================
+// RÉSOLUTION GÉOGRAPHIQUE COMMUNE / VILLE (API GOUV & PHOTON KOMOOT)
+// ============================================================================
+const cityResolutionCache = new Map();
+
+async function fetchCityName(lat, lon) {
+  if (lat === null || lat === undefined || isNaN(lat) ||
+      lon === null || lon === undefined || isNaN(lon)) {
+    return '';
+  }
+
+  const latNum = Number(lat);
+  const lonNum = Number(lon);
+  const cacheKey = `${latNum.toFixed(3)},${lonNum.toFixed(3)}`;
+  if (cityResolutionCache.has(cacheKey)) {
+    return cityResolutionCache.get(cacheKey);
+  }
+
+  // 1. Priorité France : API officielle Découpage Administratif Gouv.fr (rapide, sans clé, nom officiel + département)
+  const isFrance = (detectCountry(latNum, lonNum) === 'FR');
+  if (isFrance) {
+    try {
+      const gouvController = new AbortController();
+      const gouvTimeout = setTimeout(() => gouvController.abort(), 2500);
+      const res = await fetch(`https://geo.api.gouv.fr/communes?lat=${latNum}&lon=${lonNum}&fields=nom,codeDepartement`, {
+        signal: gouvController.signal
+      });
+      clearTimeout(gouvTimeout);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0 && data[0].nom) {
+          const dept = data[0].codeDepartement ? ` (${data[0].codeDepartement})` : '';
+          const cityName = `${data[0].nom}${dept}`;
+          cityResolutionCache.set(cacheKey, cityName);
+          return cityName;
+        }
+      }
+    } catch (e) {
+      // Poursuivre vers fallback
+    }
+  }
+
+  // 2. Recherche mondiale : Photon Komoot (OpenStreetMap mondial, sentiers, parcs, communes)
+  try {
+    const pController = new AbortController();
+    const pTimeout = setTimeout(() => pController.abort(), 2500);
+    const pRes = await fetch(`https://photon.komoot.io/reverse?lat=${latNum}&lon=${lonNum}`, {
+      signal: pController.signal
+    });
+    clearTimeout(pTimeout);
+    if (pRes.ok) {
+      const pData = await pRes.json();
+      if (pData && pData.features && pData.features.length > 0) {
+        const props = pData.features[0].properties || {};
+        const place = props.city || props.town || props.village || props.municipality || props.locality || props.name || '';
+        const country = props.country || '';
+        if (place) {
+          const isFr = (country.toLowerCase() === 'france');
+          const fullPlace = (!isFr && country) ? `${place} (${country})` : place;
+          cityResolutionCache.set(cacheKey, fullPlace);
+          return fullPlace;
+        }
+      }
+    }
+  } catch (e) {
+    // Poursuivre vers fallback Nominatim
+  }
+
+  // 3. Fallback Nominatim OSM
+  try {
+    const nomController = new AbortController();
+    const nomTimeout = setTimeout(() => nomController.abort(), 2500);
+    const nRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latNum}&lon=${lonNum}&zoom=14&addressdetails=1`, {
+      headers: { 'Accept-Language': 'fr' },
+      signal: nomController.signal
+    });
+    clearTimeout(nomTimeout);
+    if (nRes.ok) {
+      const nData = await nRes.json();
+      if (nData && nData.address) {
+        const addr = nData.address;
+        const place = addr.village || addr.town || addr.city || addr.municipality || addr.hamlet || addr.suburb || '';
+        const country = addr.country || '';
+        if (place) {
+          const isFr = (country.toLowerCase() === 'france');
+          const fullPlace = (!isFr && country) ? `${place} (${country})` : place;
+          cityResolutionCache.set(cacheKey, fullPlace);
+          return fullPlace;
+        }
+      }
+    }
+  } catch (e) {
+    // Poursuivre vers repli pays
+  }
+
+  // 4. Repli pays selon coordonnées
+  const fallbackCountry = detectCountry(latNum, lonNum);
+  const fallbackNames = {
+    FR: 'France',
+    ES: 'Espagne',
+    CH: 'Suisse',
+    UK: 'Royaume-Uni',
+    OTHER: 'Zone internationale'
+  };
+  const fallback = fallbackNames[fallbackCountry] || '';
+  if (fallback) cityResolutionCache.set(cacheKey, fallback);
+  return fallback;
+}
+window.fetchCityName = fetchCityName;
+
 function updateEmergencyModalGpsData() {
   const modal = document.getElementById('emergency-modal');
   if (!modal) return;
@@ -5636,6 +5813,29 @@ function updateEmergencyModalGpsData() {
   const acc = hasGps ? (state.myUser.accuracy || 10) : null;
   const autoCountry = hasGps ? detectCountry(lat, lon) : 'FR';
   const country = state.selectedEmergencyCountry || autoCountry;
+
+  // 0. Commune / Ville actuelle
+  const cityEl = document.getElementById('emergency-gps-city');
+  const dictateCity = document.getElementById('dictate-city');
+  if (hasGps) {
+    if (state.lastResolvedCity) {
+      if (cityEl) cityEl.textContent = state.lastResolvedCity;
+      if (dictateCity) dictateCity.textContent = state.lastResolvedCity;
+    } else {
+      if (cityEl) cityEl.textContent = 'Recherche de la commune...';
+      if (dictateCity) dictateCity.textContent = 'position';
+    }
+    fetchCityName(lat, lon).then(city => {
+      if (city) {
+        state.lastResolvedCity = city;
+        if (cityEl) cityEl.textContent = city;
+        if (dictateCity) dictateCity.textContent = city;
+      }
+    });
+  } else {
+    if (cityEl) cityEl.textContent = 'En attente du GPS...';
+    if (dictateCity) dictateCity.textContent = 'position';
+  }
 
   // 1. Affichage Degrés Décimaux (DD)
   const ddStr = hasGps ? formatDD(lat, lon) : 'Recherche du signal GPS...';
@@ -6119,7 +6319,8 @@ function sendEmergencySms(number) {
     const ddStr = formatDD(lat, lon);
     const dmsStr = formatDMS(lat, lon);
     const utmStr = formatUTM(lat, lon);
-    posInfo = `Position : ${ddStr}\nFormat DMS : ${dmsStr}\nFormat UTM : ${utmStr}\nAlt : ${Math.round(ele)}m (±${Math.round(acc || 10)}m)`;
+    const cityStr = state.lastResolvedCity ? `Commune / Ville : ${state.lastResolvedCity}\n` : '';
+    posInfo = `${cityStr}Position : ${ddStr}\nFormat DMS : ${dmsStr}\nFormat UTM : ${utmStr}\nAlt : ${Math.round(ele)}m (±${Math.round(acc || 10)}m)`;
   }
 
   const smsText = `🚨 URGENCE RANDOTRACKER (${myName})\n${posInfo}\nHeure : ${time}`;
@@ -6365,8 +6566,9 @@ function copyEmergencyGpsCoords() {
   const ele = state.myUser.ele || 0;
   const acc = state.myUser.accuracy || 10;
   const time = new Date().toLocaleTimeString();
+  const cityLine = state.lastResolvedCity ? `Commune / Ville : ${state.lastResolvedCity}\n` : '';
 
-  const textToCopy = `🚨 URGENCE RANDOTRACKER\nCoordonnées GPS (DD) : ${formatDD(lat, lon)}\nFormat DMS : ${formatDMS(lat, lon)}\nFormat UTM : ${formatUTM(lat, lon)}\nAltitude : ${Math.round(ele)} m (Précision : ±${Math.round(acc)} m)\nRelevé à : ${time}`;
+  const textToCopy = `🚨 URGENCE RANDOTRACKER\n${cityLine}Coordonnées GPS (DD) : ${formatDD(lat, lon)}\nFormat DMS : ${formatDMS(lat, lon)}\nFormat UTM : ${formatUTM(lat, lon)}\nAltitude : ${Math.round(ele)} m (Précision : ±${Math.round(acc)} m)\nRelevé à : ${time}`;
 
   copyToClipboard(textToCopy, '📋 Coordonnées GPS & UTM copiées dans le presse-papier !', 'Copiez vos coordonnées GPS :', () => {
     const copyTextEl = document.getElementById('copy-emergency-gps-text');
@@ -7346,6 +7548,7 @@ function updateWaypointModalCoords() {
   const pos = resolvePendingWaypointPosition();
   const srcEl = document.getElementById('wpt-coords-source');
   const altEl = document.getElementById('wpt-coords-alt');
+  const cityEl = document.getElementById('wpt-coords-city');
   const ddEl = document.getElementById('wpt-coords-dd');
   const dmsEl = document.getElementById('wpt-coords-dms');
   const utmEl = document.getElementById('wpt-coords-utm');
@@ -7357,9 +7560,16 @@ function updateWaypointModalCoords() {
     ddEl.textContent = formatDD(pos.lat, pos.lon);
     if (dmsEl) dmsEl.textContent = formatDMS(pos.lat, pos.lon);
     if (utmEl) utmEl.textContent = formatUTM(pos.lat, pos.lon);
+    if (cityEl) {
+      cityEl.textContent = 'Recherche...';
+      fetchCityName(pos.lat, pos.lon).then(city => {
+        if (cityEl) cityEl.textContent = city || 'Inconnue';
+      });
+    }
   } else {
     if (srcEl) srcEl.textContent = '📍 Coordonnées du repère';
     if (altEl) altEl.textContent = '';
+    if (cityEl) cityEl.textContent = '--';
     ddEl.textContent = 'Position non disponible';
     if (dmsEl) dmsEl.textContent = '--';
     if (utmEl) utmEl.textContent = '--';
@@ -7428,6 +7638,9 @@ function saveWaypointFromModal() {
     return;
   }
 
+  const cityEl = document.getElementById('wpt-coords-city');
+  const city = (cityEl && cityEl.textContent && !cityEl.textContent.includes('...')) ? cityEl.textContent.trim() : '';
+
   const wpt = {
     id: 'wpt_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
     name: name,
@@ -7435,6 +7648,7 @@ function saveWaypointFromModal() {
     lat: Number(pos.lat.toFixed(6)),
     lon: Number(pos.lon.toFixed(6)),
     ele: Math.round(pos.ele || 0),
+    cityName: city,
     author: state.myUser.name || 'Randonneur',
     authorId: state.myUser.id,
     time: Date.now()
@@ -7459,8 +7673,9 @@ window.saveWaypointFromModal = saveWaypointFromModal;
 function copyWaypointCoords(wptId) {
   const wpt = (state.waypoints || []).find(w => w.id === wptId);
   if (!wpt) return;
+  const cityLine = wpt.cityName ? `\nCommune : ${wpt.cityName}` : '';
   const altLine = (typeof wpt.ele === 'number' && wpt.ele > 0) ? `\nAltitude : ${Math.round(wpt.ele)} m` : '';
-  const textToCopy = `${wpt.icon || '📍'} ${wpt.name}\nGPS (DD) : ${formatDD(wpt.lat, wpt.lon)}\nGPS (DMS) : ${formatDMS(wpt.lat, wpt.lon)}\nUTM : ${formatUTM(wpt.lat, wpt.lon)}${altLine}`;
+  const textToCopy = `${wpt.icon || '📍'} ${wpt.name}${cityLine}\nGPS (DD) : ${formatDD(wpt.lat, wpt.lon)}\nGPS (DMS) : ${formatDMS(wpt.lat, wpt.lon)}\nUTM : ${formatUTM(wpt.lat, wpt.lon)}${altLine}`;
   copyToClipboard(textToCopy, '📋 Coordonnées GPS & UTM du repère copiées !', 'Coordonnées du repère :');
 }
 window.copyWaypointCoords = copyWaypointCoords;
@@ -7512,6 +7727,10 @@ function renderWaypointMarker(wpt) {
         </div>
         ${(distStr || altBadge) ? `<div class="flex flex-wrap items-center gap-1.5">${distStr}${altBadge}</div>` : ''}
         <div class="rounded-2xl bg-slate-950/90 border border-emerald-500/40 p-2.5 space-y-1 text-xs font-mono">
+          <div class="flex items-baseline justify-between gap-2 text-sky-300 font-sans">
+            <span class="text-[10px] font-black uppercase text-slate-400 shrink-0">Ville :</span>
+            <span class="font-bold text-right select-all" id="wpt-popup-city-${wpt.id}">${wpt.cityName || 'Chargement...'}</span>
+          </div>
           <div class="flex items-baseline justify-between gap-2">
             <span class="text-[10px] font-sans font-black uppercase text-slate-400 shrink-0">GPS (DD) :</span>
             <span class="font-bold text-white text-right select-all">${ddStr}</span>
@@ -7536,6 +7755,16 @@ function renderWaypointMarker(wpt) {
       </div>
     `;
     marker.bindPopup(popupContent).openPopup();
+
+    if (!wpt.cityName) {
+      fetchCityName(wpt.lat, wpt.lon).then(city => {
+        if (city) {
+          wpt.cityName = city;
+          const el = document.getElementById('wpt-popup-city-' + wpt.id);
+          if (el) el.textContent = city;
+        }
+      });
+    }
   });
 
   marker.addTo(state.map);
@@ -8643,6 +8872,8 @@ window.formatUTM = formatUTM;
 window.updateAnnouncementModalGpsHeader = updateAnnouncementModalGpsHeader;
 window.updateWaypointModalCoords = updateWaypointModalCoords;
 window.copyWaypointCoords = copyWaypointCoords;
+window.copyUserCoords = copyUserCoords;
+window.fetchCityName = fetchCityName;
 window.resolvePendingWaypointPosition = resolvePendingWaypointPosition;
 
 window.state = state;
