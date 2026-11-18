@@ -74,15 +74,17 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.20 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.20' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.21 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.21' in soup.find(id='header-app-version').text)
 run_test("Presence de la barre de recherche de ville (#city-search-container)", lambda: soup.find(id='city-search-container') is not None)
 run_test("Presence du champ input de recherche de ville (#city-search-input)", lambda: soup.find(id='city-search-input') is not None)
 run_test("Presence de la barre de filtres rapides POI (#poi-quick-bar)", lambda: soup.find(id='poi-quick-bar') is not None)
 run_test("Presence du bouton POI Eau potable (#btn-poi-water)", lambda: soup.find(id='btn-poi-water') is not None)
 run_test("Presence du bouton POI Toilettes (#btn-poi-toilets)", lambda: soup.find(id='btn-poi-toilets') is not None)
+run_test("Presence du bouton POI DAE Defibrillateur (#btn-poi-dae)", lambda: soup.find(id='btn-poi-dae') is not None)
 run_test("Presence du bouton fermer POI (#btn-poi-clear-all)", lambda: soup.find(id='btn-poi-clear-all') is not None)
 run_test("Presence du badge compteur Eau (#badge-poi-water)", lambda: soup.find(id='badge-poi-water') is not None)
 run_test("Presence du badge compteur Toilettes (#badge-poi-toilets)", lambda: soup.find(id='badge-poi-toilets') is not None)
+run_test("Presence du badge compteur DAE (#badge-poi-dae)", lambda: soup.find(id='badge-poi-dae') is not None)
 run_test("Presence du bouton d'arret du suivi dans le profil (#btn-stop-tracking-app)", lambda: soup.find(id='btn-stop-tracking-app') is not None)
 
 run_test("Presence de la barre inferieure .app-bottom-nav", lambda: soup.find('nav', class_='app-bottom-nav') is not None)
@@ -379,8 +381,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 59 configuré", lambda: 'versionCode = 59' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.20 configuré", lambda: 'versionName = "1.4.20"' in gradle_content)
+    run_test("Android Gradle : VersionCode 60 configuré", lambda: 'versionCode = 60' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.21 configuré", lambda: 'versionName = "1.4.21"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -392,7 +394,7 @@ if os.path.exists(main_activity_path):
     run_test("MainActivity : WebChromeClient avec auto-grant Geolocation et Caméra QR", lambda: 'onGeolocationPermissionsShowPrompt' in main_act_content and 'onPermissionRequest' in main_act_content)
     run_test("MainActivity : WebViewClient isolant l'app et déléguant tel/sms/mailto aux Intents", lambda: 'handleUrlNavigation' in main_act_content and 'tel:' in main_act_content)
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.20 (59) dans le bridge natif", lambda: '1.4.20 (59)' in main_act_content)
+    run_test("MainActivity : Version 1.4.21 (60) dans le bridge natif", lambda: '1.4.21 (60)' in main_act_content)
     run_test("Sécurité Play Store : WebView SSL Error Handler sécurisé (handler.cancel)", lambda: 'handler.cancel()' in main_act_content and 'handler.proceed()' not in main_act_content)
     run_test("MainActivity : Support natif onShowFileChooser (sélection fichier GPX)", lambda: 'onShowFileChooser' in main_act_content)
     run_test("MainActivity : Support natif onActivityResult (réception URI GPX)", lambda: 'onActivityResult' in main_act_content and 'FILE_CHOOSER_REQ_CODE' in main_act_content)
@@ -449,6 +451,7 @@ run_test("CSS : Styles POI rapide (.poi-marker-pin)", lambda: '.poi-marker-pin' 
 run_test("IHM POI : Fonction toggleNearbyPoi définie", lambda: 'function toggleNearbyPoi' in js_text)
 run_test("IHM POI : Fonction clearAllNearbyPoi définie", lambda: 'function clearAllNearbyPoi' in js_text)
 run_test("IHM POI : Fonction formatPoiDistance définie", lambda: 'function formatPoiDistance' in js_text)
+run_test("CSS : Styles DAE actif (.poi-quick-btn-active-dae)", lambda: '.poi-quick-btn-active-dae' in css_text)
 
 
 # ----------------------------------------------------------------------

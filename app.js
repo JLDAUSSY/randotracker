@@ -388,10 +388,13 @@ const state = {
   nearbyPoi: {
     waterActive: false,
     toiletsActive: false,
+    daeActive: false,
     waterLayer: null,
     toiletsLayer: null,
+    daeLayer: null,
     waterData: [],
-    toiletsData: []
+    toiletsData: [],
+    daeData: []
   }
 };
 
@@ -3748,7 +3751,7 @@ function startGpsWatch(useHighAccuracy = true) {
       localStorage.setItem('rando_last_lon', String(lon));
     } catch (e) {}
 
-    if (state.nearbyPoi && (state.nearbyPoi.waterActive || state.nearbyPoi.toiletsActive)) {
+    if (state.nearbyPoi && (state.nearbyPoi.waterActive || state.nearbyPoi.toiletsActive || state.nearbyPoi.daeActive)) {
       updateNearbyPoiDistances();
     }
 
@@ -8563,6 +8566,8 @@ async function fetchNearbyPoi(type) {
     query = `[out:json][timeout:10];(node["amenity"="drinking_water"](${s},${w},${n},${e});node["drinking_water"="yes"](${s},${w},${n},${e}););out body 40;`;
   } else if (type === 'toilets') {
     query = `[out:json][timeout:10];(node["amenity"="toilets"](${s},${w},${n},${e}););out body 40;`;
+  } else if (type === 'dae') {
+    query = `[out:json][timeout:10];(node["emergency"="defibrillator"](${s},${w},${n},${e}););out body 40;`;
   } else {
     return [];
   }
@@ -8602,13 +8607,31 @@ window.fetchNearbyPoi = fetchNearbyPoi;
 
 function createPoiMarker(item, type, hasMePos) {
   const isWater = (type === 'water');
-  const iconEmoji = isWater ? '🚰' : '🚻';
-  const bgGradient = isWater ? 'from-sky-400 to-blue-600' : 'from-amber-400 to-amber-600';
-  const borderColor = isWater ? 'border-sky-400/80 text-sky-200' : 'border-amber-400/80 text-amber-200';
+  const isToilets = (type === 'toilets');
+  const isDae = (type === 'dae');
+
+  let iconEmoji = '📍';
+  let bgGradient = 'from-emerald-500 to-teal-700';
+  let borderColor = 'border-emerald-400/80 text-emerald-200';
+  if (isWater) {
+    iconEmoji = '🚰';
+    bgGradient = 'from-sky-400 to-blue-600';
+    borderColor = 'border-sky-400/80 text-sky-200';
+  } else if (isToilets) {
+    iconEmoji = '🚻';
+    bgGradient = 'from-amber-400 to-amber-600';
+    borderColor = 'border-amber-400/80 text-amber-200';
+  } else if (isDae) {
+    iconEmoji = '⚡';
+    bgGradient = 'from-rose-500 via-red-600 to-rose-700';
+    borderColor = 'border-rose-400/80 text-rose-200';
+  }
   const distStr = formatPoiDistance(item.distKm);
 
+  const tags = item.tags || {};
+  let defaultTitle = isWater ? "Point d'eau potable" : (isToilets ? "Toilettes" : "Défibrillateur (DAE)");
   const iconHtml = `
-    <div class="poi-marker-pin" title="${escapeHtml(item.tags?.name || (isWater ? "Point d'eau potable" : "Toilettes"))}">
+    <div class="poi-marker-pin" title="${escapeHtml(tags.name || defaultTitle)}">
       <div class="w-9 h-9 rounded-2xl bg-gradient-to-br ${bgGradient} border-2 border-white shadow-2xl flex items-center justify-center text-lg text-white transition-transform hover:scale-110 active:scale-95">
         ${iconEmoji}
       </div>
@@ -8628,16 +8651,46 @@ function createPoiMarker(item, type, hasMePos) {
 
   const marker = L.marker([item.lat, item.lon], { icon: customIcon });
 
-  const tags = item.tags || {};
-  const mainTitle = tags.name ? escapeHtml(tags.name) : (isWater ? "Point d'Eau Potable" : "Toilettes Publiques");
-  const subTitle = isWater ? (tags.fountain ? 'Fontaine publique' : (tags.man_made === 'water_tap' ? "Robinet d'eau" : "Source / Point d'eau")) : (tags.toilets ? 'Sanitaires / WC' : 'Toilettes');
+  let mainTitle = '';
+  let subTitle = '';
+  if (isWater) {
+    mainTitle = tags.name ? escapeHtml(tags.name) : "Point d'Eau Potable";
+    subTitle = tags.fountain ? 'Fontaine publique' : (tags.man_made === 'water_tap' ? "Robinet d'eau" : "Source / Point d'eau");
+  } else if (isToilets) {
+    mainTitle = tags.name ? escapeHtml(tags.name) : "Toilettes Publiques";
+    subTitle = tags.toilets ? 'Sanitaires / WC' : 'Toilettes';
+  } else if (isDae) {
+    mainTitle = tags.name ? escapeHtml(tags.name) : "Défibrillateur Automatisé (DAE)";
+    subTitle = tags['defibrillator:location'] ? escapeHtml(tags['defibrillator:location']) : (tags.operator ? 'Opérateur : ' + escapeHtml(tags.operator) : 'Dispositif d\'urgence cardiaque');
+  }
+
   const feeTag = (tags.fee === 'no') ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 text-[10px]">Gratuit</span>' : ((tags.fee && tags.fee !== 'no') ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 text-[10px]">Payant (${escapeHtml(tags.fee)})</span>` : '');
   const pmrTag = (tags.wheelchair === 'yes') ? '<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40 text-[10px]">♿ Accès PMR</span>' : '';
   const distDesc = hasMePos ? "à vol d'oiseau de votre position" : "du centre de recherche";
 
+  // Badges spéciaux DAE
+  let daeExtras = '';
+  if (isDae) {
+    const is24_7 = (tags.opening_hours === '24/7');
+    const openTag = is24_7
+      ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/40 text-[10px]">🟢 Accès 24h/24 7j/7</span>'
+      : (tags.opening_hours ? `<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold border border-slate-700 text-[10px]">🕒 ${escapeHtml(tags.opening_hours)}</span>` : '');
+    const indoorTag = (tags.indoor === 'no')
+      ? '<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40 text-[10px]">Extérieur</span>'
+      : ((tags.indoor === 'yes') ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 text-[10px]">Intérieur</span>' : '');
+    const locNote = tags['defibrillator:location'] ? `<div class="text-[11px] font-bold text-rose-200 bg-rose-950/70 p-2 rounded-xl border border-rose-500/40 leading-snug">📍 Emplacement : ${escapeHtml(tags['defibrillator:location'])}</div>` : '';
+    daeExtras = `
+      ${(openTag || indoorTag) ? `<div class="flex flex-wrap items-center gap-1.5">${openTag}${indoorTag}</div>` : ''}
+      ${locNote}
+    `;
+  }
+
   const ddStr = formatDD(item.lat, item.lon);
   const dmsStr = formatDMS(item.lat, item.lon);
   const utmStr = formatUTM(item.lat, item.lon);
+
+  const cardBgBorder = isWater ? 'bg-sky-950/60 border-sky-500/40' : (isToilets ? 'bg-amber-950/60 border-amber-500/40' : 'bg-rose-950/60 border-rose-500/40');
+  const cardText = isWater ? 'text-sky-300' : (isToilets ? 'text-amber-300' : 'text-rose-300');
 
   const popupHtml = `
     <div class="space-y-2.5 text-slate-100 select-text" style="min-width: 250px;">
@@ -8650,17 +8703,18 @@ function createPoiMarker(item, type, hasMePos) {
       </div>
 
       <!-- Distance en évidence demandée par l'utilisateur -->
-      <div class="p-2.5 rounded-2xl ${isWater ? 'bg-sky-950/60 border-sky-500/40' : 'bg-amber-950/60 border-amber-500/40'} border flex items-center justify-between shadow-inner">
+      <div class="p-2.5 rounded-2xl ${cardBgBorder} border flex items-center justify-between shadow-inner">
         <div>
           <div class="text-[10px] font-black uppercase text-slate-400 tracking-wider">Distance actuelle</div>
           <div class="text-[9.5px] text-slate-400 italic">${distDesc}</div>
         </div>
-        <div class="font-mono font-black text-base ${isWater ? 'text-sky-300' : 'text-amber-300'}" id="poi-popup-dist-${item.id}">
+        <div class="font-mono font-black text-base ${cardText}" id="poi-popup-dist-${item.id}">
           📏 ${distStr}
         </div>
       </div>
 
       ${(feeTag || pmrTag) ? `<div class="flex flex-wrap items-center gap-1.5">${feeTag}${pmrTag}</div>` : ''}
+      ${daeExtras}
 
       <!-- Coordonnées GPS précises -->
       <div class="rounded-2xl bg-slate-950/90 border border-slate-700/70 p-2.5 space-y-1 text-xs font-mono">
@@ -8698,11 +8752,15 @@ window.createPoiMarker = createPoiMarker;
 async function toggleNearbyPoi(type) {
   if (!state.map) return;
   const isWater = (type === 'water');
-  const activeKey = isWater ? 'waterActive' : 'toiletsActive';
-  const layerKey = isWater ? 'waterLayer' : 'toiletsLayer';
-  const dataKey = isWater ? 'waterData' : 'toiletsData';
-  const btn = document.getElementById(isWater ? 'btn-poi-water' : 'btn-poi-toilets');
-  const badge = document.getElementById(isWater ? 'badge-poi-water' : 'badge-poi-toilets');
+  const isToilets = (type === 'toilets');
+  const isDae = (type === 'dae');
+  const activeKey = isWater ? 'waterActive' : (isToilets ? 'toiletsActive' : 'daeActive');
+  const layerKey = isWater ? 'waterLayer' : (isToilets ? 'toiletsLayer' : 'daeLayer');
+  const dataKey = isWater ? 'waterData' : (isToilets ? 'toiletsData' : 'daeData');
+  const btn = document.getElementById(isWater ? 'btn-poi-water' : (isToilets ? 'btn-poi-toilets' : 'btn-poi-dae'));
+  const badge = document.getElementById(isWater ? 'badge-poi-water' : (isToilets ? 'badge-poi-toilets' : 'badge-poi-dae'));
+  const activeClass = isWater ? 'poi-quick-btn-active-water' : (isToilets ? 'poi-quick-btn-active-toilets' : 'poi-quick-btn-active-dae');
+  const label = isWater ? "point d'eau potable" : (isToilets ? "toilette publique" : "défibrillateur (DAE)");
 
   // Si déjà actif, désactiver et retirer les marqueurs
   if (state.nearbyPoi[activeKey]) {
@@ -8713,27 +8771,27 @@ async function toggleNearbyPoi(type) {
     }
     state.nearbyPoi[dataKey] = [];
     if (btn) {
-      btn.classList.remove(isWater ? 'poi-quick-btn-active-water' : 'poi-quick-btn-active-toilets');
+      btn.classList.remove(activeClass);
     }
     if (badge) {
       badge.classList.add('hidden');
       badge.textContent = '';
     }
     updatePoiClearButtonVisibility();
-    showToast(isWater ? "Points d'eau potable masqués" : "Toilettes masquées", "info");
+    showToast(isWater ? "Points d'eau potable masqués" : (isToilets ? "Toilettes masquées" : "Défibrillateurs (DAE) masqués"), "info");
     return;
   }
 
   // Activer et charger
   state.nearbyPoi[activeKey] = true;
   if (btn) {
-    btn.classList.add(isWater ? 'poi-quick-btn-active-water' : 'poi-quick-btn-active-toilets');
+    btn.classList.add(activeClass);
   }
   if (badge) {
     badge.classList.remove('hidden');
     badge.textContent = '...';
   }
-  showToast(isWater ? "Recherche de l'eau potable à proximité..." : "Recherche des toilettes à proximité...", "info");
+  showToast(isWater ? "Recherche de l'eau potable à proximité..." : (isToilets ? "Recherche des toilettes à proximité..." : "Recherche des défibrillateurs (DAE) à proximité..."), "info");
 
   try {
     const elements = await fetchNearbyPoi(type);
@@ -8755,7 +8813,7 @@ async function toggleNearbyPoi(type) {
     }
 
     if (processed.length === 0) {
-      showToast(isWater ? "Aucun point d'eau répertorié à proximité (< 4 km)" : "Aucune toilette répertoriée à proximité (< 4 km)", "info");
+      showToast(isWater ? "Aucun point d'eau répertorié à proximité (< 4 km)" : (isToilets ? "Aucune toilette répertoriée à proximité (< 4 km)" : "Aucun défibrillateur (DAE) répertorié à proximité (< 4 km)"), "info");
       updatePoiClearButtonVisibility();
       return;
     }
@@ -8771,14 +8829,13 @@ async function toggleNearbyPoi(type) {
 
     const closest = processed[0];
     const closestDistStr = formatPoiDistance(closest.distKm);
-    const label = isWater ? "point d'eau potable" : "toilette publique";
     showToast(`${processed.length} ${label}${processed.length > 1 ? 's' : ''} trouvé${processed.length > 1 ? 's' : ''}. Plus proche : ${closestDistStr}`, "success");
 
     updatePoiClearButtonVisibility();
   } catch (err) {
     console.error(`[POI] Erreur chargement ${type}:`, err);
     state.nearbyPoi[activeKey] = false;
-    if (btn) btn.classList.remove(isWater ? 'poi-quick-btn-active-water' : 'poi-quick-btn-active-toilets');
+    if (btn) btn.classList.remove(activeClass);
     if (badge) badge.classList.add('hidden');
     updatePoiClearButtonVisibility();
     showToast("Erreur de connexion cartographique (vérifiez votre réseau)", "warning");
@@ -8796,30 +8853,39 @@ function clearAllNearbyPoi() {
     state.map.removeLayer(state.nearbyPoi.toiletsLayer);
     state.nearbyPoi.toiletsLayer = null;
   }
+  if (state.nearbyPoi.daeLayer) {
+    state.map.removeLayer(state.nearbyPoi.daeLayer);
+    state.nearbyPoi.daeLayer = null;
+  }
   state.nearbyPoi.waterActive = false;
   state.nearbyPoi.toiletsActive = false;
+  state.nearbyPoi.daeActive = false;
   state.nearbyPoi.waterData = [];
   state.nearbyPoi.toiletsData = [];
+  state.nearbyPoi.daeData = [];
 
-  const btnW = document.getElementById('btn-poi-water');
-  if (btnW) btnW.classList.remove('poi-quick-btn-active-water');
-  const badgeW = document.getElementById('badge-poi-water');
-  if (badgeW) { badgeW.classList.add('hidden'); badgeW.textContent = ''; }
+  const types = [
+    { key: 'water', btn: 'btn-poi-water', badge: 'badge-poi-water', cls: 'poi-quick-btn-active-water' },
+    { key: 'toilets', btn: 'btn-poi-toilets', badge: 'badge-poi-toilets', cls: 'poi-quick-btn-active-toilets' },
+    { key: 'dae', btn: 'btn-poi-dae', badge: 'badge-poi-dae', cls: 'poi-quick-btn-active-dae' }
+  ];
 
-  const btnT = document.getElementById('btn-poi-toilets');
-  if (btnT) btnT.classList.remove('poi-quick-btn-active-toilets');
-  const badgeT = document.getElementById('badge-poi-toilets');
-  if (badgeT) { badgeT.classList.add('hidden'); badgeT.textContent = ''; }
+  types.forEach(t => {
+    const btn = document.getElementById(t.btn);
+    if (btn) btn.classList.remove(t.cls);
+    const badge = document.getElementById(t.badge);
+    if (badge) { badge.classList.add('hidden'); badge.textContent = ''; }
+  });
 
   updatePoiClearButtonVisibility();
-  showToast("Points d'eau et toilettes masqués", "info");
+  showToast("Points d'eau, toilettes et DAE masqués", "info");
 }
 window.clearAllNearbyPoi = clearAllNearbyPoi;
 
 function updatePoiClearButtonVisibility() {
   const clearBtn = document.getElementById('btn-poi-clear-all');
   if (!clearBtn) return;
-  if (state.nearbyPoi.waterActive || state.nearbyPoi.toiletsActive) {
+  if (state.nearbyPoi.waterActive || state.nearbyPoi.toiletsActive || state.nearbyPoi.daeActive) {
     clearBtn.classList.remove('hidden');
     clearBtn.classList.add('flex');
   } else {
@@ -8858,6 +8924,17 @@ function updateNearbyPoiDistances() {
       if (popupDist) popupDist.textContent = `📏 ${formatPoiDistance(d)}`;
     });
   }
+
+  if (state.nearbyPoi.daeActive && Array.isArray(state.nearbyPoi.daeData)) {
+    state.nearbyPoi.daeData.forEach(poi => {
+      const d = calculateDistance(userLat, userLon, poi.lat, poi.lon);
+      poi.distKm = d;
+      const badge = document.getElementById(`poi-badge-${poi.id}`);
+      if (badge) badge.textContent = formatPoiDistance(d);
+      const popupDist = document.getElementById(`poi-popup-dist-${poi.id}`);
+      if (popupDist) popupDist.textContent = `📏 ${formatPoiDistance(d)}`;
+    });
+  }
 }
 window.updateNearbyPoiDistances = updateNearbyPoiDistances;
 
@@ -8874,13 +8951,15 @@ window.copyCoordinatesGeneric = copyCoordinatesGeneric;
 
 function savePoiAsWaypoint(poiId, type) {
   const isWater = (type === 'water');
-  const list = isWater ? state.nearbyPoi.waterData : state.nearbyPoi.toiletsData;
+  const isToilets = (type === 'toilets');
+  const isDae = (type === 'dae');
+  const list = isWater ? state.nearbyPoi.waterData : (isToilets ? state.nearbyPoi.toiletsData : state.nearbyPoi.daeData);
   const poi = (list || []).find(p => String(p.id) === String(poiId));
   if (!poi) return;
 
-  const defaultName = isWater ? "Point d'eau potable" : "Toilettes publiques";
+  const defaultName = isWater ? "Point d'eau potable" : (isToilets ? "Toilettes publiques" : "Défibrillateur (DAE)");
   const name = (poi.tags && poi.tags.name) ? poi.tags.name : defaultName;
-  const icon = isWater ? '🚰' : '🚻';
+  const icon = isWater ? '🚰' : (isToilets ? '🚻' : '⚡');
 
   const wpt = {
     id: 'wpt_poi_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
