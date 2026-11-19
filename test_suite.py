@@ -74,8 +74,9 @@ run_test("Bouton layer header avec handler onclick=openLayerModal()", lambda: so
 run_test("Header epure sans bouton inviter redondant pour visibilite max du titre", lambda: soup.find(id='header-invite-btn') is None)
 run_test("Presence du bouton profil dans le header", lambda: soup.find(id='open-profile-btn') is not None)
 run_test("Bouton profil header avec handler onclick=openProfileModal()", lambda: soup.find(id='open-profile-btn') and 'openProfileModal()' in str(soup.find(id='open-profile-btn')))
-run_test("Version v1.4.21 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.21' in soup.find(id='header-app-version').text)
+run_test("Version v1.4.22 affichee dans le header (#header-app-version)", lambda: soup.find(id='header-app-version') and 'v1.4.22' in soup.find(id='header-app-version').text)
 run_test("Presence de la barre de recherche de ville (#city-search-container)", lambda: soup.find(id='city-search-container') is not None)
+run_test("Presence du bouton de geolocalisation 🛰️ dans la recherche (#btn-city-geoloc)", lambda: soup.find(id='btn-city-geoloc') is not None)
 run_test("Presence du champ input de recherche de ville (#city-search-input)", lambda: soup.find(id='city-search-input') is not None)
 run_test("Presence de la barre de filtres rapides POI (#poi-quick-bar)", lambda: soup.find(id='poi-quick-bar') is not None)
 run_test("Presence du bouton POI Eau potable (#btn-poi-water)", lambda: soup.find(id='btn-poi-water') is not None)
@@ -318,6 +319,8 @@ run_test("Recherche Ville : Auto-commutation cartographique (autoSelectMapLayerF
 run_test("Recherche Ville : Support mondial Photon Komoot & API Adresse France", lambda: 'photon.komoot.io' in js_text and 'api-adresse.data.gouv.fr' in js_text)
 run_test("Recherche Ville : Drapeaux de pays intégrés (getCountryFlag)", lambda: 'function getCountryFlag' in js_text)
 run_test("Recherche Ville : Style .city-search-pin défini dans CSS", lambda: '.city-search-pin' in css_text)
+run_test("Recherche Ville : Fonction geolocateCurrentLocation définie (procédure RandoFinder)", lambda: 'function geolocateCurrentLocation' in js_text)
+run_test("Recherche Ville : Export global window.geolocateCurrentLocation", lambda: 'window.geolocateCurrentLocation = geolocateCurrentLocation' in js_text)
 run_test("Arrêt Suivi : Fonction stopTrackingAndExitApp définie", lambda: 'function stopTrackingAndExitApp' in js_text)
 run_test("Visibilité Groupe : Absence de filtre bloquant genericNames dans broadcastMyPosition", lambda: 'genericNames.includes(myName)' not in js_text)
 
@@ -381,8 +384,8 @@ if os.path.exists(manifest_path):
 if os.path.exists(gradle_path):
     with open(gradle_path, 'r', encoding='utf-8') as f:
         gradle_content = f.read()
-    run_test("Android Gradle : VersionCode 60 configuré", lambda: 'versionCode = 60' in gradle_content)
-    run_test("Android Gradle : VersionName 1.4.21 configuré", lambda: 'versionName = "1.4.21"' in gradle_content)
+    run_test("Android Gradle : VersionCode 61 configuré", lambda: 'versionCode = 61' in gradle_content)
+    run_test("Android Gradle : VersionName 1.4.22 configuré", lambda: 'versionName = "1.4.22"' in gradle_content)
     run_test("Android Gradle : TargetSdk 36 (Android 16 Play Store)", lambda: 'targetSdk = 36' in gradle_content)
     run_test("Android Gradle : CompileSdk 36", lambda: 'compileSdk = 36' in gradle_content)
 
@@ -394,7 +397,7 @@ if os.path.exists(main_activity_path):
     run_test("MainActivity : WebChromeClient avec auto-grant Geolocation et Caméra QR", lambda: 'onGeolocationPermissionsShowPrompt' in main_act_content and 'onPermissionRequest' in main_act_content)
     run_test("MainActivity : WebViewClient isolant l'app et déléguant tel/sms/mailto aux Intents", lambda: 'handleUrlNavigation' in main_act_content and 'tel:' in main_act_content)
     run_test("MainActivity : Demande de permission CAMERA", lambda: 'Manifest.permission.CAMERA' in main_act_content)
-    run_test("MainActivity : Version 1.4.21 (60) dans le bridge natif", lambda: '1.4.21 (60)' in main_act_content)
+    run_test("MainActivity : Version 1.4.22 (61) dans le bridge natif", lambda: '1.4.22 (61)' in main_act_content)
     run_test("Sécurité Play Store : WebView SSL Error Handler sécurisé (handler.cancel)", lambda: 'handler.cancel()' in main_act_content and 'handler.proceed()' not in main_act_content)
     run_test("MainActivity : Support natif onShowFileChooser (sélection fichier GPX)", lambda: 'onShowFileChooser' in main_act_content)
     run_test("MainActivity : Support natif onActivityResult (réception URI GPX)", lambda: 'onActivityResult' in main_act_content and 'FILE_CHOOSER_REQ_CODE' in main_act_content)
@@ -612,13 +615,13 @@ run_test("Icone Maskable 192x192 presente et Full-Bleed", lambda: os.path.exists
 urls_to_test = [
     'http://127.0.0.1:8000/',
     'http://127.0.0.1:8000/index.html',
-    'http://127.0.0.1:8000/styles.css?v=105',
-    'http://127.0.0.1:8000/app.js?v=105',
+    'http://127.0.0.1:8000/styles.css?v=110',
+    'http://127.0.0.1:8000/app.js?v=110',
     'http://127.0.0.1:8000/cat_icon.png',
     'http://127.0.0.1:8000/cat_pink_icon.png',
     'http://127.0.0.1:8000/ads.txt',
     'http://127.0.0.1:8000/sw.js',
-    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=105',
+    'http://127.0.0.1:8000/leaflet.polylineoffset.js?v=110',
     'http://127.0.0.1:8000/RandoTracker.apk',
     'http://127.0.0.1:8000/RandoTracker.aab',
     'http://127.0.0.1:8000/RandoTracker_Mode_d_emploi.pdf',

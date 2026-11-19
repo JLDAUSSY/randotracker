@@ -1301,11 +1301,22 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=105')
+    navigator.serviceWorker.register('./sw.js?v=110')
       .then((reg) => {
-        console.log('[PWA] Service Worker v105 actif:', reg.scope);
+        console.log('[PWA] Service Worker v110 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[PWA] Nouvelle version installée, rechargement automatique...');
+                window.location.reload();
+              }
+            });
+          }
+        });
       })
       .catch((err) => console.log('[PWA] Erreur Service Worker:', err));
   }
@@ -2976,8 +2987,13 @@ function generateUserPopupHtml(userId) {
     fetchCityName(user.lat, user.lon).then(city => {
       if (city) {
         user.cityName = city;
-        const cityEl = document.getElementById(`user-popup-city-${user.id}`);
-        if (cityEl) cityEl.textContent = city;
+        const updateCityInDom = () => {
+          const cityEl = document.getElementById(`user-popup-city-${user.id}`);
+          if (cityEl) cityEl.textContent = city;
+        };
+        updateCityInDom();
+        setTimeout(updateCityInDom, 150);
+        setTimeout(updateCityInDom, 500);
       }
     });
   }
@@ -3553,13 +3569,12 @@ function toggleUsersDrawer() {
 function onNavGpsClick() {
   closeAllDrawers();
   closeEmergencyModal();
-  if (state.isTrackingGps) {
-    if (state.myUser.lat && state.myUser.lon) {
-      state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
-    }
+  if (state.isTrackingGps && state.myUser.lat && state.myUser.lon) {
+    state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
+    showToast(`Position actuelle : ${state.myUser.cityName || 'Ma position'} (±${Math.round(state.myUser.accuracy || 10)}m)`, 'info');
   } else {
     state.gpsStartTime = Date.now();
-    startGpsWatch(true);
+    geolocateCurrentLocation();
   }
 }
 
@@ -3812,10 +3827,43 @@ function startGpsWatch(useHighAccuracy = true) {
       updateAnnouncementModalGpsHeader();
     }
 
+    // Résolution automatique de la commune si non encore résolue ou déplacement significatif (> 400m)
+    if (lat && lon) {
+      const lastCityLat = state.lastCityResolvedLat;
+      const lastCityLon = state.lastCityResolvedLon;
+      const needCityFetch = !state.myUser.cityName ||
+        state.myUser.cityName === 'France' || state.myUser.cityName === 'Espagne' || state.myUser.cityName === 'Suisse' || state.myUser.cityName === 'Royaume-Uni' || state.myUser.cityName === 'Zone internationale' ||
+        (lastCityLat && lastCityLon && calculateDistance(lastCityLat, lastCityLon, lat, lon) > 0.4);
+
+      if (needCityFetch) {
+        state.lastCityResolvedLat = lat;
+        state.lastCityResolvedLon = lon;
+        fetchCityName(lat, lon).then(city => {
+          if (city) {
+            state.myUser.cityName = city;
+            state.lastResolvedCity = city;
+            const input = document.getElementById('city-search-input');
+            if (input && (!input.value || input.value === 'Ma position' || input.value === 'Recherche...')) {
+              input.value = city;
+              const clearBtn = document.getElementById('city-search-clear-btn');
+              if (clearBtn) clearBtn.classList.remove('hidden');
+            }
+            const myCityEl = document.getElementById(`user-popup-city-${state.myUser.id}`);
+            if (myCityEl) myCityEl.textContent = city;
+            const emCityEl = document.getElementById('emergency-gps-city');
+            if (emCityEl) emCityEl.textContent = city;
+            const dictCity = document.getElementById('dictate-city');
+            if (dictCity) dictCity.textContent = city;
+          }
+        });
+      }
+    }
+
     if (!state.hasAutoCenteredGps) {
       state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
       state.hasAutoCenteredGps = true;
-      showToast(`Position GPS trouvée (${accStr}) - Partage actif (${state.shareDurationHours}h max)`, 'success');
+      const cityTag = state.myUser.cityName ? ` - ${state.myUser.cityName}` : '';
+      showToast(`Position GPS trouvée (${accStr})${cityTag}`, 'success');
     }
 
     if (!state.hasAutoDetectedGpsCountry) {
@@ -3826,6 +3874,14 @@ function startGpsWatch(useHighAccuracy = true) {
 
   const onPositionError = (err) => {
     console.warn(`[GPS] Erreur (highAcc=${useHighAccuracy}):`, err.code, err.message);
+
+    // Ne pas tuer le suivi en cas de simple dépassement de délai (code 3) : laisser watchPosition actif
+    if (err.code === 3) {
+      if (useHighAccuracy) {
+        startGpsWatch(false);
+      }
+      return;
+    }
 
     if (useHighAccuracy) {
       startGpsWatch(false);
@@ -3842,13 +3898,13 @@ function startGpsWatch(useHighAccuracy = true) {
       explication = "Délai de réponse GPS dépassé.";
     }
 
-    showToast(explication, 'error');
+    showToast(explication, 'warning');
   };
 
   navigator.geolocation.getCurrentPosition(onPositionSuccess, onPositionError, {
     enableHighAccuracy: useHighAccuracy,
     timeout: 10000,
-    maximumAge: 0
+    maximumAge: 60000 // Retour immédiat du cache réseau/cellulaire comme dans RandoFinder
   });
 
   if (state.gpsWatchId !== null) {
@@ -3857,7 +3913,7 @@ function startGpsWatch(useHighAccuracy = true) {
   state.gpsWatchId = navigator.geolocation.watchPosition(onPositionSuccess, onPositionError, {
     enableHighAccuracy: useHighAccuracy,
     timeout: 12000,
-    maximumAge: 0
+    maximumAge: 5000
   });
 
   // 1. Activer le battement de cœur d'arrière-plan Web Worker & Forçage matériel 3.5s
@@ -8229,6 +8285,111 @@ window.updatePocketModeTelemetry = updatePocketModeTelemetry;
 // ============================================================================
 let citySearchDebounceTimer = null;
 
+/**
+ * Géolocalisation directe et centrage sur la position actuelle (procédure conforme à RandoFinder)
+ */
+async function geolocateCurrentLocation() {
+  if (!navigator.geolocation) {
+    showToast("La géolocalisation n'est pas supportée par votre navigateur", 'error');
+    return;
+  }
+
+  showToast("Recherche de votre position GPS...", 'info');
+
+  const navBubble = document.getElementById('nav-gps-bubble');
+  const navIcon = document.getElementById('nav-gps-icon');
+  const navLabel = document.getElementById('nav-gps-label');
+  if (navLabel) navLabel.textContent = 'Recherche...';
+  if (navBubble) navBubble.className = 'rounded-full bg-amber-500/30 border-3 sm:border-4 border-amber-400 flex items-center justify-center shadow-2xl transition animate-pulse';
+  if (navIcon) navIcon.className = 'text-amber-300 stroke-[2.8] animate-spin';
+
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      const accuracy = pos.coords.accuracy || 10;
+
+      state.isTrackingGps = true;
+      state.myUser.lat = lat;
+      state.myUser.lon = lon;
+      if (typeof pos.coords.altitude === 'number' && !isNaN(pos.coords.altitude)) {
+        state.myUser.ele = Math.round(pos.coords.altitude);
+      }
+      state.myUser.accuracy = accuracy;
+      state.lastGpsPos = { lat, lon };
+      state.lastGpsTimestamp = Date.now();
+
+      // Cadrer immédiatement la carte sur la position
+      if (state.map) {
+        state.map.setView([lat, lon], 16, { animate: true });
+      }
+
+      // Résoudre le nom de la commune / ville (BAN / geo / OSM)
+      const city = await fetchCityName(lat, lon);
+      if (city) {
+        state.myUser.cityName = city;
+        state.lastResolvedCity = city;
+        const input = document.getElementById('city-search-input');
+        if (input) input.value = city;
+        const clearBtn = document.getElementById('city-search-clear-btn');
+        if (clearBtn) clearBtn.classList.remove('hidden');
+        const cityEl = document.getElementById(`user-popup-city-${state.myUser.id}`);
+        if (cityEl) cityEl.textContent = city;
+        const emCityEl = document.getElementById('emergency-gps-city');
+        if (emCityEl) emCityEl.textContent = city;
+        const dictCity = document.getElementById('dictate-city');
+        if (dictCity) dictCity.textContent = city;
+      }
+
+      // Mettre à jour le cercle de précision
+      if (state.map) {
+        if (state.accuracyCircle) {
+          state.accuracyCircle.setLatLng([lat, lon]);
+          state.accuracyCircle.setRadius(accuracy);
+        } else {
+          state.accuracyCircle = L.circle([lat, lon], {
+            radius: accuracy,
+            color: '#10b981',
+            fillColor: '#10b981',
+            fillOpacity: 0.16,
+            weight: 2
+          }).addTo(state.map);
+        }
+      }
+
+      if (navLabel) navLabel.textContent = `GPS (±${Math.round(accuracy)}m)`;
+      if (navBubble) navBubble.className = 'rounded-full bg-emerald-600 border-3 sm:border-4 border-white flex items-center justify-center shadow-2xl transition animate-pulse';
+      if (navIcon) navIcon.className = 'text-white stroke-[2.8]';
+
+      // Actualiser POI de proximité et diffusion groupe
+      if (state.nearbyPoi && (state.nearbyPoi.waterActive || state.nearbyPoi.toiletsActive || state.nearbyPoi.daeActive)) {
+        updateNearbyPoiDistances();
+      }
+      broadcastMyPosition(false);
+
+      showToast(`Position trouvée : ${city || 'Ma position'} (±${Math.round(accuracy)}m)`, 'success');
+
+      // Assurer le suivi continu
+      if (state.gpsWatchId === null) {
+        startGpsWatch(true);
+      }
+    },
+    (err) => {
+      console.warn('Erreur géolocalisation GPS :', err);
+      let msg = "Impossible d'accéder à votre position GPS.";
+      if (err.code === 1) msg = "Autorisation GPS refusée. Veuillez autoriser l'accès dans les réglages.";
+      else if (err.code === 2) msg = "Signal GPS indisponible. Activez la localisation de votre appareil.";
+      else if (err.code === 3) msg = "Délai de réponse GPS dépassé. Veuillez réessayer.";
+      showToast(msg, 'warning');
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 60000 // Retour immédiat du cache réseau/cellulaire comme dans RandoFinder
+    }
+  );
+}
+
 function handleCitySearchInput(event) {
   const input = document.getElementById('city-search-input');
   const clearBtn = document.getElementById('city-search-clear-btn');
@@ -9250,6 +9411,7 @@ window.selectEmergencyCountry = selectEmergencyCountry;
 window.handleCitySearchInput = handleCitySearchInput;
 window.clearCitySearch = clearCitySearch;
 window.triggerCitySearch = triggerCitySearch;
+window.geolocateCurrentLocation = geolocateCurrentLocation;
 window.fetchCitySuggestions = fetchCitySuggestions;
 window.selectSearchedCity = selectSearchedCity;
 window.stopTrackingAndExitApp = stopTrackingAndExitApp;

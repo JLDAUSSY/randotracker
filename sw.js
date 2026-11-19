@@ -1,13 +1,13 @@
-// Service Worker pour RandoTracker PWA - Version 105
-const CACHE_NAME = 'rando-tracker-v105';
+// Service Worker pour RandoTracker PWA - Version 110
+const CACHE_NAME = 'rando-tracker-v110';
 const TILES_CACHE_NAME = 'rando-tiles-v1';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=105',
-  './app.js?v=105',
-  './leaflet.polylineoffset.js?v=105',
+  './styles.css?v=110',
+  './app.js?v=110',
+  './leaflet.polylineoffset.js?v=110',
   './manifest.json',
   './logo.png',
   './cat_icon.png',
@@ -37,7 +37,7 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installation v105...');
+  console.log('[SW] Installation v110...');
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -49,7 +49,7 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation v105...');
+  console.log('[SW] Activation v110...');
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
