@@ -63,7 +63,7 @@ public class RandoMainActivity extends AppCompatActivity {
         // Si nouvelle version installée, vider le cache WebView pour forcer le chargement immédiat des nouveaux scripts
         android.content.SharedPreferences prefs = getSharedPreferences("rando_app_prefs", MODE_PRIVATE);
         int lastVersionCode = prefs.getInt("last_version_code", -1);
-        int currentVersionCode = 61;
+        int currentVersionCode = 62;
         if (lastVersionCode != currentVersionCode) {
             webView.clearCache(true);
             prefs.edit().putInt("last_version_code", currentVersionCode).apply();
@@ -469,7 +469,7 @@ public class RandoMainActivity extends AppCompatActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.22 (61)";
+            return "1.4.23 (62)";
         }
 
         @JavascriptInterface

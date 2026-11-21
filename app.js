@@ -380,6 +380,7 @@ const state = {
   hoverMarker: null,
   activeDrawer: null,
   hasAutoCenteredGps: false,
+  isMapFollowingUser: true,
   hasAutoDetectedGpsCountry: false,
   waypoints: [],
   waypointLayers: new Map(),
@@ -1301,9 +1302,9 @@ function saveUserProfile() {
 // ============================================================================
 function initPWA() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js?v=110')
+    navigator.serviceWorker.register('./sw.js?v=111')
       .then((reg) => {
-        console.log('[PWA] Service Worker v110 actif:', reg.scope);
+        console.log('[PWA] Service Worker v111 actif:', reg.scope);
         // Forcer la vérification immédiate des mises à jour
         if (reg.update) reg.update();
         reg.addEventListener('updatefound', () => {
@@ -1502,6 +1503,14 @@ function initMap() {
   state.map.on('contextmenu', (e) => {
     if (e && e.latlng) {
       openWaypointModal({ lat: e.latlng.lat, lon: e.latlng.lng });
+    }
+  });
+
+  // Débrayage naturel du suivi automatique lors d'un déplacement manuel de la carte (glisser tactile / souris)
+  state.map.on('dragstart', () => {
+    if (state.isMapFollowingUser) {
+      state.isMapFollowingUser = false;
+      updateRecenterButtonUi();
     }
   });
 
@@ -2442,6 +2451,8 @@ function zoomToTrack(trackId) {
 
   const latlngs = track.points.map(p => [p.lat, p.lon]);
   const bounds = L.latLngBounds(latlngs);
+  state.isMapFollowingUser = false;
+  updateRecenterButtonUi();
   state.map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
 }
 
@@ -2452,6 +2463,9 @@ function fitAllTracks() {
       t.points.forEach(p => allPoints.push([p.lat, p.lon]));
     }
   });
+
+  state.isMapFollowingUser = false;
+  updateRecenterButtonUi();
 
   if (allPoints.length > 0 && state.map) {
     const bounds = L.latLngBounds(allPoints);
@@ -3535,6 +3549,9 @@ function centerOnUser(userId) {
     return;
   }
 
+  state.isMapFollowingUser = (userId === state.myUser.id);
+  updateRecenterButtonUi();
+
   if (state.map) {
     state.map.setView([user.lat, user.lon], 16, { animate: true });
   }
@@ -3569,9 +3586,13 @@ function toggleUsersDrawer() {
 function onNavGpsClick() {
   closeAllDrawers();
   closeEmergencyModal();
+  state.isMapFollowingUser = true;
+  updateRecenterButtonUi();
   if (state.isTrackingGps && state.myUser.lat && state.myUser.lon) {
-    state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
-    showToast(`Position actuelle : ${state.myUser.cityName || 'Ma position'} (±${Math.round(state.myUser.accuracy || 10)}m)`, 'info');
+    if (state.map) {
+      state.map.setView([state.myUser.lat, state.myUser.lon], Math.max(state.map.getZoom(), 16), { animate: true });
+    }
+    showToast(`🎯 Suivi automatique activé (${state.myUser.cityName || 'Ma position'})`, 'info');
   } else {
     state.gpsStartTime = Date.now();
     geolocateCurrentLocation();
@@ -3862,8 +3883,18 @@ function startGpsWatch(useHighAccuracy = true) {
     if (!state.hasAutoCenteredGps) {
       state.map.setView([state.myUser.lat, state.myUser.lon], 16, { animate: true });
       state.hasAutoCenteredGps = true;
+      state.isMapFollowingUser = true;
+      updateRecenterButtonUi();
       const cityTag = state.myUser.cityName ? ` - ${state.myUser.cityName}` : '';
       showToast(`Position GPS trouvée (${accStr})${cityTag}`, 'success');
+    } else if (state.isMapFollowingUser && state.map) {
+      // Option 1 : Suivi automatique intelligent et fluide pendant la marche
+      state.map.panTo([state.myUser.lat, state.myUser.lon], {
+        animate: true,
+        duration: 0.6,
+        easeLinearity: 0.25
+      });
+      updateRecenterButtonUi();
     }
 
     if (!state.hasAutoDetectedGpsCountry) {
@@ -7497,16 +7528,39 @@ function initAllDraggableModals() {
 }
 
 // ============================================================================
-// RECENTRER SUR LA POSITION DU MARCHEUR
+// SUIVI AUTOMATIQUE & RECENTRAGE SUR LA POSITION DU MARCHEUR (OPTION 1)
 // ============================================================================
+function updateRecenterButtonUi() {
+  const btn = document.getElementById('btn-recenter-map');
+  if (btn) {
+    if (state.isMapFollowingUser) {
+      btn.classList.add('is-following');
+      btn.setAttribute('title', 'Suivi automatique actif (Carte centrée sur vous)');
+    } else {
+      btn.classList.remove('is-following');
+      btn.setAttribute('title', 'Recentrer la carte sur ma position GPS (Activer le suivi)');
+    }
+  }
+
+  const navLabel = document.getElementById('nav-gps-label');
+  if (navLabel && state.isTrackingGps) {
+    const acc = state.myUser.accuracy ? `±${Math.round(state.myUser.accuracy)}m` : '±10m';
+    const pauseTag = state.myUser.isAutoPaused ? ' ⏸️' : '';
+    const followTag = state.isMapFollowingUser ? ' • Suivi' : ' • Libre';
+    navLabel.textContent = `GPS (${acc})${followTag}${pauseTag}`;
+  }
+}
+window.updateRecenterButtonUi = updateRecenterButtonUi;
+
 function recenterMapOnUser() {
   if (!state.map) return;
+  state.isMapFollowingUser = true;
+  updateRecenterButtonUi();
   if (typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat)) {
-    state.map.flyTo([state.myUser.lat, state.myUser.lon], Math.max(state.map.getZoom(), 16), {
-      animate: true,
-      duration: 0.8
+    state.map.setView([state.myUser.lat, state.myUser.lon], Math.max(state.map.getZoom(), 16), {
+      animate: true
     });
-    showToast('🎯 Carte recentrée sur votre position', 'info');
+    showToast('🎯 Suivi automatique activé', 'info');
   } else {
     if (!state.isTrackingGps) {
       startGpsWatch();
@@ -8310,6 +8364,7 @@ async function geolocateCurrentLocation() {
       const accuracy = pos.coords.accuracy || 10;
 
       state.isTrackingGps = true;
+      state.isMapFollowingUser = true;
       state.myUser.lat = lat;
       state.myUser.lon = lon;
       if (typeof pos.coords.altitude === 'number' && !isNaN(pos.coords.altitude)) {
@@ -8318,6 +8373,7 @@ async function geolocateCurrentLocation() {
       state.myUser.accuracy = accuracy;
       state.lastGpsPos = { lat, lon };
       state.lastGpsTimestamp = Date.now();
+      updateRecenterButtonUi();
 
       // Cadrer immédiatement la carte sur la position
       if (state.map) {
@@ -8639,6 +8695,10 @@ function selectSearchedCity(lat, lon, name, context) {
   }
 
   if (!state.map) return;
+
+  // Débrayer le suivi pour observer la localité recherchée
+  state.isMapFollowingUser = false;
+  updateRecenterButtonUi();
 
   // Cadrage fluide vers la localité trouvée (zoom 13 adapté randonnée & topographie)
   state.map.flyTo([lat, lon], 13, {
@@ -9557,6 +9617,7 @@ window.updatePoiClearButtonVisibility = updatePoiClearButtonVisibility;
 window.updateNearbyPoiDistances = updateNearbyPoiDistances;
 window.copyCoordinatesGeneric = copyCoordinatesGeneric;
 window.savePoiAsWaypoint = savePoiAsWaypoint;
+window.updateRecenterButtonUi = updateRecenterButtonUi;
 
 window.state = state;
 
