@@ -674,6 +674,7 @@ try:
         print(f"  [WARN] Erreur démarrage serveur simulation: {e}")
 
     chrome_opts = Options()
+    chrome_opts.binary_location = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
     chrome_opts.add_argument('--headless=new')
     chrome_opts.add_argument('--no-sandbox')
     chrome_opts.add_argument('--disable-gpu')

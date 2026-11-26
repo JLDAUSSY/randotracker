@@ -3,7 +3,9 @@ package fr.jldaussy.randotracker;
 import android.Manifest;
 import android.annotation.TargetApi;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.app.AlertDialog;
 import android.os.Message;
 import android.webkit.DownloadListener;
 import android.content.pm.PackageManager;
@@ -18,6 +20,7 @@ import android.view.WindowManager;
 import android.webkit.ConsoleMessage;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
+import android.webkit.JsResult;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -146,6 +149,43 @@ public class RandoMainActivity extends AppCompatActivity {
             @Override
             public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
                 Log.d("RandoTrackerJS", consoleMessage.message() + " [" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber() + "]");
+                return true;
+            }
+
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, final JsResult result) {
+                new AlertDialog.Builder(RandoMainActivity.this)
+                    .setTitle("RandoTracker")
+                    .setMessage(message)
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            result.confirm();
+                        }
+                    })
+                    .setNegativeButton("Annuler", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            result.cancel();
+                        }
+                    })
+                    .setCancelable(false)
+                    .create()
+                    .show();
+                return true;
+            }
+
+            @Override
+            public boolean onJsAlert(WebView view, String url, String message, final JsResult result) {
+                new AlertDialog.Builder(RandoMainActivity.this)
+                    .setTitle("RandoTracker")
+                    .setMessage(message)
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            result.confirm();
+                        }
+                    })
+                    .setCancelable(false)
+                    .create()
+                    .show();
                 return true;
             }
 
@@ -538,10 +578,24 @@ public class RandoMainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     try {
-                        finishAffinity();
-                        System.exit(0);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            finishAndRemoveTask();
+                        } else {
+                            finishAffinity();
+                        }
+                        new android.os.Handler().postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    android.os.Process.killProcess(android.os.Process.myPid());
+                                } catch (Exception e) {}
+                                System.exit(0);
+                            }
+                        }, 250);
                     } catch (Exception e) {
                         e.printStackTrace();
+                        finishAffinity();
+                        System.exit(0);
                     }
                 }
             });

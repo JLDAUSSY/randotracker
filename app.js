@@ -1260,6 +1260,8 @@ function openProfileModal() {
   profileModal.style.display = 'flex';
   bringWindowToFront(profileModal);
   pushModalState('profile-modal');
+  const bodyEl = document.getElementById('profile-modal-body');
+  if (bodyEl) bodyEl.scrollTop = 0;
 }
 
 function saveUserProfile() {
@@ -3868,7 +3870,10 @@ function playOffTrackAlertSound() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (AudioCtx) {
-      const ctx = new AudioCtx();
+      const ctx = (typeof audioContextKeeper !== 'undefined' && audioContextKeeper && audioContextKeeper.state !== 'closed') ? audioContextKeeper : new AudioCtx();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
       const now = ctx.currentTime;
       // 3 Bips distinctifs d'alerte sécurité (440Hz -> 660Hz -> 440Hz)
       const tones = [440, 660, 440];
@@ -7733,7 +7738,8 @@ function makePopupDraggable(popupEl) {
 function makeModalDraggable(modalId) {
   const modal = typeof modalId === 'string' ? document.getElementById(modalId) : modalId;
   if (!modal) return;
-  makeElementInteractive(modal);
+  const handleSelector = modal.querySelector('.modal-drag-header') ? '.modal-drag-header' : null;
+  makeElementInteractive(modal, null, handleSelector);
 }
 
 function makeElementPinchZoomable(containerEl) {
@@ -7750,7 +7756,8 @@ function initAllDraggableModals() {
   modalIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
-      makeElementInteractive(el);
+      const handleSelector = el.querySelector('.modal-drag-header') ? '.modal-drag-header' : null;
+      makeElementInteractive(el, null, handleSelector);
     }
   });
 }

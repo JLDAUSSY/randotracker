@@ -37,9 +37,9 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PolylineOffset pour affichage parallèle des tronçons communs de traces GPX -->
-  <script src="leaflet.polylineoffset.js?v=112"></script>
+  <script src="leaflet.polylineoffset.js?v=113"></script>
   <!-- Leaflet Rotate pour réorientation de la carte aux 2 doigts -->
-  <script src="leaflet-rotate.js?v=112"></script>
+  <script src="leaflet-rotate.js?v=113"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -58,7 +58,7 @@
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
   <!-- Custom Styles with Cache-Busting v111 -->
-  <link rel="stylesheet" href="styles.css?v=112" />
+  <link rel="stylesheet" href="styles.css?v=113" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -1067,17 +1067,18 @@
   <!-- ================================================================= -->
   <!-- MODAL : USER PROFILE EDIT -->
   <!-- ================================================================= -->
-  <div id="profile-modal" class="hidden fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4 pointer-events-none" style="display: none;">
-    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4 max-h-[90vh] overflow-y-auto pointer-events-auto cursor-grab select-none">
-      <div class="flex items-center justify-between border-b-2 border-slate-800 pb-3">
+  <div id="profile-modal" class="hidden fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 pointer-events-none" style="display: none;">
+    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[88vh] pointer-events-auto overflow-hidden">
+      <!-- EN-TÊTE FIXE & POIGNÉE DE DÉPLACEMENT -->
+      <div class="modal-drag-header p-4 sm:p-5 border-b-2 border-slate-800 flex items-center justify-between bg-slate-900 shrink-0 cursor-grab active:cursor-grabbing select-none">
         <div>
-          <h3 class="font-black text-xl text-white flex items-center gap-3">
-            <i data-lucide="user-cog" class="w-7 h-7 text-emerald-400"></i>
+          <h3 class="font-black text-lg sm:text-xl text-white flex items-center gap-2.5 sm:gap-3">
+            <i data-lucide="user-cog" class="w-6 h-6 sm:w-7 sm:h-7 text-emerald-400"></i>
             Mon Profil de Randonneur
           </h3>
           <div class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5 mt-1">
             <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
-            <span>Glissez pour déplacer cette fenêtre</span>
+            <span>Glissez l'en-tête pour déplacer • Défilez ↓ pour voir la suite</span>
           </div>
         </div>
         <button id="close-profile-modal-btn" class="modal-close-btn" title="Fermer">
@@ -1085,7 +1086,8 @@
         </button>
       </div>
 
-      <div class="space-y-4">
+      <!-- CORPS DU PROFIL AVEC DÉFILEMENT VERTICAL FLUIDE -->
+      <div id="profile-modal-body" class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 custom-scroll" style="overscroll-behavior: contain; -webkit-overflow-scrolling: touch;">
         <!-- Prénom / Nom -->
         <div>
           <label class="block text-xs font-black text-slate-400 uppercase mb-2">Votre Prénom & Nom</label>
@@ -1219,7 +1221,7 @@
               </div>
             </div>
             <label class="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" id="toggle-offtrack-sound" class="sr-only peer" checked />
+              <input type="checkbox" id="toggle-offtrack-sound" onchange="setOffTrackSoundEnabled(this.checked); if(window.showToast) showToast(this.checked ? '🔔 Alerte sonore sortie de trace activée' : '🔕 Alerte sonore sortie de trace coupée', 'info');" class="sr-only peer" checked />
               <div class="w-12 h-7 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600 border border-slate-700"></div>
             </label>
           </div>
@@ -1315,13 +1317,18 @@
         <div id="profile-modal-ad-banner" class="rando-ad-banner"></div>
       </div>
 
-      <div class="pt-4 border-t-2 border-slate-800 flex justify-end gap-3">
-        <button id="cancel-profile-btn" class="px-5 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold">
-          Annuler
-        </button>
-        <button id="save-profile-btn" class="px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black shadow-xl shadow-emerald-600/30">
-          Enregistrer
-        </button>
+      <!-- PIED DE FENÊTRE FIXE (ENREGISTRER TOUJOURS VISIBLE) -->
+      <div class="p-4 border-t-2 border-slate-800 bg-slate-900/98 shrink-0 flex items-center justify-between gap-3 select-none">
+        <span class="text-[11px] text-slate-400 font-semibold hidden sm:inline">Modifications sauvegardées</span>
+        <div class="flex items-center gap-2.5 ml-auto">
+          <button id="cancel-profile-btn" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs sm:text-sm font-bold transition active:scale-95">
+            Annuler
+          </button>
+          <button id="save-profile-btn" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-black shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 transition active:scale-95">
+            <span>✓</span>
+            <span>Enregistrer</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -2163,6 +2170,6 @@
   </div>
 
   <!-- Main Application Script with Cache-Busting v111 -->
-  <script src="app.js?v=112"></script>
+  <script src="app.js?v=113"></script>
 </body>
 </html>

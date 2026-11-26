@@ -1994,6 +1994,44 @@ body.has-active-popup #city-search-container {
   transform: scale(0.96);
 }
 
+/* BARRE DE DÉFILEMENT ÉLÉGANTE ET DÉFILEMENT TACTILE FLUIDE */
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #10b981 #1e293b;
+  -webkit-overflow-scrolling: touch;
+}
+
+.custom-scroll::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: #0f172a;
+  border-radius: 9999px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: #10b981;
+  border-radius: 9999px;
+  border: 1.5px solid #0f172a;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #059669;
+}
+
+/* POIGNÉE DE DÉPLACEMENT D'EN-TÊTE */
+.modal-drag-header {
+  cursor: grab;
+  touch-action: none;
+}
+
+.modal-drag-header:active {
+  cursor: grabbing;
+}
+
+
 
 
 
