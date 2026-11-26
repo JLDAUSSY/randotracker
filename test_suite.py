@@ -174,6 +174,7 @@ run_test("Z-Index Sous-Modales (Dialogs) fixe a 3000 (Premier Plan Absolu)", lam
 run_test("Protection Anti-Swipe & Anti-Disparition : overscroll-behavior none", lambda: 'overscroll-behavior: none !important' in css_text)
 run_test("Sanctuarisation visuelle Header : visibility visible & opacity 1", lambda: bool(re.search(r'\.app-header\s*\{[^}]*visibility:\s*visible', css_text)))
 run_test("Sanctuarisation visuelle Bottom Nav : visibility visible & opacity 1", lambda: bool(re.search(r'\.app-bottom-nav\s*\{[^}]*visibility:\s*visible', css_text)))
+run_test("Confinement boutons du bas : Padding-bottom safe-area et non-débordement", lambda: 'padding-bottom: max(8px' in css_text and 'max-width: calc(100% - 6px)' in css_text and 'white-space: nowrap' in css_text)
 run_test("Header avec safe-area-inset-top supporte les encoches d'ecrans", lambda: 'env(safe-area-inset-top' in css_text and '.app-header' in css_text)
 run_test("Boutons header proteges contre l'ecrasement avec flex-shrink 0", lambda: 'flex-shrink: 0 !important' in css_text)
 
