@@ -386,6 +386,8 @@ const state = {
   waypointLayers: new Map(),
   compassHeading: null,
   compassActive: false,
+  mapBearing: 0,
+  hasSentArrivalAnnouncement: false,
   nearbyPoi: {
     waterActive: false,
     toiletsActive: false,
@@ -1250,6 +1252,7 @@ function closeAppOpenAd() {
 function openProfileModal() {
   const profileModal = document.getElementById('profile-modal');
   if (!profileModal) return;
+  makeModalDraggable(profileModal);
   updateProfileUI();
   updatePocketModeButtonVisibility();
   renderProfileAdBanner();
@@ -1348,8 +1351,20 @@ function initMap() {
     zoom: initialZoom,
     zoomControl: false,
     preferCanvas: true,
-    fadeAnimation: true
+    fadeAnimation: true,
+    rotate: true,
+    touchRotate: true,
+    rotateControl: false
   });
+
+  state.mapBearing = 0;
+  if (state.map && typeof state.map.on === 'function') {
+    state.map.on('rotate', function() {
+      const bearing = (typeof state.map.getBearing === 'function') ? state.map.getBearing() : 0;
+      state.mapBearing = bearing;
+      updateCompassRotation(bearing);
+    });
+  }
 
   L.control.zoom({ position: 'bottomright' }).addTo(state.map);
 
@@ -2442,10 +2457,42 @@ function removeTrack(trackId) {
   renderQuickTracksBar();
 }
 
+function renderMultiTracksBar() {
+  const bar = document.getElementById('multi-tracks-bar');
+  if (!bar) return;
+  if (!state.tracks || state.tracks.length <= 1) {
+    bar.classList.add('hidden');
+    bar.style.display = 'none';
+    return;
+  }
+  bar.classList.remove('hidden');
+  bar.style.display = 'flex';
+  bar.innerHTML = `
+    <div class="flex items-center gap-1.5 p-1 bg-slate-900/95 backdrop-blur-md border-2 border-slate-700/90 rounded-2xl shadow-2xl overflow-x-auto max-w-full">
+      <span class="text-[10px] font-black uppercase text-slate-400 px-2 shrink-0">Traces :</span>
+      ${state.tracks.map((t, idx) => `
+        <button type="button" onclick="zoomToTrack('${t.id}')" class="px-2.5 py-1 rounded-xl text-xs font-black flex items-center gap-1.5 transition active:scale-95 shrink-0 ${state.activeFocusedTrackId === t.id ? 'bg-emerald-500 text-slate-950 shadow-md ring-2 ring-white' : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700'}" title="Centrer sur la trace : ${t.name}">
+          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${t.color ? t.color.hex : '#10b981'};"></span>
+          <span class="truncate max-w-[110px]">${t.name}</span>
+          <span class="text-[10px] font-mono opacity-80">${t.totalDistance.toFixed(1)}km</span>
+        </button>
+      `).join('')}
+      <button type="button" onclick="fitAllTracks()" class="px-2 py-1 rounded-xl text-xs font-black bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 shrink-0" title="Voir toutes les traces ensemble">
+        Toutes
+      </button>
+      <button type="button" onclick="recenterMapOnUser()" class="px-2 py-1 rounded-xl text-xs font-black bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/50 shrink-0 flex items-center gap-1" title="Sortir et revenir au suivi de ma position GPS">
+        <span>🎯 Sortir</span>
+      </button>
+    </div>
+  `;
+}
+window.renderMultiTracksBar = renderMultiTracksBar;
+
 function zoomToTrack(trackId) {
   const track = state.tracks.find(t => t.id === trackId);
   if (!track || track.points.length === 0) return;
 
+  state.activeFocusedTrackId = trackId;
   if (track._borderPolyline) track._borderPolyline.bringToFront();
   if (track._mainPolyline) track._mainPolyline.bringToFront();
 
@@ -2454,22 +2501,27 @@ function zoomToTrack(trackId) {
   state.isMapFollowingUser = false;
   updateRecenterButtonUi();
   state.map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16 });
+  renderMultiTracksBar();
+  showToast(`🗺️ Centré sur la trace : ${track.name} (Sortir par le bouton GPS)`, 'info');
 }
 
 function fitAllTracks() {
+  state.activeFocusedTrackId = null;
   const allPoints = [];
   state.tracks.forEach(t => {
-    if (t.visible) {
+    if (t.visible && t.points) {
       t.points.forEach(p => allPoints.push([p.lat, p.lon]));
     }
   });
 
   state.isMapFollowingUser = false;
   updateRecenterButtonUi();
+  renderMultiTracksBar();
 
   if (allPoints.length > 0 && state.map) {
     const bounds = L.latLngBounds(allPoints);
     state.map.fitBounds(bounds, { padding: [50, 50] });
+    showToast(`🗺️ Vue d'ensemble des parcours (Sortir par le bouton GPS)`, 'info');
   } else if (state.isTrackingGps && state.map && state.myUser.lat !== null && state.myUser.lon !== null && !isNaN(state.myUser.lat) && !isNaN(state.myUser.lon)) {
     state.map.setView([state.myUser.lat, state.myUser.lon], 15, { animate: true });
   }
@@ -3013,12 +3065,12 @@ function generateUserPopupHtml(userId) {
   }
 
   return `
-    <div class="p-1.5 space-y-2.5 min-w-[260px] max-w-[320px] overflow-hidden box-border">
+    <div id="user-popup-content-${user.id}" class="p-1.5 space-y-2.5 min-w-[260px] max-w-[320px] overflow-hidden box-border cursor-grab select-none">
       <!-- Barre de déplacement & Zoom de la fenêtre popup -->
       <div class="popup-drag-bar flex items-center justify-between text-[11px] font-bold text-slate-300">
         <span class="flex items-center gap-1.5 cursor-grab shrink-0">
           <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
-          <span class="font-black text-slate-100">Déplacer</span>
+          <span class="font-black text-slate-100">Glissez pour déplacer</span>
         </span>
         <div class="flex items-center gap-1 shrink-0">
           <button type="button" onclick="adjustPopupZoom(this, -0.15)" class="popup-zoom-btn" title="Réduire la taille">A-</button>
@@ -3040,8 +3092,8 @@ function generateUserPopupHtml(userId) {
           <div class="font-black text-base sm:text-lg text-white truncate leading-tight">${displayName} ${isMe ? '<span class="text-xs text-emerald-400 font-bold ml-1">(Moi)</span>' : ''}</div>
           <div class="flex items-center gap-1.5 mt-1 flex-wrap text-xs">
             <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold border border-slate-700 text-[11px] truncate">${user.role || 'Randonneur'}</span>
-            ${!isMe ? `<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40 text-[11px] truncate">📍 ${distFromMeStr}</span>` : ''}
-            ${progress ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 text-[11px] shrink-0">ETA ${progress.etaShort}</span>` : ''}
+            ${!isMe ? `<span id="user-popup-dist-me-${user.id}" class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40 text-[11px] truncate">📍 ${distFromMeStr}</span>` : ''}
+            ${progress ? `<span id="user-popup-eta-short-${user.id}" class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 text-[11px] shrink-0">ETA ${progress.etaShort}</span>` : ''}
             ${isZoneBlanche ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-black border border-amber-500/40 text-[11px] truncate">🌲 ${minSinceSeen}m</span>` : ''}
           </div>
         </div>
@@ -3051,22 +3103,22 @@ function generateUserPopupHtml(userId) {
       <div class="grid grid-cols-2 gap-2 text-xs">
         <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
           <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Vitesse Moy.</span>
-          <span class="text-sm sm:text-base font-black text-white mt-0.5 font-mono truncate">${(user.movingAvgSpeed && user.movingAvgSpeed > 0 ? user.movingAvgSpeed : (user.speed || 0)).toFixed(1)} <span class="text-[10px] font-bold text-slate-400">km/h</span></span>
+          <span id="user-popup-speed-${user.id}" class="text-sm sm:text-base font-black text-white mt-0.5 font-mono truncate">${(user.movingAvgSpeed && user.movingAvgSpeed > 0 ? user.movingAvgSpeed : (user.speed || 0)).toFixed(1)} <span class="text-[10px] font-bold text-slate-400">km/h</span></span>
         </div>
         <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
           <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Altitude</span>
-          <span class="text-sm sm:text-base font-black text-white mt-0.5 font-mono truncate">${Math.round(user.ele || 0)} <span class="text-[10px] font-bold text-slate-400">m</span></span>
+          <span id="user-popup-ele-${user.id}" class="text-sm sm:text-base font-black text-white mt-0.5 font-mono truncate">${Math.round(user.ele || 0)} <span class="text-[10px] font-bold text-slate-400">m</span></span>
         </div>
         <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
           <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Batterie</span>
-          <span class="text-sm sm:text-base font-black mt-0.5 font-mono truncate ${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</span>
+          <span id="user-popup-battery-${user.id}" class="text-sm sm:text-base font-black mt-0.5 font-mono truncate ${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${user.battery || 90}%</span>
         </div>
         <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-2 sm:p-2.5 flex flex-col min-w-0 overflow-hidden shadow-inner">
           <div class="flex items-center justify-between">
             <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">Écart Trace</span>
-            ${ecartStatusTag ? `<span class="text-[9px] font-black uppercase px-1 py-0.2 rounded shrink-0 ${isFarFromTrack ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">${ecartStatusTag}</span>` : ''}
+            ${ecartStatusTag ? `<span id="user-popup-ecart-tag-${user.id}" class="text-[9px] font-black uppercase px-1 py-0.2 rounded shrink-0 ${isFarFromTrack ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}">${ecartStatusTag}</span>` : ''}
           </div>
-          <span class="text-sm sm:text-base font-black ${ecartDisplayColor} mt-0.5 font-mono truncate">${ecartDisplayVal}</span>
+          <span id="user-popup-ecart-${user.id}" class="text-sm sm:text-base font-black ${ecartDisplayColor} mt-0.5 font-mono truncate">${ecartDisplayVal}</span>
         </div>
       </div>
 
@@ -3083,15 +3135,15 @@ function generateUserPopupHtml(userId) {
           </div>
           <div class="flex items-baseline justify-between gap-2 text-white">
             <span class="text-[10px] font-sans font-black uppercase text-slate-400 shrink-0">GPS (DD) :</span>
-            <span class="font-bold text-right select-all">${userDD}</span>
+            <span id="user-popup-dd-${user.id}" class="font-bold text-right select-all">${userDD}</span>
           </div>
           <div class="flex items-baseline justify-between gap-2 text-emerald-300">
             <span class="text-[10px] font-sans font-black uppercase text-slate-400 shrink-0">GPS (DMS) :</span>
-            <span class="font-bold text-right select-all">${userDMS}</span>
+            <span id="user-popup-dms-${user.id}" class="font-bold text-right select-all">${userDMS}</span>
           </div>
           <div class="flex items-baseline justify-between gap-2 text-amber-300">
             <span class="text-[10px] font-sans font-black uppercase text-slate-400 shrink-0">UTM :</span>
-            <span class="font-bold text-right select-all">${userUTM}</span>
+            <span id="user-popup-utm-${user.id}" class="font-bold text-right select-all">${userUTM}</span>
           </div>
         </div>
       ` : ''}
@@ -3106,7 +3158,7 @@ function generateUserPopupHtml(userId) {
             </span>
             <span class="text-[9px] text-slate-400 font-semibold">(vol d'oiseau)</span>
           </div>
-          <div class="space-y-1 max-h-[130px] overflow-y-auto pr-0.5 custom-scrollbar">
+          <div id="user-popup-distances-${user.id}" class="space-y-1 max-h-[130px] overflow-y-auto pr-0.5 custom-scrollbar">
             ${otherGroupMembers.map(p => {
               const d = calculateDistance(user.lat, user.lon, p.lat, p.lon);
               const dStr = d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(2)} km`;
@@ -3134,13 +3186,13 @@ function generateUserPopupHtml(userId) {
               <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${progress.trackColor};"></span>
               <span class="truncate">${progress.trackName}</span>
             </span>
-            <span class="font-mono font-black text-emerald-400 text-sm">${progress.progressPct}%</span>
+            <span id="user-popup-progress-pct-${user.id}" class="font-mono font-black text-emerald-400 text-sm">${progress.progressPct}%</span>
           </div>
           <div class="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-            <div class="h-full rounded-full transition-all duration-300" style="width: ${progress.progressPct}%; background-color: ${progress.trackColor};"></div>
+            <div id="user-popup-progress-bar-${user.id}" class="h-full rounded-full transition-all duration-300" style="width: ${progress.progressPct}%; background-color: ${progress.trackColor};"></div>
           </div>
           <div class="flex items-center justify-between text-xs text-slate-300 pt-0.5">
-            <span class="font-bold">Reste ${progress.remainingDist.toFixed(1)} km <span class="text-slate-400">(+${progress.remainingEleGain}m D+)</span></span>
+            <span id="user-popup-progress-rem-${user.id}" class="font-bold">Reste ${progress.remainingDist.toFixed(1)} km <span class="text-slate-400">(+${progress.remainingEleGain}m D+)</span></span>
           </div>
           ${isFarFromTrack ? `
             <div class="bg-amber-500/15 border border-amber-500/35 rounded-xl px-2.5 py-1.5 text-xs text-amber-200 flex items-center justify-between">
@@ -3150,7 +3202,7 @@ function generateUserPopupHtml(userId) {
           ` : ''}
           <div class="bg-amber-500/15 border border-amber-500/35 rounded-xl px-2.5 py-1.5 flex items-center justify-between">
             <span class="text-xs font-bold text-amber-200">Arrivée estimée :</span>
-            <span class="text-sm font-black text-amber-300 font-mono">${progress.etaString}</span>
+            <span id="user-popup-eta-${user.id}" class="text-sm font-black text-amber-300 font-mono">${progress.etaString}</span>
           </div>
         </div>
       ` : ''}
@@ -3164,7 +3216,7 @@ function generateUserPopupHtml(userId) {
 
       <div class="text-[11px] text-slate-400 pt-2 border-t border-slate-800/80 flex items-center justify-between font-semibold">
         <span>${isZoneBlanche ? '🌲 Zone blanche (dernière pos.)' : '🟢 Signal GPS direct'}</span>
-        <span class="${isZoneBlanche ? 'text-amber-300 font-bold' : 'text-slate-200'}">${new Date(user.lastSeen || now).toLocaleTimeString()} ${isZoneBlanche ? `(il y a ${minSinceSeen} min)` : ''}</span>
+        <span id="user-popup-lastseen-${user.id}" class="${isZoneBlanche ? 'text-amber-300 font-bold' : 'text-slate-200'}">${new Date(user.lastSeen || now).toLocaleTimeString()} ${isZoneBlanche ? `(il y a ${minSinceSeen} min)` : ''}</span>
       </div>
 
       ${(!isMe) ? `
@@ -3196,13 +3248,145 @@ function copyUserCoords(userId) {
 }
 window.copyUserCoords = copyUserCoords;
 
+function updateUserPopupInPlace(userId, marker) {
+  const container = document.getElementById(`user-popup-content-${userId}`);
+  if (!container) {
+    if (marker && marker.isPopupOpen && marker.isPopupOpen()) {
+      marker.setPopupContent(generateUserPopupHtml(userId));
+      if (window.lucide && lucide.createIcons) lucide.createIcons();
+    }
+    return;
+  }
+
+  const user = (userId === state.myUser.id) ? state.myUser : state.otherUsers.get(userId);
+  if (!user) return;
+
+  const isMe = (user.id === state.myUser.id);
+  const now = Date.now();
+  const timeSinceSeenMs = now - (user.lastSeen || now);
+  const isZoneBlanche = !isMe && timeSinceSeenMs > 2 * 60 * 1000;
+  const minSinceSeen = Math.max(1, Math.round(timeSinceSeenMs / 60000));
+  const progress = computeTrackProgress(user);
+
+  let distFromMe = null;
+  if (!isMe && typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' &&
+      typeof user.lat === 'number' && typeof user.lon === 'number') {
+    distFromMe = calculateDistance(state.myUser.lat, state.myUser.lon, user.lat, user.lon);
+  }
+  const distFromMeStr = distFromMe === null ? '--' : (distFromMe < 1 ? `${Math.round(distFromMe * 1000)} m` : `${distFromMe.toFixed(1)} km`);
+
+  // 1. Vitesse
+  const speedEl = document.getElementById(`user-popup-speed-${userId}`);
+  if (speedEl) {
+    const spd = (user.movingAvgSpeed && user.movingAvgSpeed > 0 ? user.movingAvgSpeed : (user.speed || 0)).toFixed(1);
+    speedEl.innerHTML = `${spd} <span class="text-[10px] font-bold text-slate-400">km/h</span>`;
+  }
+
+  // 2. Altitude
+  const eleEl = document.getElementById(`user-popup-ele-${userId}`);
+  if (eleEl) {
+    eleEl.innerHTML = `${Math.round(user.ele || 0)} <span class="text-[10px] font-bold text-slate-400">m</span>`;
+  }
+
+  // 3. Batterie
+  const batEl = document.getElementById(`user-popup-battery-${userId}`);
+  if (batEl) {
+    batEl.textContent = `${user.battery || 90}%`;
+    batEl.className = `text-sm sm:text-base font-black mt-0.5 font-mono truncate ${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}`;
+  }
+
+  // 4. Écart Trace
+  let ecartDisplayVal = '--';
+  let ecartDisplayColor = 'text-slate-400';
+  let ecartStatusTag = '';
+  let isFarFromTrack = false;
+  if (progress && typeof progress.distanceToTrack === 'number') {
+    const dMeters = Math.round(progress.distanceToTrack * 1000);
+    if (dMeters < 30) {
+      ecartDisplayVal = `${dMeters} m`;
+      ecartDisplayColor = 'text-emerald-400';
+      ecartStatusTag = 'Sur tracé';
+    } else if (dMeters < 150) {
+      ecartDisplayVal = `${dMeters} m`;
+      ecartDisplayColor = 'text-emerald-300';
+      ecartStatusTag = 'Proche';
+    } else if (dMeters < 1000) {
+      ecartDisplayVal = `${dMeters} m`;
+      ecartDisplayColor = 'text-amber-400';
+      ecartStatusTag = 'Écart';
+      isFarFromTrack = true;
+    } else {
+      ecartDisplayVal = `${(progress.distanceToTrack).toFixed(1)} km`;
+      ecartDisplayColor = 'text-rose-400';
+      ecartStatusTag = 'Hors circuit';
+      isFarFromTrack = true;
+    }
+  } else if (!isMe) {
+    ecartDisplayVal = distFromMeStr;
+    ecartDisplayColor = 'text-blue-400';
+    ecartStatusTag = 'Dist. / Vous';
+  }
+
+  const ecartEl = document.getElementById(`user-popup-ecart-${userId}`);
+  if (ecartEl) {
+    ecartEl.textContent = ecartDisplayVal;
+    ecartEl.className = `text-sm sm:text-base font-black ${ecartDisplayColor} mt-0.5 font-mono truncate`;
+  }
+  const ecartTagEl = document.getElementById(`user-popup-ecart-tag-${userId}`);
+  if (ecartTagEl) {
+    ecartTagEl.textContent = ecartStatusTag;
+    ecartTagEl.className = `text-[9px] font-black uppercase px-1 py-0.2 rounded shrink-0 ${isFarFromTrack ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'}`;
+  }
+
+  // 5. Coordonnées
+  const userHasPos = (typeof user.lat === 'number' && typeof user.lon === 'number' && !isNaN(user.lat) && !isNaN(user.lon));
+  if (userHasPos) {
+    const ddEl = document.getElementById(`user-popup-dd-${userId}`);
+    if (ddEl) ddEl.textContent = formatDD(user.lat, user.lon);
+    const dmsEl = document.getElementById(`user-popup-dms-${userId}`);
+    if (dmsEl) dmsEl.textContent = formatDMS(user.lat, user.lon);
+    const utmEl = document.getElementById(`user-popup-utm-${userId}`);
+    if (utmEl) utmEl.textContent = formatUTM(user.lat, user.lon);
+  }
+
+  // 6. Ville
+  const cityEl = document.getElementById(`user-popup-city-${userId}`);
+  if (cityEl && user.cityName) {
+    cityEl.textContent = user.cityName;
+  }
+
+  // 7. Distance / Vous (dans le badge d'en-tête)
+  const distMeEl = document.getElementById(`user-popup-dist-me-${userId}`);
+  if (distMeEl) {
+    distMeEl.textContent = `📍 ${distFromMeStr}`;
+  }
+
+  // 8. Progression & ETA
+  if (progress) {
+    const pctEl = document.getElementById(`user-popup-progress-pct-${userId}`);
+    if (pctEl) pctEl.textContent = `${progress.progressPct}%`;
+    const barEl = document.getElementById(`user-popup-progress-bar-${userId}`);
+    if (barEl) barEl.style.width = `${progress.progressPct}%`;
+    const remEl = document.getElementById(`user-popup-progress-rem-${userId}`);
+    if (remEl) remEl.innerHTML = `Reste ${progress.remainingDist.toFixed(1)} km <span class="text-slate-400">(+${progress.remainingEleGain}m D+)</span>`;
+    const etaEl = document.getElementById(`user-popup-eta-${userId}`);
+    if (etaEl) etaEl.textContent = progress.etaString;
+    const etaShortEl = document.getElementById(`user-popup-eta-short-${userId}`);
+    if (etaShortEl) etaShortEl.textContent = `ETA ${progress.etaShort}`;
+  }
+
+  // 9. Dernier signal
+  const lastSeenEl = document.getElementById(`user-popup-lastseen-${userId}`);
+  if (lastSeenEl) {
+    lastSeenEl.textContent = `${new Date(user.lastSeen || now).toLocaleTimeString()} ${isZoneBlanche ? `(il y a ${minSinceSeen} min)` : ''}`;
+  }
+}
+window.updateUserPopupInPlace = updateUserPopupInPlace;
+
 function refreshActiveUserPopups() {
   state.userMarkers.forEach((marker, userId) => {
     if (marker && marker.isPopupOpen && marker.isPopupOpen()) {
-      marker.setPopupContent(generateUserPopupHtml(userId));
-      if (window.lucide && lucide.createIcons) {
-        lucide.createIcons();
-      }
+      updateUserPopupInPlace(userId, marker);
     }
   });
 }
@@ -3283,10 +3467,7 @@ function createOrUpdateUserMarker(user) {
     marker.setIcon(customIcon);
     marker.bindPopup(() => generateUserPopupHtml(user.id), popupOptions);
     if (marker.isPopupOpen && marker.isPopupOpen()) {
-      marker.setPopupContent(generateUserPopupHtml(user.id));
-      if (window.lucide && lucide.createIcons) {
-        lucide.createIcons();
-      }
+      updateUserPopupInPlace(user.id, marker);
     }
   }
 
@@ -3586,13 +3767,15 @@ function toggleUsersDrawer() {
 function onNavGpsClick() {
   closeAllDrawers();
   closeEmergencyModal();
+  state.activeFocusedTrackId = null;
   state.isMapFollowingUser = true;
   updateRecenterButtonUi();
+  renderMultiTracksBar();
   if (state.isTrackingGps && state.myUser.lat && state.myUser.lon) {
     if (state.map) {
       state.map.setView([state.myUser.lat, state.myUser.lon], Math.max(state.map.getZoom(), 16), { animate: true });
     }
-    showToast(`🎯 Suivi automatique activé (${state.myUser.cityName || 'Ma position'})`, 'info');
+    showToast(`🎯 Suivi automatique continu activé (${state.myUser.cityName || 'Ma position'})`, 'info');
   } else {
     state.gpsStartTime = Date.now();
     geolocateCurrentLocation();
@@ -3602,7 +3785,22 @@ function onNavGpsClick() {
 function onNavTracesClick() {
   closeAllDrawers();
   closeEmergencyModal();
-  fitAllTracks();
+  if (state.tracks.length === 0) {
+    openTracksModal();
+    return;
+  }
+  if (state.tracks.length === 1) {
+    zoomToTrack(state.tracks[0].id);
+    return;
+  }
+  // S'il y a plusieurs traces : alterner d'une trace à la suivante
+  state.currentTrackFocusIndex = ((state.currentTrackFocusIndex ?? -1) + 1) % (state.tracks.length + 1);
+  if (state.currentTrackFocusIndex < state.tracks.length) {
+    const t = state.tracks[state.currentTrackFocusIndex];
+    zoomToTrack(t.id);
+  } else {
+    fitAllTracks();
+  }
 }
 
 function openDrawer(panelName) {
@@ -3828,6 +4026,28 @@ function startGpsWatch(useHighAccuracy = true) {
         }
         state.offTrackCounter = 0;
         state.wasOffTrackAlerted = false;
+      }
+    }
+
+    // Annonce automatique de fin de randonnée au groupe (1 seule fois par session)
+    if (progress && (progress.progressPct >= 99 || (progress.distFromStart > 0.3 && progress.remainingDist < 0.05))) {
+      if (!state.hasSentArrivalAnnouncement) {
+        state.hasSentArrivalAnnouncement = true;
+        try { sessionStorage.setItem('rando_arrival_sent_' + state.roomCode, 'true'); } catch (e) {}
+        const senderName = state.myUser.name || 'Randonneur';
+        const arrivalText = 'Je suis arrivé à la fin de la randonnée. Je vous attends 😉';
+        publishMessage({
+          type: 'broadcast_announcement',
+          author: senderName,
+          role: state.myUser.role || 'Randonneur',
+          icon: state.myUser.icon || '🥾',
+          color: state.myUser.color || '#059669',
+          text: arrivalText,
+          urgency: 'info',
+          senderId: state.myUser.id,
+          timestamp: Date.now()
+        });
+        showToast('🏁 Vous êtes arrivé à la fin de la randonnée ! Message envoyé au groupe.', 'success');
       }
     }
 
@@ -4979,7 +5199,7 @@ function publishMessage(payload) {
     if (mqttClient && mqttClient.connected) {
       const sanitizedRoom = state.roomCode.replace(/[^a-zA-Z0-9_-]/g, '_');
       const topic = `randotracker/v1/rooms/${sanitizedRoom}/events`;
-      const qos = (payload.type === 'broadcast_announcement' || payload.type === 'group_sos_alert' || payload.type === 'sync_tracks') ? 1 : 0;
+      const qos = (payload.type === 'broadcast_announcement' || payload.type === 'group_sos_alert' || payload.type === 'sync_tracks' || payload.type === 'user_left') ? 1 : 0;
       mqttClient.publish(topic, msgStr, { qos: qos });
     }
 
@@ -5248,6 +5468,18 @@ function handleIncomingMessage(data) {
           saveOtherUsersToStorage();
           renderUsersList();
         }
+      }
+    } else if (data.type === 'user_left') {
+      const leftId = data.from || (data.user && data.user.id) || data.senderId;
+      if (leftId && leftId !== state.myUser.id) {
+        const u = state.otherUsers.get(leftId);
+        const name = (u && u.name) ? u.name : (data.user && data.user.name ? data.user.name : 'Un marcheur');
+        removeUserMarker(leftId);
+        state.otherUsers.delete(leftId);
+        saveOtherUsersToStorage();
+        renderUsersList();
+        refreshActiveUserPopups();
+        showToast(`👋 ${name} a quitté la randonnée.`, 'info');
       }
     } else if (data.type === 'broadcast_announcement') {
       const msgKey = `${data.senderId || data.author || 'anon'}_${data.timestamp || 0}_${(data.text || '').substring(0, 30)}`;
@@ -7295,13 +7527,11 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
                containerEl.querySelector('.bg-slate-900, .custom-modal-card, .leaflet-popup-content-wrapper, .emergency-modal-inner') ||
                containerEl;
 
-  const handle = (customHandleSelector ? containerEl.querySelector(customHandleSelector) : null) ||
-                 containerEl.querySelector('.popup-drag-bar, .modal-drag-bar, .draggable-header-handle') ||
-                 card.querySelector('.border-b, .border-b-2') ||
-                 card;
+  // Par défaut, TOUTE LA FENÊTRE (card) est déplaçable au clic ou au touch n'importe où sur sa surface
+  const handle = (customHandleSelector ? containerEl.querySelector(customHandleSelector) : null) || card;
 
-  handle.classList.add('draggable-header-handle');
-  handle.style.cursor = 'grab';
+  card.classList.add('draggable-header-handle');
+  card.style.cursor = 'grab';
 
   let isDragging = false;
   let isPinching = false;
@@ -7312,6 +7542,11 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
   let pinchStartDist = 0;
   let pinchStartScale = 1.0;
   let lastTapTime = 0;
+
+  // Détection des contrôles interactifs qui ne doivent pas initier de déplacement (boutons, inputs, liens)
+  const isInteractiveControl = (el) => {
+    return el && el.closest('button, a, input, select, textarea, label, .modal-close-btn, .popup-zoom-btn, [onclick]');
+  };
 
   // Création dynamique de la bulle de feedback visuel de zoom
   let zoomBadge = card.querySelector('.pinch-zoom-feedback-badge');
@@ -7358,11 +7593,11 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
 
   // --- SOURIS (DESKTOP) ---
   const onMouseDown = (e) => {
-    if (e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, .popup-zoom-btn, details, summary, i, svg, [onclick]')) {
+    if (isInteractiveControl(e.target)) {
       return;
     }
     isDragging = true;
-    handle.style.cursor = 'grabbing';
+    card.style.cursor = 'grabbing';
     dragStartX = e.clientX - curX;
     dragStartY = e.clientY - curY;
 
@@ -7378,7 +7613,7 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
 
     const onMouseUp = () => {
       isDragging = false;
-      handle.style.cursor = 'grab';
+      card.style.cursor = 'grab';
       if (state.map && state.map.dragging) state.map.dragging.enable();
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
@@ -7388,7 +7623,7 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
     window.addEventListener('mouseup', onMouseUp);
   };
 
-  handle.addEventListener('mousedown', onMouseDown);
+  card.addEventListener('mousedown', onMouseDown);
 
   // --- TOUCH TACTILE (SMARTPHONE / TABLETTE) ---
   const onTouchStart = (e) => {
@@ -7398,8 +7633,7 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
     }
 
     // Ne jamais bloquer les clics sur les boutons / liens / champs
-    const isInteractive = e.target.closest('button, a, input, select, textarea, label, .modal-close-btn, .popup-zoom-btn, details, summary, i, svg, [onclick]');
-    if (isInteractive) {
+    if (isInteractiveControl(e.target)) {
       return;
     }
 
@@ -7417,20 +7651,17 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
       }
       lastTapTime = now;
 
-      // Si le doigt est posé sur la poignée de déplacement (header / bar)
-      const onHandle = handle.contains(e.target);
-      if (onHandle) {
-        isDragging = true;
-        handle.style.cursor = 'grabbing';
-        dragStartX = e.touches[0].clientX - curX;
-        dragStartY = e.touches[0].clientY - curY;
-        if (state.map && state.map.dragging) state.map.dragging.disable();
-        e.stopPropagation();
-      }
+      // Déplacement activé n'importe où sur la fenêtre
+      isDragging = true;
+      card.style.cursor = 'grabbing';
+      dragStartX = e.touches[0].clientX - curX;
+      dragStartY = e.touches[0].clientY - curY;
+      if (state.map && state.map.dragging) state.map.dragging.disable();
+      e.stopPropagation();
     }
 
-    // 2 doigts : Démarrer le Pinch-to-Zoom sur la carte
-    if (e.touches.length === 2 && (card.contains(e.target) || handle.contains(e.target))) {
+    // 2 doigts : Démarrer le Pinch-to-Zoom
+    if (e.touches.length === 2 && card.contains(e.target)) {
       isDragging = false;
       isPinching = true;
       if (e.cancelable) e.preventDefault();
@@ -7459,7 +7690,7 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
       return;
     }
 
-    // Gestion Déplacement 1 doigt sur la poignée
+    // Gestion Déplacement 1 doigt sur n'importe quel point de la fenêtre
     if (isDragging && e.touches.length === 1) {
       if (e.cancelable) e.preventDefault();
       e.stopPropagation();
@@ -7483,23 +7714,20 @@ function makeElementInteractive(containerEl, customCardSelector, customHandleSel
       e.stopPropagation();
       if (e.touches.length === 0) {
         isDragging = false;
-        handle.style.cursor = 'grab';
+        card.style.cursor = 'grab';
         if (state.map && state.map.dragging) state.map.dragging.enable();
       }
     }
   };
 
-  handle.addEventListener('touchstart', onTouchStart, { passive: false });
-  if (card !== handle) {
-    card.addEventListener('touchstart', onTouchStart, { passive: false });
-  }
+  card.addEventListener('touchstart', onTouchStart, { passive: false });
   window.addEventListener('touchmove', onTouchMove, { passive: false });
   window.addEventListener('touchend', onTouchEnd, { passive: false });
   window.addEventListener('touchcancel', onTouchEnd, { passive: false });
 }
 
 function makePopupDraggable(popupEl) {
-  makeElementInteractive(popupEl, '.leaflet-popup-content-wrapper', '.popup-drag-bar');
+  makeElementInteractive(popupEl, '.leaflet-popup-content-wrapper');
 }
 
 function makeModalDraggable(modalId) {
@@ -7554,13 +7782,15 @@ window.updateRecenterButtonUi = updateRecenterButtonUi;
 
 function recenterMapOnUser() {
   if (!state.map) return;
+  state.activeFocusedTrackId = null;
   state.isMapFollowingUser = true;
   updateRecenterButtonUi();
+  renderMultiTracksBar();
   if (typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat)) {
     state.map.setView([state.myUser.lat, state.myUser.lon], Math.max(state.map.getZoom(), 16), {
       animate: true
     });
-    showToast('🎯 Suivi automatique activé', 'info');
+    showToast('🎯 Suivi automatique continu activé', 'info');
   } else {
     if (!state.isTrackingGps) {
       startGpsWatch();
@@ -7617,39 +7847,100 @@ function initCompassListener() {
 }
 window.initCompassListener = initCompassListener;
 
-function updateCompassDisplay(heading) {
-  state.compassHeading = heading;
+function updateCompassRotation(bearing) {
+  state.mapBearing = bearing || 0;
+  // Rotation de la petite boussole FAB pour pointer vers le Nord de la carte
   const icon = document.getElementById('compass-fab-icon');
   if (icon) {
     icon.style.transformOrigin = '19px 19px';
-    icon.style.transform = `rotate(${-heading}deg)`;
+    icon.style.transform = `rotate(${-state.mapBearing}deg)`;
+  }
+  // Rotation de l'aiguille de la grande boussole détaillée (3 cm)
+  const largeNeedle = document.getElementById('large-compass-needle');
+  if (largeNeedle) {
+    largeNeedle.style.transform = `rotate(${-state.mapBearing}deg)`;
+  }
+  // Affichage dynamique de l'angle du Nord de la carte
+  const capVal = document.getElementById('large-compass-cap-val');
+  if (capVal) {
+    const normAngle = Math.round((360 - (state.mapBearing % 360)) % 360);
+    const card = getCardinalDirection(normAngle);
+    capVal.textContent = `NORD CARTE • ${normAngle}° ${card}`;
+  }
+  const resetBtn = document.getElementById('btn-reset-map-north');
+  if (resetBtn) {
+    if (Math.abs(state.mapBearing) > 1) {
+      resetBtn.classList.remove('hidden');
+    } else {
+      resetBtn.classList.add('hidden');
+    }
+  }
+}
+window.updateCompassRotation = updateCompassRotation;
+
+function resetMapNorth() {
+  if (state.map && typeof state.map.setBearing === 'function') {
+    state.map.setBearing(0);
+  }
+  state.mapBearing = 0;
+  updateCompassRotation(0);
+  showToast('🧭 Carte réalignée au Nord (0°)', 'info');
+}
+window.resetMapNorth = resetMapNorth;
+
+function toggleLargeCompass(forceShow) {
+  const overlay = document.getElementById('large-compass-overlay');
+  if (!overlay) return;
+  const isCurrentlyHidden = overlay.classList.contains('hidden');
+  const show = (forceShow !== undefined) ? forceShow : isCurrentlyHidden;
+
+  if (show) {
+    overlay.classList.remove('hidden');
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission().then(response => {
+        if (response === 'granted') initCompassListener();
+      }).catch(() => {});
+    } else {
+      initCompassListener();
+    }
+    const currentBearing = (state.map && typeof state.map.getBearing === 'function') ? state.map.getBearing() : (state.mapBearing || 0);
+    updateCompassRotation(currentBearing);
+  } else {
+    overlay.classList.add('hidden');
+  }
+}
+window.toggleLargeCompass = toggleLargeCompass;
+
+function updateCompassDisplay(heading) {
+  state.compassHeading = heading;
+  // Si la carte n'est pas tournée par deux doigts, la petite et la grande boussole suivent le cap du téléphone
+  if (!state.mapBearing || Math.abs(state.mapBearing) < 0.5) {
+    const icon = document.getElementById('compass-fab-icon');
+    if (icon) {
+      icon.style.transformOrigin = '19px 19px';
+      icon.style.transform = `rotate(${-heading}deg)`;
+    }
+    const largeNeedle = document.getElementById('large-compass-needle');
+    if (largeNeedle) {
+      largeNeedle.style.transform = `rotate(${-heading}deg)`;
+    }
+    const capVal = document.getElementById('large-compass-cap-val');
+    if (capVal) {
+      const card = getCardinalDirection(heading);
+      capVal.textContent = `CAP ${heading}° • ${card}`;
+    }
   }
 }
 window.updateCompassDisplay = updateCompassDisplay;
 
 function toggleMapCompass() {
-  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    DeviceOrientationEvent.requestPermission().then(response => {
-      if (response === 'granted') {
-        initCompassListener();
-      }
-    }).catch(() => {});
-  } else {
-    initCompassListener();
-  }
-
-  const h = (typeof state.compassHeading === 'number')
-    ? state.compassHeading
-    : (typeof state.myUser.heading === 'number' ? Math.round(state.myUser.heading) : null);
-
-  if (h !== null) {
-    const card = getCardinalDirection(h);
-    showToast(`🧭 Boussole : Cap ${h}° ${card}`, 'info');
-  } else {
-    showToast('🧭 Boussole active : Orientez votre téléphone (Flèche rouge et N = Nord)', 'info');
-  }
+  // Clic sur la petite boussole : afficher la grande boussole de 3 cm de diamètre très détaillée
+  toggleLargeCompass(true);
 }
 window.toggleMapCompass = toggleMapCompass;
+window.toggleLargeCompass = toggleLargeCompass;
+window.resetMapNorth = resetMapNorth;
+window.updateCompassRotation = updateCompassRotation;
 
 // ============================================================================
 // GESTIONNAIRE DES REPÈRES & WAYPOINTS SUR LA CARTE (PARKING, SOURCE, DANGER...)
@@ -9210,10 +9501,19 @@ window.savePoiAsWaypoint = savePoiAsWaypoint;
 // ============================================================================
 // ARRÊT PROPRE DU SUIVI GPS & DÉCONNEXION COMPLÈTE DE L'APPLICATION
 // ============================================================================
-function stopTrackingAndExitApp() {
-  if (!confirm('Voulez-vous arrêter le suivi GPS et quitter la session ?\n\nVotre position ne sera plus transmise au groupe et le service d\'arrière-plan sera immédiatement coupé.')) {
-    return;
+async function stopTrackingAndExitApp() {
+  let ok = false;
+  if (typeof showConfirmModal === 'function') {
+    ok = await showConfirmModal(
+      '🛑 Arrêter le suivi & Quitter',
+      'Voulez-vous arrêter le suivi GPS et quitter la session ?\n\nVotre position ne sera plus transmise au groupe et le service d\'arrière-plan sera immédiatement coupé.',
+      'Arrêter et Quitter',
+      'Annuler'
+    );
+  } else {
+    ok = confirm('Voulez-vous arrêter le suivi GPS et quitter la session ?\n\nVotre position ne sera plus transmise au groupe et le service d\'arrière-plan sera immédiatement coupé.');
   }
+  if (!ok) return;
 
   try {
     // 1. Couper les moteurs de maintien d'arrière-plan
@@ -9239,22 +9539,31 @@ function stopTrackingAndExitApp() {
       try {
         publishMessage({
           type: 'user_left',
+          from: state.myUser.id,
           user: state.myUser
         });
-        mqttClient.end(true);
-      } catch (e) {}
-      mqttClient = null;
+        setTimeout(() => {
+          try { if (mqttClient) mqttClient.end(true); } catch (e) {}
+          mqttClient = null;
+        }, 150);
+      } catch (e) {
+        mqttClient = null;
+      }
     }
 
-    // 5. Mettre à jour l'état et l'interface
+    // 5. Mettre à jour l'état et purger les participants du salon local
     state.isTrackingGps = false;
     state.gpsStartTime = null;
+    state.otherUsers.forEach((u, id) => removeUserMarker(id));
+    state.otherUsers.clear();
+    localStorage.removeItem('rando_saved_other_users');
+    renderUsersList();
 
     closeProfileModal();
     updateConnectionStatus(false);
-    showToast('🛑 Suivi GPS arrêté. Batterie et processus libérés.', 'info');
+    showToast('🛑 Suivi GPS arrêté. Session fermée.', 'info');
 
-    // 6. Si nous sommes sur l'application native Android, tuer tous les processus et fermer
+    // 6. Si nous sommes sur l'application native Android, tuer tous les processus et fermer la tâche
     if (window.AndroidBridge && typeof window.AndroidBridge.closeApp === 'function') {
       setTimeout(() => {
         try {
@@ -9262,7 +9571,7 @@ function stopTrackingAndExitApp() {
         } catch (e) {
           console.warn('[StopTracking] Erreur fermeture app native Android:', e);
         }
-      }, 400);
+      }, 300);
     }
   } catch (e) {
     console.error('[StopTracking] Erreur lors de l\'arrêt du suivi:', e);

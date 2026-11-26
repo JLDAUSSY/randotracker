@@ -1203,7 +1203,27 @@ main {
 #app-open-ad-modal > div,
 .leaflet-popup-content-wrapper,
 #elevation-drawer {
-  touch-action: pan-y !important;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#profile-modal > div:active,
+.leaflet-popup-content-wrapper:active {
+  cursor: grabbing;
+}
+
+#profile-modal button,
+#profile-modal a,
+#profile-modal input,
+#profile-modal select,
+#profile-modal textarea,
+.leaflet-popup-content-wrapper button,
+.leaflet-popup-content-wrapper a,
+.leaflet-popup-content-wrapper input {
+  cursor: pointer;
+  user-select: auto;
+  -webkit-user-select: auto;
 }
 
 /* 9. CARTES DE TRACES DANS LE GESTIONNAIRE */
@@ -1960,6 +1980,20 @@ body.has-active-popup #city-search-container {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
   margin-top: 2px;
 }
+
+/* GRANDE BOUSSOLE TRANSLUCIDE (3 CM) TRÈS DÉTAILLÉE */
+#large-compass-overlay {
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+#large-compass-card {
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 25px rgba(16, 185, 129, 0.2);
+}
+
+#large-compass-card:active {
+  transform: scale(0.96);
+}
+
 
 
 
