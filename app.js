@@ -7895,6 +7895,167 @@ function resetMapNorth() {
 }
 window.resetMapNorth = resetMapNorth;
 
+// ============================================================================
+// GESTION DE LA BOUSSOLE TRANSLUCIDE, DÉPLAÇABLE AVEC ZOOM CARTE ACTIF
+// ============================================================================
+let compassDragState = {
+  currentX: 0,
+  currentY: 0,
+  pinchHandledTime: 0
+};
+
+function initLargeCompassInteractions() {
+  const card = document.getElementById('large-compass-card');
+  if (!card || card.dataset.interactionsInitialized) return;
+  card.dataset.interactionsInitialized = 'true';
+
+  // --- 1. ZOOM CARTE VIA LA MOLETTE DE SOURIS SUR LA BOUSSOLE ---
+  card.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (state.map) {
+      if (e.deltaY < 0) {
+        state.map.zoomIn();
+      } else if (e.deltaY > 0) {
+        state.map.zoomOut();
+      }
+    }
+  }, { passive: false });
+
+  // --- 2. DÉPLACEMENT & CLIC SOURIS (DESKTOP) ---
+  let isMouseDragging = false;
+  let mouseStartX = 0, mouseStartY = 0;
+  let mouseStartTime = 0;
+  let hasMouseMoved = false;
+
+  card.addEventListener('mousedown', function(e) {
+    if (e.target.closest('#close-large-compass-btn') || e.target.closest('#btn-reset-map-north')) {
+      return;
+    }
+    isMouseDragging = true;
+    hasMouseMoved = false;
+    mouseStartTime = Date.now();
+    mouseStartX = e.clientX - compassDragState.currentX;
+    mouseStartY = e.clientY - compassDragState.currentY;
+    card.classList.add('is-dragging');
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', function(e) {
+    if (!isMouseDragging) return;
+    const rawX = e.clientX - mouseStartX;
+    const rawY = e.clientY - mouseStartY;
+    if (Math.hypot(rawX - compassDragState.currentX, rawY - compassDragState.currentY) > 5) {
+      hasMouseMoved = true;
+    }
+    const maxBoundX = (window.innerWidth / 2) - 30;
+    const maxBoundY = (window.innerHeight / 2) - 40;
+    compassDragState.currentX = Math.max(-maxBoundX, Math.min(maxBoundX, rawX));
+    compassDragState.currentY = Math.max(-maxBoundY, Math.min(maxBoundY, rawY));
+    card.style.transform = `translate3d(${compassDragState.currentX}px, ${compassDragState.currentY}px, 0)`;
+  });
+
+  window.addEventListener('mouseup', function(e) {
+    if (!isMouseDragging) return;
+    isMouseDragging = false;
+    card.classList.remove('is-dragging');
+    // Si clic simple sans déplacement (< 5px et < 350ms), fermer la boussole
+    if (!hasMouseMoved && (Date.now() - mouseStartTime < 350)) {
+      if (!e.target.closest('#btn-reset-map-north')) {
+        toggleLargeCompass(false);
+      }
+    }
+  });
+
+  // --- 3. DÉPLACEMENT (1 DOIGT), PINCH-TO-ZOOM CARTE (2 DOIGTS) ET FERMETURE AU TAP TACTILE ---
+  let touchStartX = 0, touchStartY = 0;
+  let isTouchDragging = false;
+  let hasTouchMoved = false;
+  let touchStartTime = 0;
+  let initialPinchDistance = null;
+
+  card.addEventListener('touchstart', function(e) {
+    if (e.target.closest('#close-large-compass-btn') || e.target.closest('#btn-reset-map-north')) {
+      return;
+    }
+    if (e.touches.length === 1) {
+      isTouchDragging = true;
+      hasTouchMoved = false;
+      touchStartTime = Date.now();
+      initialPinchDistance = null;
+      touchStartX = e.touches[0].clientX - compassDragState.currentX;
+      touchStartY = e.touches[0].clientY - compassDragState.currentY;
+      card.classList.add('is-dragging');
+    } else if (e.touches.length === 2) {
+      // Deux doigts : geste de zoom / dézoom de la carte sous la boussole
+      isTouchDragging = false;
+      hasTouchMoved = true;
+      card.classList.remove('is-dragging');
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      initialPinchDistance = Math.hypot(dx, dy);
+    }
+  }, { passive: false });
+
+  card.addEventListener('touchmove', function(e) {
+    if (e.touches.length === 1 && isTouchDragging) {
+      e.preventDefault();
+      const rawX = e.touches[0].clientX - touchStartX;
+      const rawY = e.touches[0].clientY - touchStartY;
+      if (Math.hypot(rawX - compassDragState.currentX, rawY - compassDragState.currentY) > 5) {
+        hasTouchMoved = true;
+      }
+      const maxBoundX = (window.innerWidth / 2) - 30;
+      const maxBoundY = (window.innerHeight / 2) - 40;
+      compassDragState.currentX = Math.max(-maxBoundX, Math.min(maxBoundX, rawX));
+      compassDragState.currentY = Math.max(-maxBoundY, Math.min(maxBoundY, rawY));
+      card.style.transform = `translate3d(${compassDragState.currentX}px, ${compassDragState.currentY}px, 0)`;
+    } else if (e.touches.length === 2 && initialPinchDistance) {
+      // Zoom / Dézoom Leaflet dynamique
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const currentDistance = Math.hypot(dx, dy);
+      const delta = currentDistance - initialPinchDistance;
+
+      const now = Date.now();
+      if (now - (compassDragState.pinchHandledTime || 0) > 150) {
+        if (delta > 22 && state.map) {
+          state.map.zoomIn();
+          initialPinchDistance = currentDistance;
+          compassDragState.pinchHandledTime = now;
+        } else if (delta < -22 && state.map) {
+          state.map.zoomOut();
+          initialPinchDistance = currentDistance;
+          compassDragState.pinchHandledTime = now;
+        }
+      }
+    }
+  }, { passive: false });
+
+  card.addEventListener('touchend', function(e) {
+    if (e.touches.length === 0) {
+      const wasDragging = isTouchDragging;
+      isTouchDragging = false;
+      initialPinchDistance = null;
+      card.classList.remove('is-dragging');
+      // Si tap simple sans déplacement (< 5px et < 350ms), fermer la boussole
+      if (wasDragging && !hasTouchMoved && (Date.now() - touchStartTime < 350)) {
+        if (!e.target.closest('#btn-reset-map-north')) {
+          toggleLargeCompass(false);
+        }
+      }
+    } else if (e.touches.length === 1) {
+      isTouchDragging = true;
+      hasTouchMoved = true;
+      initialPinchDistance = null;
+      touchStartX = e.touches[0].clientX - compassDragState.currentX;
+      touchStartY = e.touches[0].clientY - compassDragState.currentY;
+    }
+  });
+}
+window.initLargeCompassInteractions = initLargeCompassInteractions;
+
 function toggleLargeCompass(forceShow) {
   const overlay = document.getElementById('large-compass-overlay');
   if (!overlay) return;
@@ -7903,6 +8064,11 @@ function toggleLargeCompass(forceShow) {
 
   if (show) {
     overlay.classList.remove('hidden');
+    initLargeCompassInteractions();
+    const card = document.getElementById('large-compass-card');
+    if (card && compassDragState.currentX !== undefined && compassDragState.currentY !== undefined) {
+      card.style.transform = `translate3d(${compassDragState.currentX}px, ${compassDragState.currentY}px, 0)`;
+    }
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
       DeviceOrientationEvent.requestPermission().then(response => {
         if (response === 'granted') initCompassListener();

@@ -1981,17 +1981,29 @@ body.has-active-popup #city-search-container {
   margin-top: 2px;
 }
 
-/* GRANDE BOUSSOLE TRANSLUCIDE (3 CM) TRÈS DÉTAILLÉE */
+/* GRANDE BOUSSOLE TRANSLUCIDE (3 CM) TRÈS DÉTAILLÉE & DÉPLAÇABLE */
 #large-compass-overlay {
+  pointer-events: none !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
 #large-compass-card {
-  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 25px rgba(16, 185, 129, 0.2);
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  will-change: transform;
 }
 
-#large-compass-card:active {
-  transform: scale(0.96);
+#large-compass-card.is-dragging {
+  cursor: grabbing !important;
 }
 
 /* BARRE DE DÉFILEMENT ÉLÉGANTE ET DÉFILEMENT TACTILE FLUIDE */

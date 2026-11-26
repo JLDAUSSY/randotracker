@@ -576,6 +576,10 @@ run_test("Repère Modale Création : Affichage DD, DMS et UTM (#wpt-coords-previ
 run_test("Repère Clic Popup : Affichage GPS (DD/DMS) et UTM + Contraste sombre", lambda: 'GPS (DD) :' in js_text and 'GPS (DMS) :' in js_text and 'copyWaypointCoords' in js_text)
 run_test("Volet GPS SOS : Affichage DD, DMS et UTM (#emergency-gps-utm)", lambda: bool(soup.find(id='emergency-gps-decimal')) and bool(soup.find(id='emergency-gps-dms')) and bool(soup.find(id='emergency-gps-utm')) and bool(soup.find(id='dictate-utm')))
 run_test("Messages Groupe : Header GPS en DD, DMS et UTM (Compose & Réception)", lambda: bool(soup.find(id='announcement-gps-header')) and bool(soup.find(id='ann-gps-utm')) and bool(soup.find(id='rx-announcement-gps-header')) and bool(soup.find(id='rx-ann-gps-utm')))
+run_test("Grande Boussole Transparente : Overlay non bloquant (#large-compass-overlay)", lambda: bool(soup.find(id='large-compass-overlay')) and 'pointer-events-none' in soup.find(id='large-compass-overlay').get('class', []))
+run_test("Grande Boussole Transparente : Bouton Fermer dédié (#close-large-compass-btn)", lambda: bool(soup.find(id='close-large-compass-btn')))
+run_test("Grande Boussole Transparente : Filtre de halo haute visibilité (#shadowHalo)", lambda: bool(soup.find(id='shadowHalo')))
+run_test("Grande Boussole Transparente : Interactions de drag & drop et zoom carte", lambda: 'initLargeCompassInteractions' in js_text and 'compassDragState' in js_text and 'state.map.zoomIn()' in js_text)
 
 # ----------------------------------------------------------------------
 # 6. TESTS DE LIVRAISON SERVEUR HTTP (LOCAL) & STATIQUES
