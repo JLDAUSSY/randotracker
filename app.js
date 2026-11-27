@@ -2681,20 +2681,27 @@ function updateRecorderUI() {
   const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 
   const numPoints = rec.points ? rec.points.length : 0;
+  const numWpt = (Array.isArray(state.waypoints)) ? state.waypoints.length : 0;
   const totalDist = rec.totalDistance || 0;
   const totalEle = rec.eleGain || 0;
 
   if (timeEl) timeEl.textContent = timeStr;
   if (distEl) distEl.textContent = `${totalDist.toFixed(2)} km`;
   if (eleEl) eleEl.textContent = `+${Math.round(totalEle)} m`;
-  if (ptsEl) ptsEl.textContent = `${numPoints} pt${numPoints > 1 ? 's' : ''}`;
+  if (ptsEl) {
+    if (numWpt > 0) {
+      ptsEl.textContent = `${numPoints} pt${numPoints > 1 ? 's' : ''} • ${numWpt} rep.`;
+    } else {
+      ptsEl.textContent = `${numPoints} pt${numPoints > 1 ? 's' : ''}`;
+    }
+  }
 
   // Statut & Boutons
   if (!rec.isActive) {
     if (statusDot) {
       statusDot.className = 'inline-block w-3 h-3 rounded-full bg-slate-500';
     }
-    if (statusTitle) statusTitle.textContent = numPoints > 0 ? 'Trace en mémoire' : 'Enregistreur de trace';
+    if (statusTitle) statusTitle.textContent = (numPoints > 0 || numWpt > 0) ? 'Trace / Repères en mémoire' : 'Enregistreur de trace';
     if (toggleBtn) {
       toggleBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer';
     }
@@ -2725,7 +2732,7 @@ function updateRecorderUI() {
 
   // Affichage export / effacer
   if (exportBtn) {
-    if (numPoints > 0) {
+    if (numPoints > 0 || numWpt > 0) {
       exportBtn.classList.remove('hidden');
     } else {
       exportBtn.classList.add('hidden');
@@ -2760,13 +2767,25 @@ function updateRecorderUI() {
   }
 }
 
+function escapeXml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 async function exportRecordedGpx() {
-  if (!state.recording || !state.recording.points || state.recording.points.length === 0) {
-    showToast('Aucun point enregistré à exporter', 'info');
+  const points = (state.recording && Array.isArray(state.recording.points)) ? state.recording.points : [];
+  const waypoints = Array.isArray(state.waypoints) ? state.waypoints : [];
+
+  if (points.length === 0 && waypoints.length === 0) {
+    showToast('Aucun point ni repère à exporter', 'info');
     return;
   }
 
-  const points = state.recording.points;
   const now = new Date();
   const dateStr = now.toLocaleDateString('fr-FR').replace(/\//g, '-');
   const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, 'h');
@@ -2778,33 +2797,85 @@ async function exportRecordedGpx() {
   gpxXml += `  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n`;
   gpxXml += `  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">\n`;
   gpxXml += `  <metadata>\n`;
-  gpxXml += `    <name>Trace RandoTracker ${dateStr}</name>\n`;
+  gpxXml += `    <name>Trace &amp; Repères RandoTracker ${dateStr}</name>\n`;
   gpxXml += `    <time>${now.toISOString()}</time>\n`;
   gpxXml += `  </metadata>\n`;
-  gpxXml += `  <trk>\n`;
-  gpxXml += `    <name>Randonnée du ${dateStr}</name>\n`;
-  gpxXml += `    <desc>Trace enregistrée par ${state.myUser.name || 'Randonneur'} avec RandoTracker (${(state.recording.totalDistance || 0).toFixed(2)} km, +${Math.round(state.recording.eleGain || 0)}m)</desc>\n`;
-  gpxXml += `    <type>Hiking</type>\n`;
-  gpxXml += `    <trkseg>\n`;
 
-  for (let i = 0; i < points.length; i++) {
-    const pt = points[i];
-    const latStr = Number(pt.lat).toFixed(6);
-    const lonStr = Number(pt.lon).toFixed(6);
-    gpxXml += `      <trkpt lat="${latStr}" lon="${lonStr}">\n`;
-    if (typeof pt.ele === 'number' && !isNaN(pt.ele)) {
-      gpxXml += `        <ele>${pt.ele.toFixed(1)}</ele>\n`;
+  // 1. Insertion des Waypoints créés (<wpt>) conformément au schéma officiel GPX 1.1
+  if (waypoints.length > 0) {
+    for (let i = 0; i < waypoints.length; i++) {
+      const wpt = waypoints[i];
+      if (wpt.lat === null || wpt.lon === null || isNaN(wpt.lat) || isNaN(wpt.lon)) continue;
+      const latStr = Number(wpt.lat).toFixed(6);
+      const lonStr = Number(wpt.lon).toFixed(6);
+      gpxXml += `  <wpt lat="${latStr}" lon="${lonStr}">\n`;
+      if (typeof wpt.ele === 'number' && !isNaN(wpt.ele) && wpt.ele > 0) {
+        gpxXml += `    <ele>${Number(wpt.ele).toFixed(1)}</ele>\n`;
+      }
+      if (wpt.time) {
+        const wptIso = new Date(wpt.time).toISOString();
+        gpxXml += `    <time>${wptIso}</time>\n`;
+      }
+      const rawName = wpt.name || 'Repère';
+      const cleanName = (wpt.icon && !rawName.includes(wpt.icon)) ? `${wpt.icon} ${rawName}` : rawName;
+      gpxXml += `    <name>${escapeXml(cleanName)}</name>\n`;
+
+      const descParts = [];
+      if (wpt.cityName) descParts.push(`Commune : ${wpt.cityName}`);
+      if (wpt.author) descParts.push(`Auteur : ${wpt.author}`);
+      if (descParts.length > 0) {
+        const descText = escapeXml(descParts.join(' - '));
+        gpxXml += `    <desc>${descText}</desc>\n`;
+        gpxXml += `    <cmt>${descText}</cmt>\n`;
+      }
+
+      // Symbole standardisé pour récepteurs GPS (Garmin, TwoNav, etc.)
+      let sym = 'Waypoint';
+      if (wpt.icon === '💧') sym = 'Water Source';
+      else if (wpt.icon === '☕') sym = 'Restaurant';
+      else if (wpt.icon === '🏕️' || wpt.icon === '⛺') sym = 'Campground';
+      else if (wpt.icon === '⚠️') sym = 'Danger Area';
+      else if (wpt.icon === '📸') sym = 'Scenic Area';
+      else if (wpt.icon === '⛰️') sym = 'Summit';
+      else if (wpt.icon === '🥾') sym = 'Trailhead';
+      else if (wpt.icon === '🚻') sym = 'Restroom';
+      else if (wpt.icon) sym = 'Flag';
+      gpxXml += `    <sym>${sym}</sym>\n`;
+      gpxXml += `    <type>Waypoint</type>\n`;
+      gpxXml += `  </wpt>\n`;
     }
-    const ptIso = pt.time ? new Date(pt.time).toISOString() : now.toISOString();
-    gpxXml += `        <time>${ptIso}</time>\n`;
-    gpxXml += `      </trkpt>\n`;
   }
 
-  gpxXml += `    </trkseg>\n`;
-  gpxXml += `  </trk>\n`;
+  // 2. Insertion du tracé GPS enregistré (<trk>)
+  if (points.length > 0) {
+    gpxXml += `  <trk>\n`;
+    gpxXml += `    <name>Randonnée du ${dateStr}</name>\n`;
+    const wptCountStr = waypoints.length > 0 ? ` (${waypoints.length} repère(s))` : '';
+    gpxXml += `    <desc>Trace enregistrée par ${escapeXml(state.myUser.name || 'Randonneur')} avec RandoTracker (${(state.recording.totalDistance || 0).toFixed(2)} km, +${Math.round(state.recording.eleGain || 0)}m)${escapeXml(wptCountStr)}</desc>\n`;
+    gpxXml += `    <type>Hiking</type>\n`;
+    gpxXml += `    <trkseg>\n`;
+
+    for (let i = 0; i < points.length; i++) {
+      const pt = points[i];
+      const latStr = Number(pt.lat).toFixed(6);
+      const lonStr = Number(pt.lon).toFixed(6);
+      gpxXml += `      <trkpt lat="${latStr}" lon="${lonStr}">\n`;
+      if (typeof pt.ele === 'number' && !isNaN(pt.ele)) {
+        gpxXml += `        <ele>${pt.ele.toFixed(1)}</ele>\n`;
+      }
+      const ptIso = pt.time ? new Date(pt.time).toISOString() : now.toISOString();
+      gpxXml += `        <time>${ptIso}</time>\n`;
+      gpxXml += `      </trkpt>\n`;
+    }
+
+    gpxXml += `    </trkseg>\n`;
+    gpxXml += `  </trk>\n`;
+  }
+
   gpxXml += `</gpx>\n`;
 
   const blob = new Blob([gpxXml], { type: 'application/gpx+xml;charset=utf-8' });
+  const wptTextSummary = waypoints.length > 0 ? ` et ${waypoints.length} repère(s)` : '';
 
   // 1. Partage natif mobile via Web Share API avec fichier
   let shared = false;
@@ -2814,11 +2885,11 @@ async function exportRecordedGpx() {
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: `Trace GPX RandoTracker - ${dateStr}`,
-          text: `Voici ma trace de randonnée (${(state.recording.totalDistance || 0).toFixed(2)} km, +${Math.round(state.recording.eleGain || 0)}m) enregistrée avec RandoTracker.`
+          title: `Trace & Repères GPX RandoTracker - ${dateStr}`,
+          text: `Voici ma trace de randonnée (${(state.recording.totalDistance || 0).toFixed(2)} km, +${Math.round(state.recording.eleGain || 0)}m)${wptTextSummary} enregistrée avec RandoTracker.`
         });
         shared = true;
-        showToast('Trace GPX partagée avec succès !', 'success');
+        showToast('Trace et repères GPX partagés avec succès !', 'success');
       }
     } catch (e) {
       if (e.name !== 'AbortError') {

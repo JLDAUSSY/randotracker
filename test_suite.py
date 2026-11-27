@@ -592,6 +592,8 @@ run_test("Enregistreur de Trace : Fonctions toggle/start/pause/resumeTrackRecord
 run_test("Enregistreur de Trace : Moteur d'export GPX 1.1 universel (exportRecordedGpx) défini dans app.js", lambda: 'function exportRecordedGpx' in js_text and 'gpx version="1.1"' in js_text and 'trkseg' in js_text)
 run_test("Enregistreur de Trace : Ajout de points GPS (addPointToRecordedTrack) avec filtre de bruit 5m", lambda: 'function addPointToRecordedTrack' in js_text and 'distKm < 0.005' in js_text)
 run_test("Enregistreur de Trace : Persistance locale (saveRecordedTrackToStorage & loadRecordedTrackFromStorage)", lambda: 'saveRecordedTrackToStorage' in js_text and 'loadRecordedTrackFromStorage' in js_text and 'rando_recorded_track_v1' in js_text)
+run_test("Enregistreur de Trace : Échappement XML sécurisé (escapeXml) défini dans app.js", lambda: 'function escapeXml' in js_text)
+run_test("Enregistreur de Trace : Insertion des waypoints dans le GPX (<wpt lat= ... <sym>)", lambda: '<wpt lat="' in js_text and '<sym>' in js_text and 'state.waypoints' in js_text)
 
 # ----------------------------------------------------------------------
 # 6. TESTS DE LIVRAISON SERVEUR HTTP (LOCAL) & STATIQUES
