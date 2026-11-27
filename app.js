@@ -1609,7 +1609,7 @@ function renderBatteryChart() {
   });
 }
 
-async function exportBatteryChartPng() {
+function exportBatteryChartPng() {
   const canvas = document.getElementById('battery-history-chart');
   if (!canvas) {
     showToast('Aucun graphique disponible à exporter', 'info');
@@ -1620,7 +1620,6 @@ async function exportBatteryChartPng() {
   const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
   const fileName = `RandoTracker_Batterie_${dateStr}.png`;
 
-  // 1. Conversion synchrone pour préserver l'activation utilisateur (Web Share API)
   let dataUrl = '';
   try {
     dataUrl = canvas.toDataURL('image/png');
@@ -1630,7 +1629,21 @@ async function exportBatteryChartPng() {
     return;
   }
 
-  let file = null;
+  // 1. Si on est dans l'appli Android native avec le pont Java :
+  // Envoi DIRECT dans le dossier Téléchargements du smartphone via MediaStore
+  if (window.AndroidBridge && typeof window.AndroidBridge.saveFileToDownloads === 'function') {
+    try {
+      const base64 = dataUrl.split(',')[1];
+      window.AndroidBridge.saveFileToDownloads(base64, fileName, 'image/png');
+      showToast(`Graphique envoyé dans Téléchargements`, 'success');
+      return;
+    } catch(err) {
+      console.warn('[ExportChart] saveFileToDownloads error:', err);
+    }
+  }
+
+  // 2. Si on est dans un navigateur (Chrome, Edge, Safari, Firefox sur PC ou mobile) :
+  // Téléchargement DIRECT et forcé dans le dossier Téléchargements avec application/octet-stream
   try {
     const arr = dataUrl.split(',');
     const bstr = atob(arr[1]);
@@ -1639,174 +1652,26 @@ async function exportBatteryChartPng() {
     while (n--) {
       u8arr[n] = bstr.charCodeAt(n);
     }
-    const blob = new Blob([u8arr], { type: 'image/png' });
-    file = new File([blob], fileName, { type: 'image/png' });
-  } catch(e) {
-    console.warn('[ExportChart] File creation failed:', e);
-  }
-
-  // 2. Partage natif si supporté (Chrome mobile / Safari)
-  if (file && navigator.canShare) {
-    try {
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: 'Graphique de décharge batterie - RandoTracker',
-          files: [file]
-        });
-        showToast('Graphique partagé avec succès', 'success');
-        return;
-      }
-    } catch(e) {
-      if (e.name === 'AbortError') return;
-      console.warn('[ExportChart] navigator.share échoué:', e);
-    }
-  }
-
-  // 3. Téléchargement direct (navigateurs PC / Mac)
-  try {
+    const blob = new Blob([u8arr], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = dataUrl;
+    a.style.display = 'none';
+    a.href = url;
     a.download = fileName;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-  } catch(e) {}
-
-  // 4. Fallback visuel avec aperçu et appui long (appli Android WebView)
-  showChartPreviewModal(dataUrl, fileName);
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 2000);
+    showToast(`Graphique envoyé dans Téléchargements`, 'success');
+  } catch(e) {
+    console.error('[ExportChart] Download error:', e);
+    showToast('Erreur lors du téléchargement du graphique', 'error');
+  }
 }
 
-function showChartPreviewModal(dataUrl, fileName) {
-  let modal = document.getElementById('chart-preview-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'chart-preview-modal';
-    modal.className = 'fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4';
-    modal.innerHTML = `
-      <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-4 shadow-2xl flex flex-col gap-3 max-h-[90vh]">
-        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-          <div class="flex items-center gap-2">
-            <span class="text-lg">📊</span>
-            <h3 class="text-sm font-bold text-white">Graphique de Batterie</h3>
-          </div>
-          <button type="button" id="close-chart-preview-btn" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-bold cursor-pointer">✕</button>
-        </div>
-        <div class="bg-slate-950 rounded-xl p-2 border border-slate-800 flex items-center justify-center overflow-hidden">
-          <img id="chart-preview-img" src="" alt="Graphique de batterie" class="max-h-[50vh] w-auto object-contain rounded select-all" />
-        </div>
-        <div class="text-[11px] text-amber-300/90 bg-amber-950/40 border border-amber-800/40 p-2.5 rounded-xl space-y-1">
-          <p>📱 <strong>Astuce sur smartphone :</strong> Restez appuyé <strong>1 seconde sur l'image</strong> avec votre doigt pour faire apparaître le menu natif : <em>« Enregistrer l'image »</em> ou <em>« Partager l'image »</em>.</p>
-          <p class="text-slate-300 text-[10px]">📁 Les images téléchargées vont dans votre <strong>Galerie / Photos</strong> (album Téléchargements / Récents).</p>
-        </div>
-        <div class="flex items-center gap-2 pt-1">
-          <a id="chart-preview-download-link" href="" download="" class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs text-center shadow">
-            📥 Télécharger l'image
-          </a>
-          <button type="button" id="chart-preview-copy-btn" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs text-center shadow cursor-pointer">
-            📋 Copier l'image
-          </button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-
-    const closeBtn = document.getElementById('close-chart-preview-btn');
-    if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
-    modal.onclick = (e) => {
-      if (e.target === modal) modal.classList.add('hidden');
-    };
-    const copyBtn = document.getElementById('chart-preview-copy-btn');
-    if (copyBtn) {
-      copyBtn.onclick = async () => {
-        try {
-          const res = await fetch(dataUrl);
-          const blob = await res.blob();
-          await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob })
-          ]);
-          showToast('Image copiée dans le presse-papier !', 'success');
-        } catch(e) {
-          showToast('Appuyez longuement sur l\'image pour la copier', 'info');
-        }
-      };
-    }
-  }
-
-  const img = document.getElementById('chart-preview-img');
-  const dLink = document.getElementById('chart-preview-download-link');
-  if (img) img.src = dataUrl;
-  if (dLink) {
-    dLink.href = dataUrl;
-    dLink.download = fileName;
-  }
-  modal.classList.remove('hidden');
-}
-
-function showCsvPreviewModal(csvContent, fileName) {
-  let modal = document.getElementById('csv-preview-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'csv-preview-modal';
-    modal.className = 'fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4';
-    modal.innerHTML = `
-      <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-4 shadow-2xl flex flex-col gap-3 max-h-[90vh]">
-        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-          <div class="flex items-center gap-2">
-            <span class="text-lg">📄</span>
-            <h3 class="text-sm font-bold text-white">Données Batterie (Format CSV)</h3>
-          </div>
-          <button type="button" id="close-csv-preview-btn" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-bold cursor-pointer">✕</button>
-        </div>
-        <p class="text-xs text-slate-400">
-          Données horodatées prêtes à être collées dans Excel, Google Sheets, un email ou WhatsApp :
-        </p>
-        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800 max-h-48 overflow-y-auto">
-          <pre id="csv-preview-text" class="text-[11px] text-emerald-400 font-mono select-all whitespace-pre-wrap leading-tight"></pre>
-        </div>
-        <div class="flex flex-col gap-2 pt-1">
-          <button type="button" id="csv-preview-copy-btn" class="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow cursor-pointer">
-            📋 Copier tout le texte (pour coller directement)
-          </button>
-          <a id="csv-preview-download-link" href="" download="" class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs text-center shadow">
-            📥 Télécharger le fichier CSV (.csv)
-          </a>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
-
-    const closeBtn = document.getElementById('close-csv-preview-btn');
-    if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
-    modal.onclick = (e) => {
-      if (e.target === modal) modal.classList.add('hidden');
-    };
-    const copyBtn = document.getElementById('csv-preview-copy-btn');
-    if (copyBtn) {
-      copyBtn.onclick = async () => {
-        const text = document.getElementById('csv-preview-text').textContent;
-        try {
-          await navigator.clipboard.writeText(text);
-          showToast('Données CSV copiées ! Prêtes à être collées.', 'success');
-        } catch(e) {
-          showToast('Sélectionnez le texte pour le copier', 'info');
-        }
-      };
-    }
-  }
-
-  const textEl = document.getElementById('csv-preview-text');
-  const dLink = document.getElementById('csv-preview-download-link');
-  if (textEl) textEl.textContent = csvContent;
-  if (dLink) {
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    dLink.href = url;
-    dLink.download = fileName;
-  }
-  modal.classList.remove('hidden');
-}
-
-async function exportBatteryCsv() {
+function exportBatteryCsv() {
   const history = Array.isArray(state.batteryHistory) ? state.batteryHistory : [];
   if (history.length === 0) {
     if (state.myUser && typeof state.myUser.battery === 'number') {
@@ -1825,21 +1690,43 @@ async function exportBatteryCsv() {
     rows.push(`${date},${time},${p.level},${rate}`);
   });
   const csvContent = rows.join('\r\n');
-  const blob = new Blob([csvContent], { type: 'text/plain;charset=utf-8;' });
   const now = new Date();
   const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
   const fileName = `RandoTracker_Batterie_${dateStr}.csv`;
 
-  // Copie automatique dans le presse-papier
-  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+  // 1. Si on est dans l'appli Android native avec le pont Java :
+  // Envoi DIRECT dans le dossier Téléchargements du smartphone via MediaStore
+  if (window.AndroidBridge && typeof window.AndroidBridge.saveFileToDownloads === 'function') {
     try {
-      await navigator.clipboard.writeText(csvContent);
-      showToast('Données CSV copiées dans le presse-papier !', 'success');
-    } catch(e) {}
+      const base64 = btoa(unescape(encodeURIComponent(csvContent)));
+      window.AndroidBridge.saveFileToDownloads(base64, fileName, 'text/csv');
+      showToast(`Fichier CSV envoyé dans Téléchargements`, 'success');
+      return;
+    } catch(err) {
+      console.warn('[ExportCsv] saveFileToDownloads error:', err);
+    }
   }
 
-  // Affichage immédiat de la modale de visualisation et copie CSV
-  showCsvPreviewModal(csvContent, fileName);
+  // 2. Si on est dans un navigateur (Chrome, Edge, Safari, Firefox sur PC ou mobile) :
+  // Téléchargement DIRECT et forcé dans le dossier Téléchargements avec application/octet-stream
+  try {
+    const blob = new Blob([csvContent], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 2000);
+    showToast(`Fichier CSV envoyé dans Téléchargements`, 'success');
+  } catch(e) {
+    console.error('[ExportCsv] Download error:', e);
+    showToast('Erreur lors du téléchargement du fichier CSV', 'error');
+  }
 }
 
 function confirmResetBatteryHistory() {
@@ -3413,11 +3300,23 @@ async function exportRecordedGpx() {
     }
   }
 
-  // 2. Fallback téléchargement direct classique
+  // 2. Téléchargement direct ou pont natif Android
   if (!shared) {
+    if (window.AndroidBridge && typeof window.AndroidBridge.saveFileToDownloads === 'function') {
+      try {
+        const base64 = btoa(unescape(encodeURIComponent(gpxData)));
+        window.AndroidBridge.saveFileToDownloads(base64, fileName, 'application/gpx+xml');
+        showToast(`Fichier GPX envoyé dans Téléchargements : ${fileName}`, 'success');
+        return;
+      } catch(err) {
+        console.warn('[GPX Export Native]', err);
+      }
+    }
     try {
-      const url = URL.createObjectURL(blob);
+      const octetBlob = new Blob([gpxData], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(octetBlob);
       const a = document.createElement('a');
+      a.style.display = 'none';
       a.href = url;
       a.download = fileName;
       document.body.appendChild(a);
@@ -3425,8 +3324,8 @@ async function exportRecordedGpx() {
       setTimeout(() => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      }, 500);
-      showToast(`Fichier GPX téléchargé : ${fileName}`, 'success');
+      }, 1500);
+      showToast(`Fichier GPX envoyé dans Téléchargements : ${fileName}`, 'success');
     } catch (e) {
       console.error('[GPX Export Download]', e);
       showToast('Erreur lors du téléchargement du fichier GPX', 'error');

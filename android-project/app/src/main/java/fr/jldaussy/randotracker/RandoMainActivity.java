@@ -33,6 +33,15 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import android.content.ContentValues;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.util.Base64;
+import android.widget.Toast;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+
 public class RandoMainActivity extends AppCompatActivity {
     private static final String TAG = "RandoMainActivity";
     private static final int PERMISSION_REQ_CODE = 2026;
@@ -536,6 +545,48 @@ public class RandoMainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void stopTrackingService() {
             stopGpsService();
+        }
+
+        @JavascriptInterface
+        public void saveFileToDownloads(final String base64Data, final String fileName, final String mimeType) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        byte[] fileBytes = Base64.decode(base64Data, Base64.DEFAULT);
+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            ContentValues values = new ContentValues();
+                            values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                            values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+                            values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+
+                            Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                            if (uri != null) {
+                                OutputStream os = getContentResolver().openOutputStream(uri);
+                                if (os != null) {
+                                    os.write(fileBytes);
+                                    os.flush();
+                                    os.close();
+                                }
+                            }
+                        } else {
+                            File downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                            if (!downloadDir.exists()) downloadDir.mkdirs();
+                            File destFile = new File(downloadDir, fileName);
+                            FileOutputStream fos = new FileOutputStream(destFile);
+                            fos.write(fileBytes);
+                            fos.flush();
+                            fos.close();
+                        }
+
+                        Toast.makeText(getApplicationContext(), "Fichier envoyé dans Téléchargements : " + fileName, Toast.LENGTH_LONG).show();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Erreur enregistrement dans Téléchargements: " + fileName, e);
+                        Toast.makeText(getApplicationContext(), "Erreur téléchargement: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
         }
 
         @JavascriptInterface
