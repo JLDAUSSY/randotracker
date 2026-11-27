@@ -1660,7 +1660,7 @@ async function exportBatteryChartPng() {
   }
 }
 
-function exportBatteryCsv() {
+async function exportBatteryCsv() {
   const history = Array.isArray(state.batteryHistory) ? state.batteryHistory : [];
   if (history.length === 0) {
     showToast('Aucune donnée de batterie à exporter', 'info');
@@ -1679,15 +1679,34 @@ function exportBatteryCsv() {
   const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
   const fileName = `RandoTracker_Batterie_${dateStr}.csv`;
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  showToast(`Fichier CSV téléchargé : ${fileName}`, 'success');
+  let shared = false;
+  if (navigator.canShare) {
+    try {
+      const file = new File([blob], fileName, { type: 'text/csv' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'Historique de batterie - RandoTracker',
+          files: [file]
+        });
+        shared = true;
+        showToast('Données CSV partagées avec succès', 'success');
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  if (!shared) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(`Fichier CSV téléchargé : ${fileName}`, 'success');
+  }
 }
 
 function confirmResetBatteryHistory() {
