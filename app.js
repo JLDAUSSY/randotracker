@@ -1620,83 +1620,187 @@ async function exportBatteryChartPng() {
   const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
   const fileName = `RandoTracker_Batterie_${dateStr}.png`;
 
+  // 1. Conversion synchrone pour préserver l'activation utilisateur (Web Share API)
+  let dataUrl = '';
   try {
-    canvas.toBlob(async (blob) => {
-      if (!blob) {
-        showToast('Erreur génération image', 'error');
+    dataUrl = canvas.toDataURL('image/png');
+  } catch(e) {
+    console.error('[ExportChart] toDataURL failed:', e);
+    showToast('Erreur génération graphique', 'error');
+    return;
+  }
+
+  let file = null;
+  try {
+    const arr = dataUrl.split(',');
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: 'image/png' });
+    file = new File([blob], fileName, { type: 'image/png' });
+  } catch(e) {
+    console.warn('[ExportChart] File creation failed:', e);
+  }
+
+  // 2. Partage natif si supporté (Chrome mobile / Safari)
+  if (file && navigator.canShare) {
+    try {
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          title: 'Graphique de décharge batterie - RandoTracker',
+          files: [file]
+        });
+        showToast('Graphique partagé avec succès', 'success');
         return;
       }
-      let shared = false;
-      if (navigator.canShare) {
-        try {
-          const file = new File([blob], fileName, { type: 'image/png' });
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              title: 'Graphique de décharge batterie - RandoTracker',
-              files: [file]
-            });
-            shared = true;
-            showToast('Graphique partagé avec succès', 'success');
-          }
-        } catch(e) {
-          if (e.name === 'AbortError') return;
-        }
-      }
-      if (!shared) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        showToast(`Graphique téléchargé : ${fileName}`, 'success');
-      }
-    }, 'image/png');
-  } catch(e) {
-    console.error('[ExportBatteryChart]', e);
-    showToast('Erreur lors de l\'export graphique', 'error');
+    } catch(e) {
+      if (e.name === 'AbortError') return;
+      console.warn('[ExportChart] navigator.share échoué:', e);
+    }
   }
+
+  // 3. Téléchargement direct (navigateurs PC / Mac)
+  try {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch(e) {}
+
+  // 4. Fallback visuel avec aperçu et appui long (appli Android WebView)
+  showChartPreviewModal(dataUrl, fileName);
+}
+
+function showChartPreviewModal(dataUrl, fileName) {
+  let modal = document.getElementById('chart-preview-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'chart-preview-modal';
+    modal.className = 'fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-4 shadow-2xl flex flex-col gap-3 max-h-[90vh]">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">📊</span>
+            <h3 class="text-sm font-bold text-white">Graphique de Batterie</h3>
+          </div>
+          <button type="button" id="close-chart-preview-btn" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-bold">✕</button>
+        </div>
+        <div class="bg-slate-950 rounded-xl p-2 border border-slate-800 flex items-center justify-center overflow-hidden">
+          <img id="chart-preview-img" src="" alt="Graphique de batterie" class="max-h-[50vh] w-auto object-contain rounded select-all" />
+        </div>
+        <p class="text-[11px] text-amber-300/90 text-center bg-amber-950/40 border border-amber-800/40 p-2 rounded-xl">
+          📱 <strong>Sur mobile :</strong> Restez appuyé 1 seconde sur l'image pour l'enregistrer ou la partager via WhatsApp, Drive, etc.
+        </p>
+        <div class="flex items-center gap-2 pt-1">
+          <a id="chart-preview-download-link" href="" download="" class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs text-center shadow">
+            📥 Télécharger l'image
+          </a>
+          <button type="button" id="chart-preview-copy-btn" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs text-center shadow">
+            📋 Copier l'image
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeBtn = document.getElementById('close-chart-preview-btn');
+    if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.classList.add('hidden');
+    };
+    const copyBtn = document.getElementById('chart-preview-copy-btn');
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        try {
+          const res = await fetch(dataUrl);
+          const blob = await res.blob();
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          showToast('Image copiée dans le presse-papier !', 'success');
+        } catch(e) {
+          showToast('Appuyez longuement sur l\'image pour la copier', 'info');
+        }
+      };
+    }
+  }
+
+  const img = document.getElementById('chart-preview-img');
+  const dLink = document.getElementById('chart-preview-download-link');
+  if (img) img.src = dataUrl;
+  if (dLink) {
+    dLink.href = dataUrl;
+    dLink.download = fileName;
+  }
+  modal.classList.remove('hidden');
 }
 
 async function exportBatteryCsv() {
   const history = Array.isArray(state.batteryHistory) ? state.batteryHistory : [];
   if (history.length === 0) {
-    showToast('Aucune donnée de batterie à exporter', 'info');
-    return;
+    if (state.myUser && typeof state.myUser.battery === 'number') {
+      recordBatteryHistorySample(state.myUser.battery, 0);
+    } else {
+      showToast('Aucune donnée de batterie à exporter pour le moment', 'info');
+      return;
+    }
   }
+  const currentHistory = Array.isArray(state.batteryHistory) && state.batteryHistory.length > 0 ? state.batteryHistory : [];
   const rows = ['Date,Heure,Batterie_Pourcent,Vitesse_Decharge_PctHeure'];
-  history.forEach(p => {
+  currentHistory.forEach(p => {
     const date = p.dateStr || new Date(p.timestamp).toLocaleDateString('fr-FR');
     const time = p.timeStr || new Date(p.timestamp).toLocaleTimeString('fr-FR');
     const rate = (typeof p.rate === 'number') ? p.rate.toFixed(1) : '';
     rows.push(`${date},${time},${p.level},${rate}`);
   });
   const csvContent = rows.join('\r\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob([csvContent], { type: 'text/plain;charset=utf-8;' });
   const now = new Date();
   const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
   const fileName = `RandoTracker_Batterie_${dateStr}.csv`;
 
   let shared = false;
+  // 1. Partage natif fichier si supporté
   if (navigator.canShare) {
     try {
-      const file = new File([blob], fileName, { type: 'text/csv' });
+      const file = new File([blob], fileName, { type: 'text/plain' });
       if (navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: 'Historique de batterie - RandoTracker',
+          title: 'Données batterie RandoTracker',
           files: [file]
         });
         shared = true;
         showToast('Données CSV partagées avec succès', 'success');
+        return;
       }
     } catch (e) {
       if (e.name === 'AbortError') return;
     }
   }
 
-  if (!shared) {
+  // 2. Partage natif du texte si partage de fichier non supporté
+  if (navigator.share && !shared) {
+    try {
+      await navigator.share({
+        title: 'Historique de batterie - RandoTracker',
+        text: csvContent
+      });
+      shared = true;
+      showToast('Données CSV partagées !', 'success');
+      return;
+    } catch(e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  // 3. Téléchargement direct
+  try {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -1705,8 +1809,17 @@ async function exportBatteryCsv() {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast(`Fichier CSV téléchargé : ${fileName}`, 'success');
+  } catch(e) {}
+
+  // 4. Copie automatique dans le presse-papier en secours
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(csvContent);
+      showToast('Données CSV copiées dans le presse-papier !', 'success');
+      return;
+    } catch(e) {}
   }
+  showToast(`Fichier CSV téléchargé : ${fileName}`, 'success');
 }
 
 function confirmResetBatteryHistory() {
