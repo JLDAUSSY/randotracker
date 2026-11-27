@@ -358,6 +358,15 @@ const state = {
     isSos: false,
     lastSeen: Date.now()
   },
+  batteryTracking: {
+    startLevel: null,
+    startTime: null,
+    lastLevel: null,
+    lastTime: null,
+    ratePerHour: null,
+    estHoursLeft: null
+  },
+  isInPocketMode: false,
   shareDurationHours: 8, // Par défaut 8h, max 24h
   gpsStartTime: null,
   expiryCheckInterval: null,
@@ -1330,13 +1339,104 @@ function initPWA() {
   if (navigator.getBattery) {
     navigator.getBattery().then((battery) => {
       state.myUser.battery = Math.round(battery.level * 100);
+      updateBatteryTelemetry();
       battery.addEventListener('levelchange', () => {
         state.myUser.battery = Math.round(battery.level * 100);
-        broadcastMyPosition();
+        updateBatteryTelemetry();
+        // Optimisation batterie : Ne pas réveiller le modem 4G/LTE à chaque perte de 1%.
+        // La valeur sera transmise naturellement au prochain point GPS planifié.
       });
     }).catch(() => {});
   }
 }
+
+// ============================================================================
+// MONITORING PASSIF DE LA BATTERIE (-X%/h & AUTONOMIE RESTANTE ESTIMÉE)
+// ============================================================================
+function updateBatteryTelemetry() {
+  const currentLevel = state.myUser.battery;
+  if (typeof currentLevel !== 'number' || isNaN(currentLevel)) return;
+
+  const now = Date.now();
+  if (!state.batteryTracking) {
+    state.batteryTracking = {
+      startLevel: currentLevel,
+      startTime: now,
+      lastLevel: currentLevel,
+      lastTime: now,
+      ratePerHour: null,
+      estHoursLeft: null
+    };
+  }
+
+  if (state.batteryTracking.startLevel === null || !state.batteryTracking.startTime) {
+    state.batteryTracking.startLevel = currentLevel;
+    state.batteryTracking.startTime = now;
+  }
+
+  state.batteryTracking.lastLevel = currentLevel;
+  state.batteryTracking.lastTime = now;
+
+  const elapsedHours = (now - state.batteryTracking.startTime) / 3600000;
+  // Calcul significatif dès 2 minutes (0.033 h)
+  if (elapsedHours >= 0.033) {
+    const drop = state.batteryTracking.startLevel - currentLevel;
+    if (drop > 0) {
+      const rate = drop / elapsedHours;
+      state.batteryTracking.ratePerHour = Math.round(rate * 10) / 10;
+      if (rate > 0.05) {
+        state.batteryTracking.estHoursLeft = Math.round((currentLevel / rate) * 10) / 10;
+      }
+    } else if (drop < 0) {
+      state.batteryTracking.ratePerHour = -1; // En charge
+      state.batteryTracking.estHoursLeft = null;
+    } else {
+      state.batteryTracking.ratePerHour = 0.0;
+      state.batteryTracking.estHoursLeft = 24.0;
+    }
+  }
+
+  renderBatteryUI();
+}
+
+function getBatteryStatusLabel(short = false) {
+  const lvl = (typeof state.myUser.battery === 'number') ? state.myUser.battery : 90;
+  const bt = state.batteryTracking;
+
+  if (!bt || bt.ratePerHour === null || bt.ratePerHour === undefined) {
+    return `${lvl}%`;
+  }
+
+  if (bt.ratePerHour === -1) {
+    return short ? `⚡ ${lvl}% (Charge)` : `⚡ ${lvl}% (En charge)`;
+  }
+
+  if (bt.ratePerHour === 0.0) {
+    return short ? `${lvl}% (<1%/h)` : `${lvl}% (<1%/h • Reste >24h)`;
+  }
+
+  const rateStr = `-${bt.ratePerHour.toFixed(1)}%/h`;
+  const hrs = Math.floor(bt.estHoursLeft || 0);
+  const mins = Math.round(((bt.estHoursLeft || 0) % 1) * 60);
+  const restStr = hrs > 0 ? `${hrs}h${mins > 0 ? String(mins).padStart(2, '0') : ''}` : `${mins}min`;
+
+  return short ? `${lvl}% (${rateStr})` : `${lvl}% (${rateStr} • Reste ~${restStr})`;
+}
+
+function renderBatteryUI() {
+  const label = getBatteryStatusLabel(false);
+  const myBatteryStat = document.getElementById('my-battery-stat');
+  if (myBatteryStat) {
+    myBatteryStat.textContent = label;
+  }
+  const pocketBattery = document.getElementById('pocket-battery');
+  if (pocketBattery) {
+    pocketBattery.textContent = `🔋 ${label}`;
+  }
+}
+window.updateBatteryTelemetry = updateBatteryTelemetry;
+window.getBatteryStatusLabel = getBatteryStatusLabel;
+window.renderBatteryUI = renderBatteryUI;
 
 // ============================================================================
 // INITIALISATION DE LA CARTE AVEC MOTEUR CANVAS ULTRA-RAPIDE
@@ -3293,7 +3393,11 @@ function updateUserPopupInPlace(userId, marker) {
   // 3. Batterie
   const batEl = document.getElementById(`user-popup-battery-${userId}`);
   if (batEl) {
-    batEl.textContent = `${user.battery || 90}%`;
+    if (userId === state.myUser.id) {
+      batEl.textContent = getBatteryStatusLabel(false);
+    } else {
+      batEl.textContent = `${user.battery || 90}%`;
+    }
     batEl.className = `text-sm sm:text-base font-black mt-0.5 font-mono truncate ${user.battery < 20 ? 'text-red-400' : 'text-emerald-400'}`;
   }
 
@@ -3597,7 +3701,7 @@ function renderUsersList() {
     : (state.myUser.speed || 0).toFixed(1);
   if (mySpeedStat) mySpeedStat.textContent = `${displayMySpeed} km/h`;
   if (myEleStat) myEleStat.textContent = `${Math.round(state.myUser.ele || 0)} m`;
-  if (myBatteryStat) myBatteryStat.textContent = `${state.myUser.battery || 95}%`;
+  if (myBatteryStat) myBatteryStat.textContent = getBatteryStatusLabel(false);
 
   // Mettre à jour l'ETA de "Moi"
   const myProgress = computeTrackProgress(state.myUser);
@@ -3972,6 +4076,7 @@ function startGpsWatch(useHighAccuracy = true) {
     state.lastGpsTimestamp = now;
 
     state.isTrackingGps = true;
+    updateBatteryTelemetry();
     state.myUser.lat = lat;
     state.myUser.lon = lon;
     state.myUser.ele = pos.coords.altitude !== null && !isNaN(pos.coords.altitude) ? Math.round(pos.coords.altitude) : state.myUser.ele;
@@ -4189,6 +4294,11 @@ let screenWakeLock = null;
 let isWakeLockRequested = false;
 
 async function requestWakeLock() {
+  // Sur Android natif en mode poche, relâcher le WakeLock d'écran pour permettre l'extinction totale
+  if (state.isInPocketMode && window.IS_NATIVE_ANDROID_APP) {
+    releaseWakeLock();
+    return;
+  }
   isWakeLockRequested = true;
   if ('wakeLock' in navigator) {
     try {
@@ -4197,7 +4307,7 @@ async function requestWakeLock() {
       screenWakeLock.addEventListener('release', () => {
         screenWakeLock = null;
         // Si le GPS tourne toujours et que l'écran/onglet est visible, ré-enclencher immédiatement
-        if (isWakeLockRequested && state.isTrackingGps && document.visibilityState === 'visible') {
+        if (isWakeLockRequested && state.isTrackingGps && document.visibilityState === 'visible' && !state.isInPocketMode) {
           setTimeout(requestWakeLock, 500);
         }
       });
@@ -4265,6 +4375,11 @@ function createSilentAudioBlobUrl() {
 }
 
 function unlockAndStartKeepAlive() {
+  // Dans l'application native Android, le service d'arrière-plan natif (Foreground Service)
+  // possède son propre WakeLock système et gère l'activité sans nécessiter de maintien audio.
+  if (window.IS_NATIVE_ANDROID_APP) {
+    return;
+  }
   if (isAudioUnlocked) {
     if (audioContextKeeper && audioContextKeeper.state === 'suspended') {
       audioContextKeeper.resume().catch(() => {});
@@ -4545,25 +4660,36 @@ function enterPocketMode() {
   const overlay = document.getElementById('pocket-mode-overlay');
   if (!overlay) return;
 
+  state.isInPocketMode = true;
+
   // 1. S'assurer que le suivi GPS est bien démarré
   if (!state.isTrackingGps) {
     state.gpsStartTime = Date.now();
     startGpsWatch(true);
   }
 
-  // 2. Maintien forcé de l'écran éveillé et du flux GPS via WakeLock
-  requestWakeLock();
-  startBackgroundKeepAlive();
+  // 2. Maintien de l'écran / Veille :
+  // Sur Android natif, le Foreground Service assure le suivi matériel; on autorise l'extinction complète.
+  // Sur Web PWA standard, le WakeLock maintient la page active.
+  if (window.IS_NATIVE_ANDROID_APP) {
+    releaseWakeLock();
+  } else {
+    requestWakeLock();
+    startBackgroundKeepAlive();
+  }
+
+  // Couper les capteurs boussole énergivores pendant le mode poche
+  stopCompassListener();
 
   // 3. Afficher l'écran noir ultra-économe
   overlay.classList.remove('hidden');
   overlay.style.display = 'flex';
   pushModalState('pocket-mode-overlay');
 
-  // 4. Mettre à jour l'horloge et la télémétrie en direct
+  // 4. Mettre à jour l'horloge et la télémétrie en direct (timer économe 4s au lieu de 1s)
   updatePocketModeTelemetry();
   if (pocketModeInterval) clearInterval(pocketModeInterval);
-  pocketModeInterval = setInterval(updatePocketModeTelemetry, 1000);
+  pocketModeInterval = setInterval(updatePocketModeTelemetry, 4000);
 
   showToast('🔒 Mode Poche activé : Écran noir économe & touches sécurisées', 'success');
 }
@@ -4631,6 +4757,7 @@ function cancelPocketHoldUnlock(e) {
 }
 
 function exitPocketMode() {
+  state.isInPocketMode = false;
   cancelPocketHoldUnlock();
   const overlay = document.getElementById('pocket-mode-overlay');
   if (overlay) {
@@ -4640,6 +4767,13 @@ function exitPocketMode() {
   if (pocketModeInterval) {
     clearInterval(pocketModeInterval);
     pocketModeInterval = null;
+  }
+  if (state.isTrackingGps) {
+    requestWakeLock();
+  }
+  const largeCompass = document.getElementById('large-compass-overlay');
+  if (largeCompass && !largeCompass.classList.contains('hidden')) {
+    initCompassListener();
   }
   showToast('🔓 Écran déverrouillé', 'info');
   ensureBarsVisible();
@@ -4677,7 +4811,7 @@ function updatePocketModeTelemetry() {
   if (distEl) distEl.textContent = `${distVal.toFixed(1)} km`;
 
   if (eleEl) eleEl.textContent = `${Math.round(state.myUser.ele || 0)} m`;
-  if (batteryEl) batteryEl.textContent = `🔋 ${state.myUser.battery || 90}%`;
+  if (batteryEl) batteryEl.textContent = `🔋 ${getBatteryStatusLabel(false)}`;
   if (roomEl) roomEl.textContent = `👥 ${state.roomCode}`;
 
   if (gpsStatusEl) {
@@ -5234,10 +5368,10 @@ function broadcastMyPosition(forceNow = false) {
     }
 
     // Calcul de la cadence adaptative :
-    // 1. Haute urgence / Alerte (SOS ou >50m sortie de trace) : 2.5 secondes
-    // 2. Pause / Stationnaire (< 0.8 km/h ou auto-pause) : 45 secondes (Eco-Pause)
-    // 3. Déplacement normal à pied : 7.0 secondes (Cadence optimale marcheur ~1.1 m/s)
-    let minCadenceMs = 7000;
+    // 1. Haute urgence / Alerte (SOS ou >50m sortie de trace) : 2.5 secondes (2500ms)
+    // 2. Pause / Stationnaire (< 0.8 km/h ou auto-pause) : 45 secondes (45000ms Eco-Pause)
+    // 3. Déplacement normal à pied : 8.0 secondes (Cadence optimale marcheur ~8s / 7000-8000ms)
+    let minCadenceMs = 8000;
     const isStationary = state.myUser.isAutoPaused || (typeof state.myUser.speed === 'number' && state.myUser.speed < 0.8 && (!state.lastGpsPos || state.myUser.speed <= 0.2));
     const isUrgent = state.myUser.isSos || state.wasOffTrackAlerted || (state.offTrackCounter && state.offTrackCounter >= 2);
 
@@ -5246,7 +5380,7 @@ function broadcastMyPosition(forceNow = false) {
     } else if (isStationary) {
       minCadenceMs = 45000;
     } else {
-      minCadenceMs = 7000;
+      minCadenceMs = 8000;
     }
 
     const elapsed = now - lastMqttBroadcastTime;
@@ -7006,6 +7140,7 @@ async function requestScreenWakeLock() {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     console.log('[App] Réveil de l\'écran / Retour application');
+    updateBatteryTelemetry();
     if (!mqttClient || !mqttClient.connected) {
       initMqttSync();
     } else {
@@ -7016,9 +7151,16 @@ document.addEventListener('visibilitychange', () => {
       });
     }
 
-    if (state.isTrackingGps) {
+    if (state.isTrackingGps && !state.isInPocketMode) {
       requestScreenWakeLock();
     }
+    const largeOverlay = document.getElementById('large-compass-overlay');
+    if (largeOverlay && !largeOverlay.classList.contains('hidden')) {
+      initCompassListener();
+    }
+  } else {
+    // Écran éteint ou application en arrière-plan : couper immédiatement les capteurs boussole
+    stopCompassListener();
   }
 });
 
@@ -7813,6 +7955,48 @@ window.recenterMapOnUser = recenterMapOnUser;
 // BOUSSOLE & ORIENTATION SUR CARTE (STYLE GOOGLE MAPS)
 // ============================================================================
 let compassListenerActive = false;
+let compassLastUpdateTime = 0;
+let compassLastHeading = -999;
+
+function orientationHandler(e) {
+  // 1. Couper le traitement si l'écran est en veille/arrière-plan ou en mode poche
+  if (document.visibilityState === 'hidden' || state.isInPocketMode) return;
+
+  const overlay = document.getElementById('large-compass-overlay');
+  const isLargeOpen = overlay && !overlay.classList.contains('hidden');
+
+  // 2. Si la grande boussole n'est pas ouverte et que la carte n'est pas tournée :
+  // éteindre le capteur matériel pour préserver 100% de batterie
+  if (!isLargeOpen && (!state.mapBearing || Math.abs(state.mapBearing) < 0.5)) {
+    stopCompassListener();
+    return;
+  }
+
+  const now = Date.now();
+  // 3. Throttling adaptatif (Action 2) :
+  // - Si grande boussole ouverte : 10 Hz max (100ms)
+  // - Si carte tournée : 2 Hz max (500ms)
+  const minInterval = isLargeOpen ? 100 : 500;
+  if (now - compassLastUpdateTime < minInterval) return;
+
+  let heading = null;
+  if (typeof e.webkitCompassHeading === 'number') {
+    heading = e.webkitCompassHeading;
+  } else if (e.alpha !== null && e.alpha !== undefined) {
+    heading = (360 - e.alpha) % 360;
+  }
+  if (heading === null || isNaN(heading)) return;
+
+  heading = Math.round(heading);
+
+  // 4. Seuil anti-gigue : 1.5° pour éviter de réveiller inutilement le rendu
+  const diff = Math.abs(heading - compassLastHeading);
+  if (diff < 1.5 && diff > 0.01) return;
+
+  compassLastUpdateTime = now;
+  compassLastHeading = heading;
+  updateCompassDisplay(heading);
+}
 
 function getCardinalDirection(heading) {
   if (typeof heading !== 'number' || isNaN(heading)) return '';
@@ -7832,27 +8016,28 @@ window.getCardinalDirection = getCardinalDirection;
 function initCompassListener() {
   if (compassListenerActive) return;
 
-  const handleOrientation = (e) => {
-    let heading = null;
-    if (typeof e.webkitCompassHeading === 'number') {
-      heading = e.webkitCompassHeading;
-    } else if (e.alpha !== null && e.alpha !== undefined) {
-      heading = (360 - e.alpha) % 360;
-    }
-    if (heading !== null && !isNaN(heading)) {
-      updateCompassDisplay(Math.round(heading));
-    }
-  };
-
   if ('ondeviceorientationabsolute' in window) {
-    window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+    window.addEventListener('deviceorientationabsolute', orientationHandler, true);
     compassListenerActive = true;
   } else if ('ondeviceorientation' in window) {
-    window.addEventListener('deviceorientation', handleOrientation, true);
+    window.addEventListener('deviceorientation', orientationHandler, true);
     compassListenerActive = true;
   }
 }
 window.initCompassListener = initCompassListener;
+
+function stopCompassListener() {
+  if (!compassListenerActive) return;
+
+  if ('ondeviceorientationabsolute' in window) {
+    window.removeEventListener('deviceorientationabsolute', orientationHandler, true);
+  }
+  if ('ondeviceorientation' in window) {
+    window.removeEventListener('deviceorientation', orientationHandler, true);
+  }
+  compassListenerActive = false;
+}
+window.stopCompassListener = stopCompassListener;
 
 function updateCompassRotation(bearing) {
   state.mapBearing = bearing || 0;
@@ -8080,6 +8265,9 @@ function toggleLargeCompass(forceShow) {
     updateCompassRotation(currentBearing);
   } else {
     overlay.classList.add('hidden');
+    if (!state.mapBearing || Math.abs(state.mapBearing) < 0.5) {
+      stopCompassListener();
+    }
   }
 }
 window.toggleLargeCompass = toggleLargeCompass;
@@ -9970,6 +10158,7 @@ window.updatePocketModeButtonVisibility = updatePocketModeButtonVisibility;
 window.recenterMapOnUser = recenterMapOnUser;
 window.toggleMapCompass = toggleMapCompass;
 window.initCompassListener = initCompassListener;
+window.stopCompassListener = stopCompassListener;
 window.updateCompassDisplay = updateCompassDisplay;
 window.openWaypointModal = openWaypointModal;
 window.closeWaypointModal = closeWaypointModal;

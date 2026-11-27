@@ -937,10 +937,12 @@ public class RandoGpsForegroundService extends Service {
         };
 
         try {
-            // GNSS Duty-Cycling 3.5s dans Foreground Service
-            // Heartbeat adaptatif 45s à l'arrêt dans Foreground Service
+            // GNSS Duty-Cycling 3.5s dans Foreground Service (cadence d'urgence 3500L ou adaptative 8000L marche)
+            // Heartbeat adaptatif 45s à l'arrêt dans Foreground Service (45000L)
+            long gpsInterval = activeIsSos ? 3500L : 8000L;
+            float minDistance = activeIsSos ? 0.0f : 8.0f;
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3500L, 0.0f, locationListener);
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, gpsInterval, minDistance, locationListener);
             }
             if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 45000L, 0.0f, locationListener);
