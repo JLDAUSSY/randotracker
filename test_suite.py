@@ -582,6 +582,17 @@ run_test("Grande Boussole Transparente : Bouton Fermer dédié (#close-large-com
 run_test("Grande Boussole Transparente : Filtre de halo haute visibilité (#shadowHalo)", lambda: bool(soup.find(id='shadowHalo')))
 run_test("Grande Boussole Transparente : Interactions de drag & drop et zoom carte", lambda: 'initLargeCompassInteractions' in js_text and 'compassDragState' in js_text and 'state.map.zoomIn()' in js_text)
 
+# Tests Enregistreur de Trace GPS & Export GPX 1.1
+run_test("Enregistreur de Trace : Carte IHM dans #tracks-modal (#track-recorder-card)", lambda: bool(soup.find(id='track-recorder-card')))
+run_test("Enregistreur de Trace : Bouton d'action Démarrer/Pause/Reprendre (#btn-recorder-toggle)", lambda: bool(soup.find(id='btn-recorder-toggle')))
+run_test("Enregistreur de Trace : Bouton Export GPX (#btn-recorder-export)", lambda: bool(soup.find(id='btn-recorder-export')))
+run_test("Enregistreur de Trace : Bouton Effacer/Purger (#btn-recorder-reset)", lambda: bool(soup.find(id='btn-recorder-reset')))
+run_test("Enregistreur de Trace : Pilule flottante directe sur la carte (#record-live-pill)", lambda: bool(soup.find(id='record-live-pill')))
+run_test("Enregistreur de Trace : Fonctions toggle/start/pause/resumeTrackRecording définies dans app.js", lambda: 'function toggleTrackRecording' in js_text and 'function startTrackRecording' in js_text and 'function pauseTrackRecording' in js_text)
+run_test("Enregistreur de Trace : Moteur d'export GPX 1.1 universel (exportRecordedGpx) défini dans app.js", lambda: 'function exportRecordedGpx' in js_text and 'gpx version="1.1"' in js_text and 'trkseg' in js_text)
+run_test("Enregistreur de Trace : Ajout de points GPS (addPointToRecordedTrack) avec filtre de bruit 5m", lambda: 'function addPointToRecordedTrack' in js_text and 'distKm < 0.005' in js_text)
+run_test("Enregistreur de Trace : Persistance locale (saveRecordedTrackToStorage & loadRecordedTrackFromStorage)", lambda: 'saveRecordedTrackToStorage' in js_text and 'loadRecordedTrackFromStorage' in js_text and 'rando_recorded_track_v1' in js_text)
+
 # ----------------------------------------------------------------------
 # 6. TESTS DE LIVRAISON SERVEUR HTTP (LOCAL) & STATIQUES
 # ----------------------------------------------------------------------
@@ -750,6 +761,15 @@ try:
                  document.getElementById('load-another-gpx-btn').click();
              """),
              lambda: sim_driver.execute_script("window.state.tracks = []; window.renderTracksModalContent(); return window._gpxInputClicked === true;"))
+    test_btn("Enregistreur de Trace (#btn-recorder-toggle -> Démarrage)",
+             lambda: sim_driver.execute_script("document.getElementById('btn-recorder-toggle').click();"),
+             lambda: sim_driver.execute_script("return window.state.recording && window.state.recording.isActive === true;"))
+    test_btn("Enregistreur de Trace (#btn-recorder-toggle -> Pause)",
+             lambda: sim_driver.execute_script("document.getElementById('btn-recorder-toggle').click();"),
+             lambda: sim_driver.execute_script("return window.state.recording && window.state.recording.isPaused === true;"))
+    test_btn("Enregistreur de Trace (#btn-recorder-toggle -> Reprise)",
+             lambda: sim_driver.execute_script("document.getElementById('btn-recorder-toggle').click();"),
+             lambda: sim_driver.execute_script("return window.state.recording && window.state.recording.isActive === true && window.state.recording.isPaused === false;"))
     test_btn("Fermer Traces (#close-tracks-modal-btn)", lambda: sim_click('close-tracks-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'tracks-modal').get_attribute('class'))
     test_btn("Cartes Header (#open-layer-modal-btn) -> Ouvre Cartes", lambda: sim_click('open-layer-modal-btn'), lambda: 'hidden' not in sim_driver.find_element(By.ID, 'layer-modal').get_attribute('class'))
     test_btn("Fermer Cartes (#close-layer-modal-btn)", lambda: sim_click('close-layer-modal-btn'), lambda: 'hidden' in sim_driver.find_element(By.ID, 'layer-modal').get_attribute('class'))

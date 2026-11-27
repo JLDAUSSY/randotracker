@@ -366,6 +366,19 @@ const state = {
     ratePerHour: null,
     estHoursLeft: null
   },
+  recording: {
+    isActive: false,
+    isPaused: false,
+    startTime: null,
+    pauseTime: null,
+    accumulatedPausedMs: 0,
+    points: [],
+    totalDistance: 0.0,
+    eleGain: 0,
+    eleLoss: 0,
+    lastPoint: null,
+    layer: null
+  },
   isInPocketMode: false,
   shareDurationHours: 8, // Par défaut 8h, max 24h
   gpsStartTime: null,
@@ -1624,6 +1637,18 @@ function initMap() {
     if (state.map) state.map.invalidateSize();
   }, 200);
 
+  // Restauration visuelle de la trace enregistrée si des points existent en mémoire
+  if (state.recording && state.recording.points && state.recording.points.length > 0 && !state.recording.layer) {
+    const latlngs = state.recording.points.map(p => [p.lat, p.lon]);
+    state.recording.layer = L.polyline(latlngs, {
+      color: '#f43f5e',
+      weight: 4,
+      opacity: 0.9,
+      lineJoin: 'round',
+      lineCap: 'round'
+    }).addTo(state.map);
+  }
+
   // Clic droit ou appui long tactile sur la carte : Marquer un repère à cette coordonnée
   state.map.on('contextmenu', (e) => {
     if (e && e.latlng) {
@@ -2315,6 +2340,7 @@ function openTracksModal() {
   if (!modal) return;
   renderTracksModalContent();
   renderTrackAdBanner();
+  updateRecorderUI();
   modal.classList.remove('hidden');
   modal.style.display = 'flex';
   bringWindowToFront(modal);
@@ -2479,6 +2505,454 @@ function renderTracksModalContent() {
   `).join('');
 
   lucide.createIcons();
+}
+
+// ============================================================================
+// ENREGISTREUR DE TRACE GPS EN DIRECT (TRACK RECORDER & EXPORT GPX 1.1)
+// ============================================================================
+let recorderTimerInterval = null;
+
+function startRecorderTimer() {
+  if (recorderTimerInterval) clearInterval(recorderTimerInterval);
+  recorderTimerInterval = setInterval(() => {
+    updateRecorderUI();
+  }, 1000);
+}
+
+function stopRecorderTimer() {
+  if (recorderTimerInterval) {
+    clearInterval(recorderTimerInterval);
+    recorderTimerInterval = null;
+  }
+}
+
+function toggleTrackRecording() {
+  if (!state.recording.isActive) {
+    startTrackRecording();
+  } else if (!state.recording.isPaused) {
+    pauseTrackRecording();
+  } else {
+    resumeTrackRecording();
+  }
+}
+
+function startTrackRecording() {
+  if (!state.isTrackingGps) {
+    startGpsWatch(true);
+  }
+  state.recording.isActive = true;
+  state.recording.isPaused = false;
+  if (!state.recording.startTime) {
+    state.recording.startTime = Date.now();
+  }
+  state.recording.pauseTime = null;
+
+  // Si on a déjà une position GPS valide, on l'ajoute directement comme premier point
+  if (state.myUser && state.myUser.lat !== null && state.myUser.lon !== null && (!state.recording.points || state.recording.points.length === 0)) {
+    addPointToRecordedTrack(state.myUser.lat, state.myUser.lon, state.myUser.ele, Date.now());
+  }
+
+  startRecorderTimer();
+  updateRecorderUI();
+  saveRecordedTrackToStorage();
+  showToast('🔴 Enregistrement de trace démarré', 'success');
+}
+
+function pauseTrackRecording() {
+  if (!state.recording.isActive) return;
+  state.recording.isPaused = true;
+  state.recording.pauseTime = Date.now();
+  stopRecorderTimer();
+  updateRecorderUI();
+  saveRecordedTrackToStorage();
+  showToast('⏸️ Enregistrement mis en pause', 'info');
+}
+
+function resumeTrackRecording() {
+  if (!state.recording.isActive) return;
+  if (state.recording.pauseTime) {
+    state.recording.accumulatedPausedMs = (state.recording.accumulatedPausedMs || 0) + (Date.now() - state.recording.pauseTime);
+    state.recording.pauseTime = null;
+  }
+  state.recording.isPaused = false;
+
+  // Ajouter la position courante si disponible
+  if (state.myUser && state.myUser.lat !== null && state.myUser.lon !== null) {
+    addPointToRecordedTrack(state.myUser.lat, state.myUser.lon, state.myUser.ele, Date.now());
+  }
+
+  startRecorderTimer();
+  updateRecorderUI();
+  saveRecordedTrackToStorage();
+  showToast('▶️ Enregistrement repris', 'success');
+}
+
+function addPointToRecordedTrack(lat, lon, ele, timestamp) {
+  if (lat === null || lon === null || isNaN(lat) || isNaN(lon)) return;
+  if (!state.recording) return;
+
+  const now = timestamp || Date.now();
+  const last = state.recording.lastPoint;
+
+  if (last) {
+    const distKm = calculateDistance(last.lat, last.lon, lat, lon);
+    // Filtrage anti-bruit : ignorer les micros-déplacements < 5m
+    if (distKm < 0.005) {
+      return;
+    }
+
+    state.recording.totalDistance = (state.recording.totalDistance || 0) + distKm;
+
+    if (typeof ele === 'number' && typeof last.ele === 'number' && !isNaN(ele) && !isNaN(last.ele)) {
+      const dEle = ele - last.ele;
+      if (dEle >= 1.0) {
+        state.recording.eleGain = (state.recording.eleGain || 0) + dEle;
+      } else if (dEle <= -1.0) {
+        state.recording.eleLoss = (state.recording.eleLoss || 0) + Math.abs(dEle);
+      }
+    }
+  }
+
+  const point = {
+    lat: Number(lat),
+    lon: Number(lon),
+    ele: (typeof ele === 'number' && !isNaN(ele)) ? Math.round(ele * 10) / 10 : null,
+    time: now
+  };
+
+  if (!state.recording.points) {
+    state.recording.points = [];
+  }
+  state.recording.points.push(point);
+  state.recording.lastPoint = point;
+
+  // Mise à jour de la polyligne Leaflet sur la carte
+  if (state.map) {
+    if (state.recording.layer) {
+      state.recording.layer.addLatLng([lat, lon]);
+    } else {
+      state.recording.layer = L.polyline([[lat, lon]], {
+        color: '#f43f5e',
+        weight: 4,
+        opacity: 0.9,
+        lineJoin: 'round',
+        lineCap: 'round'
+      }).addTo(state.map);
+    }
+  }
+
+  updateRecorderUI();
+  saveRecordedTrackToStorage();
+}
+
+function updateRecorderUI() {
+  if (!state.recording) return;
+
+  const rec = state.recording;
+  const distEl = document.getElementById('recorder-distance-display');
+  const eleEl = document.getElementById('recorder-elegain-display');
+  const ptsEl = document.getElementById('recorder-points-display');
+  const timeEl = document.getElementById('recorder-time-display');
+  const statusDot = document.getElementById('recorder-status-dot');
+  const statusTitle = document.getElementById('recorder-status-title');
+  const toggleBtn = document.getElementById('btn-recorder-toggle');
+  const toggleIcon = document.getElementById('btn-recorder-toggle-icon');
+  const toggleLabel = document.getElementById('btn-recorder-toggle-label');
+  const exportBtn = document.getElementById('btn-recorder-export');
+  const resetBtn = document.getElementById('btn-recorder-reset');
+  const livePill = document.getElementById('record-live-pill');
+  const livePillText = document.getElementById('record-live-pill-text');
+
+  // Calcul du temps écoulé
+  let elapsedMs = 0;
+  if (rec.startTime) {
+    if (rec.isPaused && rec.pauseTime) {
+      elapsedMs = rec.pauseTime - rec.startTime - (rec.accumulatedPausedMs || 0);
+    } else {
+      elapsedMs = Date.now() - rec.startTime - (rec.accumulatedPausedMs || 0);
+    }
+  }
+  if (elapsedMs < 0) elapsedMs = 0;
+
+  const totalSec = Math.floor(elapsedMs / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+  const numPoints = rec.points ? rec.points.length : 0;
+  const totalDist = rec.totalDistance || 0;
+  const totalEle = rec.eleGain || 0;
+
+  if (timeEl) timeEl.textContent = timeStr;
+  if (distEl) distEl.textContent = `${totalDist.toFixed(2)} km`;
+  if (eleEl) eleEl.textContent = `+${Math.round(totalEle)} m`;
+  if (ptsEl) ptsEl.textContent = `${numPoints} pt${numPoints > 1 ? 's' : ''}`;
+
+  // Statut & Boutons
+  if (!rec.isActive) {
+    if (statusDot) {
+      statusDot.className = 'inline-block w-3 h-3 rounded-full bg-slate-500';
+    }
+    if (statusTitle) statusTitle.textContent = numPoints > 0 ? 'Trace en mémoire' : 'Enregistreur de trace';
+    if (toggleBtn) {
+      toggleBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer';
+    }
+    if (toggleIcon) toggleIcon.textContent = '🔴';
+    if (toggleLabel) toggleLabel.textContent = numPoints > 0 ? 'Reprendre la trace' : 'Démarrer l\'enregistrement';
+  } else if (rec.isPaused) {
+    if (statusDot) {
+      statusDot.className = 'inline-block w-3 h-3 rounded-full bg-amber-400';
+    }
+    if (statusTitle) statusTitle.textContent = 'Enregistrement en pause';
+    if (toggleBtn) {
+      toggleBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer';
+    }
+    if (toggleIcon) toggleIcon.textContent = '▶️';
+    if (toggleLabel) toggleLabel.textContent = 'Reprendre';
+  } else {
+    // Actif & En cours
+    if (statusDot) {
+      statusDot.className = 'inline-block w-3 h-3 rounded-full bg-rose-500 animate-pulse';
+    }
+    if (statusTitle) statusTitle.textContent = 'Enregistrement actif';
+    if (toggleBtn) {
+      toggleBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer';
+    }
+    if (toggleIcon) toggleIcon.textContent = '⏸️';
+    if (toggleLabel) toggleLabel.textContent = 'Mettre en pause';
+  }
+
+  // Affichage export / effacer
+  if (exportBtn) {
+    if (numPoints > 0) {
+      exportBtn.classList.remove('hidden');
+    } else {
+      exportBtn.classList.add('hidden');
+    }
+  }
+  if (resetBtn) {
+    if (numPoints > 0) {
+      resetBtn.classList.remove('hidden');
+    } else {
+      resetBtn.classList.add('hidden');
+    }
+  }
+
+  // Pilule flottante sur la carte (#record-live-pill)
+  if (livePill) {
+    if (rec.isActive) {
+      livePill.classList.remove('hidden');
+      if (rec.isPaused) {
+        livePill.className = 'absolute bottom-16 left-3 z-20 px-3 py-2 rounded-2xl bg-amber-950/95 hover:bg-amber-900 text-amber-300 hover:text-white font-black text-xs flex items-center gap-2 border-2 border-amber-500 shadow-2xl backdrop-blur-md transition active:scale-95 cursor-pointer';
+        if (livePillText) livePillText.textContent = `PAUSE ${totalDist.toFixed(2)} km`;
+      } else {
+        livePill.className = 'absolute bottom-16 left-3 z-20 px-3 py-2 rounded-2xl bg-rose-950/95 hover:bg-rose-900 text-rose-300 hover:text-white font-black text-xs flex items-center gap-2 border-2 border-rose-500 shadow-2xl backdrop-blur-md transition active:scale-95 cursor-pointer animate-pulse';
+        if (livePillText) livePillText.textContent = `REC ${totalDist.toFixed(2)} km`;
+      }
+    } else if (numPoints > 0) {
+      livePill.classList.remove('hidden');
+      livePill.className = 'absolute bottom-16 left-3 z-20 px-3 py-2 rounded-2xl bg-slate-900/95 hover:bg-slate-800 text-rose-400 hover:text-white font-black text-xs flex items-center gap-2 border-2 border-rose-500/60 shadow-2xl backdrop-blur-md transition active:scale-95 cursor-pointer';
+      if (livePillText) livePillText.textContent = `TRACE ${totalDist.toFixed(2)} km`;
+    } else {
+      livePill.classList.add('hidden');
+    }
+  }
+}
+
+async function exportRecordedGpx() {
+  if (!state.recording || !state.recording.points || state.recording.points.length === 0) {
+    showToast('Aucun point enregistré à exporter', 'info');
+    return;
+  }
+
+  const points = state.recording.points;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('fr-FR').replace(/\//g, '-');
+  const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, 'h');
+  const fileName = `RandoTracker_${dateStr}_${timeStr}.gpx`;
+
+  let gpxXml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+  gpxXml += `<gpx version="1.1" creator="RandoTracker - https://randotracker.jldaussy.fr"\n`;
+  gpxXml += `  xmlns="http://www.topografix.com/GPX/1/1"\n`;
+  gpxXml += `  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n`;
+  gpxXml += `  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">\n`;
+  gpxXml += `  <metadata>\n`;
+  gpxXml += `    <name>Trace RandoTracker ${dateStr}</name>\n`;
+  gpxXml += `    <time>${now.toISOString()}</time>\n`;
+  gpxXml += `  </metadata>\n`;
+  gpxXml += `  <trk>\n`;
+  gpxXml += `    <name>Randonnée du ${dateStr}</name>\n`;
+  gpxXml += `    <desc>Trace enregistrée par ${state.myUser.name || 'Randonneur'} avec RandoTracker (${(state.recording.totalDistance || 0).toFixed(2)} km, +${Math.round(state.recording.eleGain || 0)}m)</desc>\n`;
+  gpxXml += `    <type>Hiking</type>\n`;
+  gpxXml += `    <trkseg>\n`;
+
+  for (let i = 0; i < points.length; i++) {
+    const pt = points[i];
+    const latStr = Number(pt.lat).toFixed(6);
+    const lonStr = Number(pt.lon).toFixed(6);
+    gpxXml += `      <trkpt lat="${latStr}" lon="${lonStr}">\n`;
+    if (typeof pt.ele === 'number' && !isNaN(pt.ele)) {
+      gpxXml += `        <ele>${pt.ele.toFixed(1)}</ele>\n`;
+    }
+    const ptIso = pt.time ? new Date(pt.time).toISOString() : now.toISOString();
+    gpxXml += `        <time>${ptIso}</time>\n`;
+    gpxXml += `      </trkpt>\n`;
+  }
+
+  gpxXml += `    </trkseg>\n`;
+  gpxXml += `  </trk>\n`;
+  gpxXml += `</gpx>\n`;
+
+  const blob = new Blob([gpxXml], { type: 'application/gpx+xml;charset=utf-8' });
+
+  // 1. Partage natif mobile via Web Share API avec fichier
+  let shared = false;
+  if (navigator.canShare) {
+    try {
+      const file = new File([blob], fileName, { type: 'application/gpx+xml' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Trace GPX RandoTracker - ${dateStr}`,
+          text: `Voici ma trace de randonnée (${(state.recording.totalDistance || 0).toFixed(2)} km, +${Math.round(state.recording.eleGain || 0)}m) enregistrée avec RandoTracker.`
+        });
+        shared = true;
+        showToast('Trace GPX partagée avec succès !', 'success');
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.warn('[GPX Export Share]', e);
+      } else {
+        // Annulation par l'utilisateur du share sheet, ne pas forcer le téléchargement
+        return;
+      }
+    }
+  }
+
+  // 2. Fallback téléchargement direct classique
+  if (!shared) {
+    try {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 500);
+      showToast(`Fichier GPX téléchargé : ${fileName}`, 'success');
+    } catch (e) {
+      console.error('[GPX Export Download]', e);
+      showToast('Erreur lors du téléchargement du fichier GPX', 'error');
+    }
+  }
+}
+
+async function confirmResetRecordedTrack() {
+  if (!state.recording || !state.recording.points || state.recording.points.length === 0) return;
+  const confirmed = await showConfirmDialog({
+    title: 'Effacer l’enregistrement ?',
+    message: 'Voulez-vous réinitialiser et supprimer la trace enregistrée en cours ? Cette action est irréversible.',
+    confirmText: 'Oui, effacer',
+    cancelText: 'Non, garder',
+    isDanger: true
+  });
+  if (confirmed) {
+    resetTrackRecording();
+  }
+}
+
+function resetTrackRecording() {
+  stopRecorderTimer();
+  if (state.recording.layer && state.map) {
+    try {
+      state.map.removeLayer(state.recording.layer);
+    } catch (e) {}
+  }
+  state.recording = {
+    isActive: false,
+    isPaused: false,
+    startTime: null,
+    pauseTime: null,
+    accumulatedPausedMs: 0,
+    points: [],
+    totalDistance: 0.0,
+    eleGain: 0,
+    eleLoss: 0,
+    lastPoint: null,
+    layer: null
+  };
+  try {
+    localStorage.removeItem('rando_recorded_track_v1');
+  } catch (e) {}
+  updateRecorderUI();
+  showToast('Trace enregistrée effacée', 'info');
+}
+
+function saveRecordedTrackToStorage() {
+  if (!state.recording) return;
+  try {
+    const dataToSave = {
+      isActive: state.recording.isActive,
+      isPaused: state.recording.isPaused,
+      startTime: state.recording.startTime,
+      pauseTime: state.recording.pauseTime,
+      accumulatedPausedMs: state.recording.accumulatedPausedMs,
+      totalDistance: state.recording.totalDistance,
+      eleGain: state.recording.eleGain,
+      eleLoss: state.recording.eleLoss,
+      points: state.recording.points
+    };
+    localStorage.setItem('rando_recorded_track_v1', JSON.stringify(dataToSave));
+  } catch (e) {
+    console.warn('[Save Recorded Track]', e);
+  }
+}
+
+function loadRecordedTrackFromStorage() {
+  try {
+    const raw = localStorage.getItem('rando_recorded_track_v1');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.points) || data.points.length === 0) return;
+
+    state.recording.isActive = !!data.isActive;
+    state.recording.isPaused = !!data.isPaused;
+    state.recording.startTime = data.startTime || Date.now();
+    state.recording.pauseTime = data.pauseTime || null;
+    state.recording.accumulatedPausedMs = data.accumulatedPausedMs || 0;
+    state.recording.totalDistance = data.totalDistance || 0;
+    state.recording.eleGain = data.eleGain || 0;
+    state.recording.eleLoss = data.eleLoss || 0;
+    state.recording.points = data.points;
+    state.recording.lastPoint = data.points[data.points.length - 1];
+
+    // Restaurer le tracé Leaflet sur la carte si disponible
+    if (state.map && state.recording.points.length > 0) {
+      const latlngs = state.recording.points.map(p => [p.lat, p.lon]);
+      if (state.recording.layer) {
+        state.recording.layer.setLatLngs(latlngs);
+      } else {
+        state.recording.layer = L.polyline(latlngs, {
+          color: '#f43f5e',
+          weight: 4,
+          opacity: 0.9,
+          lineJoin: 'round',
+          lineCap: 'round'
+        }).addTo(state.map);
+      }
+    }
+
+    if (state.recording.isActive && !state.recording.isPaused) {
+      startRecorderTimer();
+    }
+    updateRecorderUI();
+  } catch (e) {
+    console.warn('[Load Recorded Track]', e);
+  }
 }
 
 function setTrackColor(trackId, colorHex) {
@@ -8694,6 +9168,7 @@ function bootApp() {
   try { createOrUpdateUserMarker(state.myUser); } catch(e) { console.error('[Init UserMarker]', e); }
   try { loadSavedOtherUsersFromStorage(); } catch(e) { console.error('[Init SavedUsers]', e); }
   try { loadWaypointsFromStorage(); } catch(e) { console.error('[Init Waypoints]', e); }
+  try { loadRecordedTrackFromStorage(); } catch(e) { console.error('[Init RecordedTrack]', e); }
   try { initCompassListener(); } catch(e) { console.error('[Init Compass]', e); }
   try { deduplicateUsersByName(); } catch(e) { console.error('[Init Deduplicate]', e); }
   try { renderUsersList(); } catch(e) { console.error('[Init UsersList]', e); }
@@ -10297,6 +10772,17 @@ window.updateNearbyPoiDistances = updateNearbyPoiDistances;
 window.copyCoordinatesGeneric = copyCoordinatesGeneric;
 window.savePoiAsWaypoint = savePoiAsWaypoint;
 window.updateRecenterButtonUi = updateRecenterButtonUi;
+window.startTrackRecording = startTrackRecording;
+window.pauseTrackRecording = pauseTrackRecording;
+window.resumeTrackRecording = resumeTrackRecording;
+window.toggleTrackRecording = toggleTrackRecording;
+window.exportRecordedGpx = exportRecordedGpx;
+window.confirmResetRecordedTrack = confirmResetRecordedTrack;
+window.resetTrackRecording = resetTrackRecording;
+window.updateRecorderUI = updateRecorderUI;
+window.addPointToRecordedTrack = addPointToRecordedTrack;
+window.saveRecordedTrackToStorage = saveRecordedTrackToStorage;
+window.loadRecordedTrackFromStorage = loadRecordedTrackFromStorage;
 
 window.state = state;
 
