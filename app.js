@@ -1263,6 +1263,7 @@ function openProfileModal() {
   if (!profileModal) return;
   makeModalDraggable(profileModal);
   updateProfileUI();
+  renderBatteryUI();
   updatePocketModeButtonVisibility();
   renderProfileAdBanner();
   profileModal.classList.remove('hidden');
@@ -1378,11 +1379,11 @@ function updateBatteryTelemetry() {
   state.batteryTracking.lastTime = now;
 
   const elapsedHours = (now - state.batteryTracking.startTime) / 3600000;
-  // Calcul significatif dès 2 minutes (0.033 h)
-  if (elapsedHours >= 0.033) {
-    const drop = state.batteryTracking.startLevel - currentLevel;
+  // Calcul significatif dès 1 minute (0.016 h) ou dès la première perte de 1%
+  const drop = state.batteryTracking.startLevel - currentLevel;
+  if (elapsedHours >= 0.016 || drop > 0) {
     if (drop > 0) {
-      const rate = drop / elapsedHours;
+      const rate = drop / Math.max(elapsedHours, 0.008);
       state.batteryTracking.ratePerHour = Math.round(rate * 10) / 10;
       if (rate > 0.05) {
         state.batteryTracking.estHoursLeft = Math.round((currentLevel / rate) * 10) / 10;
@@ -1404,7 +1405,7 @@ function getBatteryStatusLabel(short = false) {
   const bt = state.batteryTracking;
 
   if (!bt || bt.ratePerHour === null || bt.ratePerHour === undefined) {
-    return `${lvl}%`;
+    return short ? `${lvl}%` : `${lvl}% (Calcul en cours...)`;
   }
 
   if (bt.ratePerHour === -1) {
@@ -1433,10 +1434,17 @@ function renderBatteryUI() {
   if (pocketBattery) {
     pocketBattery.textContent = `🔋 ${label}`;
   }
+  const profileBattery = document.getElementById('profile-battery-stat');
+  if (profileBattery) {
+    profileBattery.textContent = `🔋 ${label}`;
+  }
 }
 window.updateBatteryTelemetry = updateBatteryTelemetry;
 window.getBatteryStatusLabel = getBatteryStatusLabel;
 window.renderBatteryUI = renderBatteryUI;
+
+// Rafraîchissement automatique passif du calcul d'autonomie (toutes les 30s)
+setInterval(updateBatteryTelemetry, 30000);
 
 // ============================================================================
 // INITIALISATION DE LA CARTE AVEC MOTEUR CANVAS ULTRA-RAPIDE

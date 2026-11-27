@@ -37,9 +37,9 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PolylineOffset pour affichage parallèle des tronçons communs de traces GPX -->
-  <script src="leaflet.polylineoffset.js?v=116"></script>
+  <script src="leaflet.polylineoffset.js?v=117"></script>
   <!-- Leaflet Rotate pour réorientation de la carte aux 2 doigts -->
-  <script src="leaflet-rotate.js?v=116"></script>
+  <script src="leaflet-rotate.js?v=117"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -57,8 +57,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v116 -->
-  <link rel="stylesheet" href="styles.css?v=116" />
+  <!-- Custom Styles with Cache-Busting v117 -->
+  <link rel="stylesheet" href="styles.css?v=117" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -1135,6 +1135,18 @@
           <span class="text-[11px] text-slate-400 font-semibold mt-1 block">Passé ce délai, le partage GPS s'arrête automatiquement pour préserver votre batterie.</span>
         </div>
 
+        <!-- Suivi & Décharge Batterie en direct -->
+        <div class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-750 flex items-center justify-between shadow-inner">
+          <div class="flex items-center gap-2">
+            <i data-lucide="battery-charging" class="w-5 h-5 text-emerald-400"></i>
+            <div>
+              <div class="text-[11px] font-black uppercase text-slate-400">Suivi Décharge Batterie</div>
+              <div class="text-[10px] text-slate-500 font-semibold">Taux de décharge & autonomie restante</div>
+            </div>
+          </div>
+          <div id="profile-battery-stat" class="font-black text-sm text-emerald-400 font-mono text-right">🔋 92%</div>
+        </div>
+
         <!-- Avatar & Couleur (12 choix outdoor) -->
         <div>
           <label class="block text-xs font-black text-slate-400 uppercase mb-2">Votre Avatar & Couleur</label>
@@ -2170,7 +2182,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v116 -->
-  <script src="app.js?v=116"></script>
+  <!-- Main Application Script with Cache-Busting v117 -->
+  <script src="app.js?v=117"></script>
 </body>
 </html>
