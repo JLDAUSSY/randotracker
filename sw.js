@@ -1,5 +1,5 @@
 // Service Worker pour RandoTracker PWA - Version 119
-const CACHE_NAME = 'rando-tracker-v119';
+const CACHE_NAME = 'rando-tracker-v120';
 const TILES_CACHE_NAME = 'rando-tiles-v1';
 
 const STATIC_ASSETS = [

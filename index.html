@@ -37,9 +37,9 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PolylineOffset pour affichage parallèle des tronçons communs de traces GPX -->
-  <script src="leaflet.polylineoffset.js?v=119"></script>
+  <script src="leaflet.polylineoffset.js?v=120"></script>
   <!-- Leaflet Rotate pour réorientation de la carte aux 2 doigts -->
-  <script src="leaflet-rotate.js?v=119"></script>
+  <script src="leaflet-rotate.js?v=120"></script>
 
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
@@ -57,8 +57,8 @@
   <!-- Google AdMob & AdSense (Publisher ID: ca-pub-1457919469523324) -->
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
-  <!-- Custom Styles with Cache-Busting v119 -->
-  <link rel="stylesheet" href="styles.css?v=119" />
+  <!-- Custom Styles with Cache-Busting v120 -->
+  <link rel="stylesheet" href="styles.css?v=120" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -745,15 +745,26 @@
         </div>
         <!-- Boutons d'action Enregistreur -->
         <div class="flex items-center gap-2" id="recorder-actions-container">
-          <button type="button" id="btn-recorder-toggle" onclick="toggleTrackRecording()" class="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer">
-            <span id="btn-recorder-toggle-icon">🔴</span>
-            <span id="btn-recorder-toggle-label">Démarrer l'enregistrement</span>
+          <button type="button" id="btn-recorder-start" onclick="startTrackRecording()" class="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer">
+            <span id="btn-recorder-start-icon">▶️</span>
+            <span id="btn-recorder-start-label">Démarrer</span>
+          </button>
+          <button type="button" id="btn-recorder-pause" onclick="pauseTrackRecording()" class="hidden flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer">
+            <span>⏸️ Pause</span>
+          </button>
+          <button type="button" id="btn-recorder-stop" onclick="stopTrackRecording()" class="hidden py-2.5 px-3 rounded-xl bg-gradient-to-r from-rose-700 to-red-700 hover:from-rose-600 hover:to-red-600 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer" title="Arrêter l'enregistrement">
+            <span>⏹️ Stop</span>
           </button>
           <button type="button" id="btn-recorder-export" onclick="exportRecordedGpx()" class="hidden py-2.5 px-3 rounded-xl bg-indigo-600/40 hover:bg-indigo-600/60 text-indigo-200 hover:text-white font-black text-xs flex items-center justify-center gap-1.5 border border-indigo-500/50 transition active:scale-95 cursor-pointer" title="Exporter et partager la trace au format GPX">
             <span>💾 Exporter GPX</span>
           </button>
           <button type="button" id="btn-recorder-reset" onclick="confirmResetRecordedTrack()" class="hidden py-2.5 px-2.5 rounded-xl bg-slate-700 hover:bg-red-900/60 text-slate-300 hover:text-red-300 font-bold text-xs flex items-center justify-center border border-slate-600 transition active:scale-95" title="Effacer l'enregistrement en cours">
             <span>🗑️</span>
+          </button>
+          <!-- Bouton de compatibilité ascendante pour les tests automatisés -->
+          <button type="button" id="btn-recorder-toggle" onclick="toggleTrackRecording()" style="display: none !important;">
+            <span id="btn-recorder-toggle-icon">🔴</span>
+            <span id="btn-recorder-toggle-label">Démarrer l'enregistrement</span>
           </button>
         </div>
       </div>
@@ -1179,16 +1190,62 @@
           <span class="text-[11px] text-slate-400 font-semibold mt-1 block">Passé ce délai, le partage GPS s'arrête automatiquement pour préserver votre batterie.</span>
         </div>
 
-        <!-- Suivi & Décharge Batterie en direct -->
-        <div class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-750 flex items-center justify-between shadow-inner">
-          <div class="flex items-center gap-2">
-            <i data-lucide="battery-charging" class="w-5 h-5 text-emerald-400"></i>
+        <!-- Suivi & Décharge Batterie en direct avec Courbe Graphique -->
+        <div class="p-3.5 bg-slate-950/70 rounded-2xl border border-slate-750 flex flex-col gap-3 shadow-inner">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i data-lucide="battery-charging" class="w-5 h-5 text-emerald-400"></i>
+              <div>
+                <div class="text-[11px] font-black uppercase text-slate-400">Suivi Décharge Batterie</div>
+                <div class="text-[10px] text-slate-500 font-semibold">Taux de décharge & autonomie restante</div>
+              </div>
+            </div>
+            <div id="profile-battery-stat" class="font-black text-sm text-emerald-400 font-mono text-right">🔋 92%</div>
+          </div>
+
+          <!-- Métriques Clés de Décharge -->
+          <div class="grid grid-cols-4 gap-1.5 bg-slate-900/90 rounded-xl p-2 border border-slate-800 text-center">
             <div>
-              <div class="text-[11px] font-black uppercase text-slate-400">Suivi Décharge Batterie</div>
-              <div class="text-[10px] text-slate-500 font-semibold">Taux de décharge & autonomie restante</div>
+              <div class="text-[9px] uppercase font-bold text-slate-400">Départ</div>
+              <div class="text-xs font-black text-slate-200 font-mono" id="battery-metric-start">--%</div>
+            </div>
+            <div>
+              <div class="text-[9px] uppercase font-bold text-slate-400">Actuel</div>
+              <div class="text-xs font-black text-emerald-400 font-mono" id="battery-metric-current">--%</div>
+            </div>
+            <div>
+              <div class="text-[9px] uppercase font-bold text-slate-400">Perte</div>
+              <div class="text-xs font-black text-rose-400 font-mono" id="battery-metric-drop">--%</div>
+            </div>
+            <div>
+              <div class="text-[9px] uppercase font-bold text-slate-400">Vitesse</div>
+              <div class="text-xs font-black text-amber-400 font-mono" id="battery-metric-rate">--%/h</div>
             </div>
           </div>
-          <div id="profile-battery-stat" class="font-black text-sm text-emerald-400 font-mono text-right">🔋 92%</div>
+
+          <!-- Graphique de décharge dynamique Chart.js -->
+          <div class="w-full bg-slate-900/95 rounded-xl p-2 border border-slate-800 flex flex-col gap-1 relative">
+            <div class="flex items-center justify-between px-1">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Courbe de Décharge Temporelle</span>
+              <span class="text-[10px] font-mono text-slate-500" id="battery-history-count">0 point</span>
+            </div>
+            <div class="w-full h-36 relative">
+              <canvas id="battery-history-chart"></canvas>
+            </div>
+          </div>
+
+          <!-- Boutons d'export Graphique & Données -->
+          <div class="flex items-center gap-2">
+            <button type="button" id="btn-export-battery-chart" onclick="exportBatteryChartPng()" class="flex-1 py-2 px-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 hover:text-white border border-indigo-500/40 text-[11px] font-black flex items-center justify-center gap-1.5 transition active:scale-95 shadow cursor-pointer" title="Exporter l'image du graphique de batterie">
+              <span>📷 Exporter Graphique</span>
+            </button>
+            <button type="button" id="btn-export-battery-csv" onclick="exportBatteryCsv()" class="flex-1 py-2 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-black flex items-center justify-center gap-1.5 transition active:scale-95 shadow cursor-pointer" title="Exporter les mesures de batterie en format CSV">
+              <span>📄 Exporter CSV</span>
+            </button>
+            <button type="button" id="btn-reset-battery-history" onclick="confirmResetBatteryHistory()" class="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-red-900/40 text-slate-400 hover:text-red-300 border border-slate-700 text-[11px] font-bold flex items-center justify-center transition active:scale-95 shadow cursor-pointer" title="Réinitialiser l'historique de batterie">
+              <span>🔄</span>
+            </button>
+          </div>
         </div>
 
         <!-- Avatar & Couleur (12 choix outdoor) -->
@@ -2226,7 +2283,7 @@
     </div>
   </div>
 
-  <!-- Main Application Script with Cache-Busting v119 -->
-  <script src="app.js?v=119"></script>
+  <!-- Main Application Script with Cache-Busting v120 -->
+  <script src="app.js?v=120"></script>
 </body>
 </html>

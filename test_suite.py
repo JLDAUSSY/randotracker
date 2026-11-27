@@ -585,6 +585,13 @@ run_test("Grande Boussole Transparente : Interactions de drag & drop et zoom car
 # Tests Enregistreur de Trace GPS & Export GPX 1.1
 run_test("Enregistreur de Trace : Carte IHM dans #tracks-modal (#track-recorder-card)", lambda: bool(soup.find(id='track-recorder-card')))
 run_test("Enregistreur de Trace : Bouton d'action Démarrer/Pause/Reprendre (#btn-recorder-toggle)", lambda: bool(soup.find(id='btn-recorder-toggle')))
+run_test("Enregistreur de Trace : Boutons dédiés Start/Pause/Stop (#btn-recorder-start, #btn-recorder-pause, #btn-recorder-stop)", lambda: bool(soup.find(id='btn-recorder-start')) and bool(soup.find(id='btn-recorder-pause')) and bool(soup.find(id='btn-recorder-stop')))
+run_test("Enregistreur de Trace : Repère Départ 🚩 positionné dès le démarrage", lambda: 'custom-start-marker' in js_text and 'Départ' in js_text and 'startMarker' in js_text)
+run_test("Enregistreur de Trace : Format nom GPX YYYYMMDDHHMN - ville - km - dénivelé", lambda: 'timestampStr' in js_text and 'cleanCity' in js_text and 'distStr' in js_text and 'eleStr' in js_text)
+run_test("Purge Radicale : Suppression définitive avec markUserDismissed dans clearOnlyParticipants et clearHikeSession", lambda: 'markUserDismissed(id)' in js_text and 'kick_all' in js_text)
+run_test("Suivi Batterie : Graphique Chart.js (#battery-history-chart) et métriques dans #profile-modal", lambda: bool(soup.find(id='battery-history-chart')) and bool(soup.find(id='battery-metric-start')) and bool(soup.find(id='battery-metric-rate')))
+run_test("Suivi Batterie : Boutons Export Graphique (#btn-export-battery-chart) et Données CSV (#btn-export-battery-csv)", lambda: bool(soup.find(id='btn-export-battery-chart')) and bool(soup.find(id='btn-export-battery-csv')) and bool(soup.find(id='btn-reset-battery-history')))
+run_test("Suivi Batterie : Fonctions exportBatteryChartPng, exportBatteryCsv, renderBatteryChart définies dans app.js", lambda: 'function exportBatteryChartPng' in js_text and 'function exportBatteryCsv' in js_text and 'function renderBatteryChart' in js_text)
 run_test("Enregistreur de Trace : Bouton Export GPX (#btn-recorder-export)", lambda: bool(soup.find(id='btn-recorder-export')))
 run_test("Enregistreur de Trace : Bouton Effacer/Purger (#btn-recorder-reset)", lambda: bool(soup.find(id='btn-recorder-reset')))
 run_test("Enregistreur de Trace : Pilule flottante directe sur la carte (#record-live-pill)", lambda: bool(soup.find(id='record-live-pill')))
@@ -682,14 +689,17 @@ try:
 
     SIM_PORT = 8924
     sim_httpd = None
-    try:
-        socketserver.TCPServer.allow_reuse_address = True
-        sim_httpd = socketserver.TCPServer(('127.0.0.1', SIM_PORT), QuietHandler)
-        sim_thread = threading.Thread(target=sim_httpd.serve_forever, daemon=True)
-        sim_thread.start()
-        time.sleep(0.3)
-    except Exception as e:
-        print(f"  [WARN] Erreur démarrage serveur simulation: {e}")
+    for p in range(8924, 8950):
+        try:
+            socketserver.TCPServer.allow_reuse_address = True
+            sim_httpd = socketserver.TCPServer(('127.0.0.1', p), QuietHandler)
+            SIM_PORT = p
+            sim_thread = threading.Thread(target=sim_httpd.serve_forever, daemon=True)
+            sim_thread.start()
+            time.sleep(0.3)
+            break
+        except Exception:
+            continue
 
     chrome_opts = Options()
     chrome_opts.binary_location = r"C:\Program Files\Google\Chrome\Application\chrome.exe"

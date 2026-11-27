@@ -377,8 +377,11 @@ const state = {
     eleGain: 0,
     eleLoss: 0,
     lastPoint: null,
-    layer: null
+    layer: null,
+    startMarker: null
   },
+  batteryHistory: [],
+  batteryChartInstance: null,
   isInPocketMode: false,
   shareDurationHours: 8, // Par défaut 8h, max 24h
   gpsStartTime: null,
@@ -752,7 +755,9 @@ function clearHikeSession() {
   state.myUser.assignedTrackId = 'auto';
 
   // 2. Effacer tous les autres participants de la carte et de la liste (sauf Moi)
+  // Purge radicale : marquer chaque ID comme exclu pour rejeter tout paquet MQTT ultérieur
   state.otherUsers.forEach((u, id) => {
+    markUserDismissed(id);
     removeUserMarker(id);
   });
   state.otherUsers.clear();
@@ -772,9 +777,13 @@ function clearHikeSession() {
   renderQuickTracksBar();
   renderUsersList();
   updateProfileUI();
-  showToast('Randonnée et participants réinitialisés !', 'info');
+  showToast('Randonnée et salon purgés radicalement !', 'info');
 
-  // 5. Diffuser le signal de réinitialisation à tous les participants du salon
+  // 5. Diffuser le signal de réinitialisation et de purge à tous les participants du salon
+  publishMessage({
+    type: 'kick_all',
+    from: state.myUser.id
+  });
   publishMessage({
     type: 'reset_session',
     from: state.myUser.id
@@ -791,10 +800,12 @@ function clearOnlyParticipants() {
     return;
   }
   const count = state.otherUsers.size;
-  if (!confirm(`Voulez-vous supprimer les ${count} autre(s) participant(s) de votre carte ?\n(Vos traces GPX seront conservées).`)) return;
+  if (!confirm(`Voulez-vous purger radicalement les ${count} autre(s) participant(s) de votre carte ?\n(Vos traces GPX seront conservées).`)) return;
 
   // 1. Effacer tous les autres participants de la carte et de la liste (sauf Moi)
+  // Purge radicale : ajout à la liste des exclus persistants (bloque tout paquet MQTT fantôme)
   state.otherUsers.forEach((u, id) => {
+    markUserDismissed(id);
     removeUserMarker(id);
   });
   state.otherUsers.clear();
@@ -804,7 +815,7 @@ function clearOnlyParticipants() {
 
   // 3. Mettre à jour l'affichage
   renderUsersList();
-  showToast(`${count} participant(s) purgé(s).`, 'info');
+  showToast(`${count} participant(s) purgé(s) définitivement.`, 'info');
 
   // 4. Diffuser l'ordre de purge aux autres téléphones
   publishMessage({
@@ -1277,6 +1288,7 @@ function openProfileModal() {
   makeModalDraggable(profileModal);
   updateProfileUI();
   renderBatteryUI();
+  renderBatteryChart();
   updatePocketModeButtonVisibility();
   renderProfileAdBanner();
   profileModal.classList.remove('hidden');
@@ -1285,6 +1297,9 @@ function openProfileModal() {
   pushModalState('profile-modal');
   const bodyEl = document.getElementById('profile-modal-body');
   if (bodyEl) bodyEl.scrollTop = 0;
+  setTimeout(() => {
+    try { renderBatteryChart(); } catch (e) {}
+  }, 100);
 }
 
 function saveUserProfile() {
@@ -1411,6 +1426,279 @@ function updateBatteryTelemetry() {
   }
 
   renderBatteryUI();
+  recordBatteryHistorySample(currentLevel, state.batteryTracking ? state.batteryTracking.ratePerHour : null);
+}
+
+function loadBatteryHistoryFromStorage() {
+  try {
+    const raw = localStorage.getItem('rando_battery_history_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        state.batteryHistory = parsed;
+      }
+    }
+  } catch (e) {
+    state.batteryHistory = [];
+  }
+}
+
+function recordBatteryHistorySample(level, rate) {
+  if (typeof level !== 'number' || isNaN(level)) return;
+  const now = Date.now();
+  if (!Array.isArray(state.batteryHistory)) state.batteryHistory = [];
+  const last = state.batteryHistory[state.batteryHistory.length - 1];
+
+  // Enregistrer si premier point, ou si variation de niveau %, ou si au moins 60s écoulées
+  if (!last || last.level !== level || (now - last.timestamp >= 60000)) {
+    const d = new Date(now);
+    const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = d.toLocaleDateString('fr-FR');
+    state.batteryHistory.push({
+      timestamp: now,
+      dateStr: dateStr,
+      timeStr: timeStr,
+      level: level,
+      rate: (typeof rate === 'number') ? rate : null
+    });
+    // Plafond à 1440 points (24h de randonnée à raison d'1 point/minute)
+    if (state.batteryHistory.length > 1440) {
+      state.batteryHistory = state.batteryHistory.slice(-1440);
+    }
+    try {
+      localStorage.setItem('rando_battery_history_v1', JSON.stringify(state.batteryHistory.slice(-500)));
+    } catch(e) {}
+
+    // Mise à jour continue si la modale profil est ouverte
+    const profileModal = document.getElementById('profile-modal');
+    if (profileModal && !profileModal.classList.contains('hidden')) {
+      renderBatteryChart();
+    }
+  }
+}
+
+function renderBatteryChart() {
+  const canvas = document.getElementById('battery-history-chart');
+  if (!canvas) return;
+  const history = Array.isArray(state.batteryHistory) ? state.batteryHistory : [];
+  const countEl = document.getElementById('battery-history-count');
+  const startEl = document.getElementById('battery-metric-start');
+  const currEl = document.getElementById('battery-metric-current');
+  const dropEl = document.getElementById('battery-metric-drop');
+  const rateEl = document.getElementById('battery-metric-rate');
+
+  if (countEl) countEl.textContent = `${history.length} point${history.length > 1 ? 's' : ''}`;
+
+  if (history.length > 0) {
+    const first = history[0];
+    const last = history[history.length - 1];
+    const totalDrop = first.level - last.level;
+    const elapsedHours = (last.timestamp - first.timestamp) / 3600000;
+    const avgRate = elapsedHours >= 0.016 ? (totalDrop / elapsedHours) : (state.batteryTracking ? state.batteryTracking.ratePerHour : 0);
+
+    if (startEl) startEl.textContent = `${first.level}%`;
+    if (currEl) currEl.textContent = `${last.level}%`;
+    if (dropEl) dropEl.textContent = `${totalDrop >= 0 ? '-' : '+'}${Math.abs(totalDrop)}%`;
+    if (rateEl) {
+      if (avgRate === null || avgRate === undefined) rateEl.textContent = '--%/h';
+      else if (avgRate === -1) rateEl.textContent = '⚡ Charge';
+      else rateEl.textContent = `${avgRate > 0 ? '-' : ''}${Math.abs(avgRate).toFixed(1)}%/h`;
+    }
+  } else if (state.myUser && typeof state.myUser.battery === 'number') {
+    if (startEl) startEl.textContent = `${state.myUser.battery}%`;
+    if (currEl) currEl.textContent = `${state.myUser.battery}%`;
+    if (dropEl) dropEl.textContent = '0%';
+    if (rateEl) rateEl.textContent = '0.0%/h';
+  }
+
+  if (typeof Chart === 'undefined') return;
+
+  if (state.batteryChartInstance) {
+    try { state.batteryChartInstance.destroy(); } catch(e) {}
+    state.batteryChartInstance = null;
+  }
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  // Si pas encore d'historique, afficher au moins le point courant
+  const displayHistory = (history.length > 0) ? history : [{
+    timeStr: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+    level: (state.myUser && typeof state.myUser.battery === 'number') ? state.myUser.battery : 90,
+    rate: 0
+  }];
+
+  // Échantillonnage si trop de points pour la lisibilité
+  let step = 1;
+  if (displayHistory.length > 80) step = Math.ceil(displayHistory.length / 80);
+  const sampled = [];
+  for (let i = 0; i < displayHistory.length; i += step) {
+    sampled.push(displayHistory[i]);
+  }
+  if (sampled[sampled.length - 1] !== displayHistory[displayHistory.length - 1]) {
+    sampled.push(displayHistory[displayHistory.length - 1]);
+  }
+
+  const labels = sampled.map(p => p.timeStr);
+  const dataValues = sampled.map(p => p.level);
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, 140);
+  gradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+  gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+
+  state.batteryChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Batterie (%)',
+        data: dataValues,
+        borderColor: '#10b981',
+        borderWidth: 2.5,
+        backgroundColor: gradient,
+        fill: true,
+        tension: 0.25,
+        pointRadius: sampled.length > 25 ? 0 : 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: '#10b981',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 1.5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          titleColor: '#94a3b8',
+          bodyColor: '#34d399',
+          borderColor: 'rgba(52, 211, 153, 0.4)',
+          borderWidth: 1,
+          displayColors: false,
+          callbacks: {
+            title: (items) => `Heure : ${items[0].label}`,
+            label: (item) => `Niveau : ${item.parsed.y}%`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(51, 65, 85, 0.3)' },
+          ticks: {
+            color: '#64748b',
+            font: { size: 9 },
+            maxTicksLimit: 6
+          }
+        },
+        y: {
+          min: 0,
+          max: 100,
+          grid: { color: 'rgba(51, 65, 85, 0.3)' },
+          ticks: {
+            color: '#64748b',
+            font: { size: 9 },
+            stepSize: 20,
+            callback: (val) => `${val}%`
+          }
+        }
+      }
+    }
+  });
+}
+
+async function exportBatteryChartPng() {
+  const canvas = document.getElementById('battery-history-chart');
+  if (!canvas) {
+    showToast('Aucun graphique disponible à exporter', 'info');
+    return;
+  }
+  renderBatteryChart();
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  const fileName = `RandoTracker_Batterie_${dateStr}.png`;
+
+  try {
+    canvas.toBlob(async (blob) => {
+      if (!blob) {
+        showToast('Erreur génération image', 'error');
+        return;
+      }
+      let shared = false;
+      if (navigator.canShare) {
+        try {
+          const file = new File([blob], fileName, { type: 'image/png' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: 'Graphique de décharge batterie - RandoTracker',
+              files: [file]
+            });
+            shared = true;
+            showToast('Graphique partagé avec succès', 'success');
+          }
+        } catch(e) {
+          if (e.name === 'AbortError') return;
+        }
+      }
+      if (!shared) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast(`Graphique téléchargé : ${fileName}`, 'success');
+      }
+    }, 'image/png');
+  } catch(e) {
+    console.error('[ExportBatteryChart]', e);
+    showToast('Erreur lors de l\'export graphique', 'error');
+  }
+}
+
+function exportBatteryCsv() {
+  const history = Array.isArray(state.batteryHistory) ? state.batteryHistory : [];
+  if (history.length === 0) {
+    showToast('Aucune donnée de batterie à exporter', 'info');
+    return;
+  }
+  const rows = ['Date,Heure,Batterie_Pourcent,Vitesse_Decharge_PctHeure'];
+  history.forEach(p => {
+    const date = p.dateStr || new Date(p.timestamp).toLocaleDateString('fr-FR');
+    const time = p.timeStr || new Date(p.timestamp).toLocaleTimeString('fr-FR');
+    const rate = (typeof p.rate === 'number') ? p.rate.toFixed(1) : '';
+    rows.push(`${date},${time},${p.level},${rate}`);
+  });
+  const csvContent = rows.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  const fileName = `RandoTracker_Batterie_${dateStr}.csv`;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast(`Fichier CSV téléchargé : ${fileName}`, 'success');
+}
+
+function confirmResetBatteryHistory() {
+  if (!confirm('Voulez-vous réinitialiser l\'historique de décharge batterie ?')) return;
+  state.batteryHistory = [];
+  try { localStorage.removeItem('rando_battery_history_v1'); } catch(e) {}
+  if (state.myUser && typeof state.myUser.battery === 'number') {
+    recordBatteryHistorySample(state.myUser.battery, 0);
+  }
+  renderBatteryChart();
+  showToast('Historique de batterie réinitialisé', 'info');
 }
 
 function getBatteryStatusLabel(short = false) {
@@ -2552,6 +2840,19 @@ function startTrackRecording() {
     addPointToRecordedTrack(state.myUser.lat, state.myUser.lon, state.myUser.ele, Date.now());
   }
 
+  // Repère visuel immédiat 🚩 Départ sur la carte
+  if (state.map && state.myUser && state.myUser.lat !== null && state.myUser.lon !== null && !state.recording.startMarker) {
+    try {
+      const startIcon = L.divIcon({
+        className: 'custom-start-marker',
+        html: `<div class="px-2 py-0.5 rounded-full bg-emerald-600 text-white font-black text-[11px] shadow-lg border-2 border-white flex items-center gap-1 whitespace-nowrap"><span class="text-xs">🚩</span><span>Départ</span></div>`,
+        iconSize: [70, 24],
+        iconAnchor: [35, 24]
+      });
+      state.recording.startMarker = L.marker([state.myUser.lat, state.myUser.lon], { icon: startIcon, zIndexOffset: 2000 }).addTo(state.map);
+    } catch (e) {}
+  }
+
   startRecorderTimer();
   updateRecorderUI();
   saveRecordedTrackToStorage();
@@ -2585,6 +2886,16 @@ function resumeTrackRecording() {
   updateRecorderUI();
   saveRecordedTrackToStorage();
   showToast('▶️ Enregistrement repris', 'success');
+}
+
+function stopTrackRecording() {
+  if (!state.recording.isActive && !state.recording.isPaused) return;
+  state.recording.isActive = false;
+  state.recording.isPaused = false;
+  stopRecorderTimer();
+  updateRecorderUI();
+  saveRecordedTrackToStorage();
+  showToast('⏹️ Enregistrement arrêté. Trace prête pour l\'export GPX !', 'info');
 }
 
 function addPointToRecordedTrack(lat, lon, ele, timestamp) {
@@ -2697,11 +3008,24 @@ function updateRecorderUI() {
   }
 
   // Statut & Boutons
+  const startBtn = document.getElementById('btn-recorder-start');
+  const startIcon = document.getElementById('btn-recorder-start-icon');
+  const startLabel = document.getElementById('btn-recorder-start-label');
+  const pauseBtn = document.getElementById('btn-recorder-pause');
+  const stopBtn = document.getElementById('btn-recorder-stop');
+
   if (!rec.isActive) {
     if (statusDot) {
       statusDot.className = 'inline-block w-3 h-3 rounded-full bg-slate-500';
     }
     if (statusTitle) statusTitle.textContent = (numPoints > 0 || numWpt > 0) ? 'Trace / Repères en mémoire' : 'Enregistreur de trace';
+    if (startBtn) {
+      startBtn.classList.remove('hidden');
+      if (startIcon) startIcon.textContent = '▶️';
+      if (startLabel) startLabel.textContent = numPoints > 0 ? 'Reprendre' : 'Démarrer';
+    }
+    if (pauseBtn) pauseBtn.classList.add('hidden');
+    if (stopBtn) stopBtn.classList.add('hidden');
     if (toggleBtn) {
       toggleBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer';
     }
@@ -2712,6 +3036,13 @@ function updateRecorderUI() {
       statusDot.className = 'inline-block w-3 h-3 rounded-full bg-amber-400';
     }
     if (statusTitle) statusTitle.textContent = 'Enregistrement en pause';
+    if (startBtn) {
+      startBtn.classList.remove('hidden');
+      if (startIcon) startIcon.textContent = '▶️';
+      if (startLabel) startLabel.textContent = 'Reprendre';
+    }
+    if (pauseBtn) pauseBtn.classList.add('hidden');
+    if (stopBtn) stopBtn.classList.remove('hidden');
     if (toggleBtn) {
       toggleBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer';
     }
@@ -2723,6 +3054,9 @@ function updateRecorderUI() {
       statusDot.className = 'inline-block w-3 h-3 rounded-full bg-rose-500 animate-pulse';
     }
     if (statusTitle) statusTitle.textContent = 'Enregistrement actif';
+    if (startBtn) startBtn.classList.add('hidden');
+    if (pauseBtn) pauseBtn.classList.remove('hidden');
+    if (stopBtn) stopBtn.classList.remove('hidden');
     if (toggleBtn) {
       toggleBtn.className = 'flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-95 cursor-pointer';
     }
@@ -2787,9 +3121,35 @@ async function exportRecordedGpx() {
   }
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('fr-FR').replace(/\//g, '-');
-  const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(/:/g, 'h');
-  const fileName = `RandoTracker_${dateStr}_${timeStr}.gpx`;
+  const Y = now.getFullYear();
+  const M = String(now.getMonth() + 1).padStart(2, '0');
+  const D = String(now.getDate()).padStart(2, '0');
+  const H = String(now.getHours()).padStart(2, '0');
+  const MN = String(now.getMinutes()).padStart(2, '0');
+  const timestampStr = `${Y}${M}${D}${H}${MN}`;
+
+  // Résolution de la commune de départ
+  let rawCity = '';
+  if (state.myUser && state.myUser.cityName && state.myUser.cityName !== 'Recherche...' && state.myUser.cityName !== 'Zone internationale') {
+    rawCity = state.myUser.cityName;
+  } else if (points.length > 0) {
+    try {
+      rawCity = await fetchCityName(points[0].lat, points[0].lon);
+    } catch (e) {}
+  }
+  if (!rawCity && waypoints.length > 0 && waypoints[0].cityName) {
+    rawCity = waypoints[0].cityName;
+  }
+  const cleanCity = (rawCity || 'Rando').replace(/[/\\?%*:|"<>]/g, '').trim();
+
+  // Distance et Dénivelé
+  const totalDist = (state.recording && typeof state.recording.totalDistance === 'number') ? state.recording.totalDistance : 0;
+  const distStr = `${totalDist.toFixed(1)}km`;
+  const eleGain = (state.recording && typeof state.recording.eleGain === 'number') ? Math.round(state.recording.eleGain) : 0;
+  const eleStr = eleGain > 0 ? `+${eleGain}m` : `${eleGain}m`;
+
+  const fileName = `${timestampStr} - ${cleanCity} - ${distStr} - ${eleStr}.gpx`;
+  const trackTitle = `${cleanCity} - ${distStr} - ${eleStr}`;
 
   let gpxXml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   gpxXml += `<gpx version="1.1" creator="RandoTracker - https://randotracker.jldaussy.fr"\n`;
@@ -2797,7 +3157,7 @@ async function exportRecordedGpx() {
   gpxXml += `  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n`;
   gpxXml += `  xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">\n`;
   gpxXml += `  <metadata>\n`;
-  gpxXml += `    <name>Trace &amp; Repères RandoTracker ${dateStr}</name>\n`;
+  gpxXml += `    <name>${escapeXml(fileName.replace('.gpx', ''))}</name>\n`;
   gpxXml += `    <time>${now.toISOString()}</time>\n`;
   gpxXml += `  </metadata>\n`;
 
@@ -2849,7 +3209,7 @@ async function exportRecordedGpx() {
   // 2. Insertion du tracé GPS enregistré (<trk>)
   if (points.length > 0) {
     gpxXml += `  <trk>\n`;
-    gpxXml += `    <name>Randonnée du ${dateStr}</name>\n`;
+    gpxXml += `    <name>${escapeXml(trackTitle)}</name>\n`;
     const wptCountStr = waypoints.length > 0 ? ` (${waypoints.length} repère(s))` : '';
     gpxXml += `    <desc>Trace enregistrée par ${escapeXml(state.myUser.name || 'Randonneur')} avec RandoTracker (${(state.recording.totalDistance || 0).toFixed(2)} km, +${Math.round(state.recording.eleGain || 0)}m)${escapeXml(wptCountStr)}</desc>\n`;
     gpxXml += `    <type>Hiking</type>\n`;
@@ -2943,6 +3303,12 @@ function resetTrackRecording() {
       state.map.removeLayer(state.recording.layer);
     } catch (e) {}
   }
+  if (state.recording.startMarker && state.map) {
+    try {
+      state.map.removeLayer(state.recording.startMarker);
+    } catch (e) {}
+    state.recording.startMarker = null;
+  }
   state.recording = {
     isActive: false,
     isPaused: false,
@@ -2954,7 +3320,8 @@ function resetTrackRecording() {
     eleGain: 0,
     eleLoss: 0,
     lastPoint: null,
-    layer: null
+    layer: null,
+    startMarker: null
   };
   try {
     localStorage.removeItem('rando_recorded_track_v1');
@@ -4345,12 +4712,10 @@ function renderUsersList() {
               <span class="text-slate-500">•</span>
               <span class="${u.battery < 20 ? 'text-red-400' : 'text-emerald-400'}">${u.battery}% 🔋</span>
             </div>
-            ${state.isOrganizer ? `
-              <button onclick="event.stopPropagation(); deleteParticipant('${u.id}')" class="mt-2 px-2.5 py-1 rounded-xl bg-red-600/20 hover:bg-red-600/40 border border-red-500/50 text-red-300 hover:text-white font-black text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm" title="Supprimer ce marcheur">
-                <i data-lucide="user-x" class="w-3.5 h-3.5 text-red-400"></i>
-                <span>Supprimer</span>
-              </button>
-            ` : ''}
+            <button onclick="event.stopPropagation(); deleteParticipant('${u.id}')" class="mt-2 px-2.5 py-1 rounded-xl bg-red-600/20 hover:bg-red-600/40 border border-red-500/50 text-red-300 hover:text-white font-black text-xs flex items-center gap-1.5 transition active:scale-95 shadow-sm cursor-pointer" title="Supprimer ce marcheur">
+              <i data-lucide="user-x" class="w-3.5 h-3.5 text-red-400"></i>
+              <span>Supprimer</span>
+            </button>
           </div>
         </div>
 
@@ -5177,6 +5542,16 @@ function stopGpsWatch() {
   stopGpsWorkerHeartbeat();
   stopBackgroundKeepAlive();
   releaseWakeLock();
+
+  if (typeof publishMessage === 'function') {
+    try {
+      publishMessage({
+        type: 'user_left',
+        from: state.myUser.id,
+        user: state.myUser
+      });
+    } catch (e) {}
+  }
 
   state.isTrackingGps = false;
   state.gpsStartTime = null;
@@ -6126,6 +6501,7 @@ function handleIncomingMessage(data) {
 
       // 2. Effacer les autres participants (sauf Moi)
       state.otherUsers.forEach((u, id) => {
+        if (typeof markUserDismissed === 'function') markUserDismissed(id);
         removeUserMarker(id);
       });
       state.otherUsers.clear();
@@ -6141,11 +6517,14 @@ function handleIncomingMessage(data) {
       showToast('Randonnée réinitialisée par l\'organisateur.', 'info');
     } else if (data.type === 'kick_all') {
       if (data.from !== state.myUser.id) {
-        state.otherUsers.forEach((u, id) => removeUserMarker(id));
+        state.otherUsers.forEach((u, id) => {
+          if (typeof markUserDismissed === 'function') markUserDismissed(id);
+          removeUserMarker(id);
+        });
         state.otherUsers.clear();
         localStorage.removeItem('rando_saved_other_users');
         renderUsersList();
-        showToast('Salon des marcheurs purgé par l\'organisateur.', 'info');
+        showToast('Salon des marcheurs purgé.', 'info');
       }
     } else if (data.type === 'kick_user') {
       if (data.targetUserId === state.myUser.id) {
@@ -9240,6 +9619,7 @@ function bootApp() {
   try { loadSavedOtherUsersFromStorage(); } catch(e) { console.error('[Init SavedUsers]', e); }
   try { loadWaypointsFromStorage(); } catch(e) { console.error('[Init Waypoints]', e); }
   try { loadRecordedTrackFromStorage(); } catch(e) { console.error('[Init RecordedTrack]', e); }
+  try { loadBatteryHistoryFromStorage(); } catch(e) { console.error('[Init BatteryHistory]', e); }
   try { initCompassListener(); } catch(e) { console.error('[Init Compass]', e); }
   try { deduplicateUsersByName(); } catch(e) { console.error('[Init Deduplicate]', e); }
   try { renderUsersList(); } catch(e) { console.error('[Init UsersList]', e); }
@@ -10854,6 +11234,13 @@ window.updateRecorderUI = updateRecorderUI;
 window.addPointToRecordedTrack = addPointToRecordedTrack;
 window.saveRecordedTrackToStorage = saveRecordedTrackToStorage;
 window.loadRecordedTrackFromStorage = loadRecordedTrackFromStorage;
+window.stopTrackRecording = stopTrackRecording;
+window.exportBatteryChartPng = exportBatteryChartPng;
+window.exportBatteryCsv = exportBatteryCsv;
+window.confirmResetBatteryHistory = confirmResetBatteryHistory;
+window.renderBatteryChart = renderBatteryChart;
+window.recordBatteryHistorySample = recordBatteryHistorySample;
+window.loadBatteryHistoryFromStorage = loadBatteryHistoryFromStorage;
 
 window.state = state;
 
