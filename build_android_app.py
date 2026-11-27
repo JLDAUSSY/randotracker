@@ -131,8 +131,8 @@ android {{
         applicationId = "fr.jldaussy.randotracker"
         minSdk = 24
         targetSdk = 36
-        versionCode = 54
-        versionName = "1.4.16"
+        versionCode = 63
+        versionName = "1.4.24"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
@@ -617,7 +617,7 @@ public class RandoMainActivity extends AppCompatActivity {
     public class AndroidBridge {
         @JavascriptInterface
         public String getVersionName() {
-            return "1.4.16 (54)";
+            return "1.4.24 (63)";
         }
 
         @JavascriptInterface
