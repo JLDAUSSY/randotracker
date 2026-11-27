@@ -388,11 +388,11 @@
         </g>
       </svg>
 
-      <!-- Informations d'orientation & Cap sous la boussole (pilule semi-transparente haute visibilité) -->
-      <div class="mt-1 px-3 py-1 rounded-full bg-slate-950/80 border border-sky-400/40 backdrop-blur-sm shadow-xl text-center select-none pointer-events-auto">
-        <div id="large-compass-cap-val" class="text-xs font-black text-emerald-400 font-mono tracking-wider drop-shadow">NORD CARTE • 0°</div>
-        <div id="large-compass-sub-text" class="text-[9px] font-bold text-slate-300">Aiguille rouge = Nord ↑</div>
-        <button id="btn-reset-map-north" type="button" onclick="event.stopPropagation(); resetMapNorth();" class="hidden mt-1 px-2.5 py-0.5 rounded-full bg-slate-800/90 hover:bg-slate-700 text-amber-300 text-[10px] font-bold border border-amber-500/50">↺ Réaligner au Nord</button>
+      <!-- Informations d'orientation & Cap sous la boussole (sans fond noir, lisibilité optimale) -->
+      <div class="mt-0.5 px-1 py-0.5 text-center select-none pointer-events-auto">
+        <div id="large-compass-cap-val" class="text-xs font-black text-emerald-400 font-mono tracking-wider drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">NORD CARTE • 0°</div>
+        <div id="large-compass-sub-text" class="text-[9px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)]">Aiguille rouge = Nord ↑</div>
+        <button id="btn-reset-map-north" type="button" onclick="event.stopPropagation(); resetMapNorth();" class="hidden mt-1 px-2.5 py-0.5 rounded-full bg-slate-900/90 hover:bg-slate-800 text-amber-300 text-[10px] font-bold border border-amber-500/50 shadow">↺ Réaligner au Nord</button>
       </div>
     </div>
   </div>
@@ -1220,6 +1220,24 @@
             <div>
               <div class="text-[9px] uppercase font-bold text-slate-400">Vitesse</div>
               <div class="text-xs font-black text-amber-400 font-mono" id="battery-metric-rate">--%/h</div>
+            </div>
+          </div>
+
+          <!-- Décomposition Écran Allumé vs Écran Éteint -->
+          <div class="grid grid-cols-2 gap-2 bg-slate-950/70 rounded-xl p-2 border border-slate-800/80 text-center">
+            <div class="bg-amber-950/30 border border-amber-800/40 rounded-lg py-1 px-2 flex flex-col items-center justify-center">
+              <div class="text-[10px] font-bold text-amber-300 flex items-center gap-1">
+                <span>🔆 Écran allumé</span>
+              </div>
+              <div class="text-xs font-black text-amber-400 font-mono" id="battery-metric-rate-on">--%/h</div>
+              <div class="text-[9px] text-amber-200/70" id="battery-metric-detail-on">0% • 0min</div>
+            </div>
+            <div class="bg-sky-950/30 border border-sky-800/40 rounded-lg py-1 px-2 flex flex-col items-center justify-center">
+              <div class="text-[10px] font-bold text-sky-300 flex items-center gap-1">
+                <span>🌙 Écran éteint</span>
+              </div>
+              <div class="text-xs font-black text-sky-400 font-mono" id="battery-metric-rate-off">--%/h</div>
+              <div class="text-[9px] text-sky-200/70" id="battery-metric-detail-off">0% • 0min</div>
             </div>
           </div>
 
@@ -2284,6 +2302,6 @@
   </div>
 
   <!-- Main Application Script with Cache-Busting v120 -->
-  <script src="app.js?v=124"></script>
+  <script src="app.js?v=125"></script>
 </body>
 </html>

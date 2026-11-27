@@ -232,6 +232,7 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
@@ -652,6 +653,17 @@ public class RandoMainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void stopTrackingService() {
             stopGpsService();
+        }
+
+        @JavascriptInterface
+        public boolean isScreenOn() {
+            try {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pm != null) {
+                    return pm.isInteractive();
+                }
+            } catch (Exception e) {}
+            return true;
         }
 
         @JavascriptInterface

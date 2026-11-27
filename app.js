@@ -1429,13 +1429,90 @@ function updateBatteryTelemetry() {
   recordBatteryHistorySample(currentLevel, state.batteryTracking ? state.batteryTracking.ratePerHour : null);
 }
 
+function getScreenState() {
+  if (typeof window !== 'undefined' && window.AndroidBridge && typeof window.AndroidBridge.isScreenOn === 'function') {
+    try {
+      return window.AndroidBridge.isScreenOn() ? 'allume' : 'eteint';
+    } catch (e) {}
+  }
+  return (typeof document !== 'undefined' && document.visibilityState === 'visible') ? 'allume' : 'eteint';
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    const currentScreen = getScreenState();
+    if (state.myUser && typeof state.myUser.battery === 'number') {
+      recordBatteryHistorySample(state.myUser.battery, state.batteryTracking ? state.batteryTracking.ratePerHour : null, currentScreen);
+    }
+    const profileModal = document.getElementById('profile-modal');
+    if (profileModal && !profileModal.classList.contains('hidden')) {
+      renderBatteryChart();
+    }
+  });
+}
+
+function computeBatteryScreenBreakdown(history) {
+  let timeOnMs = 0;
+  let timeOffMs = 0;
+  let dropOn = 0;
+  let dropOff = 0;
+
+  if (Array.isArray(history) && history.length >= 2) {
+    for (let i = 0; i < history.length - 1; i++) {
+      const p0 = history[i];
+      const p1 = history[i + 1];
+      const dt = Math.max(0, p1.timestamp - p0.timestamp);
+      const cappedDt = Math.min(dt, 21600000); // Plafond 6h par intervalle en cas de suspension prolongée
+      const dDrop = Math.max(0, p0.level - p1.level);
+      const screen = p0.screen || 'allume';
+
+      if (screen === 'eteint') {
+        timeOffMs += cappedDt;
+        dropOff += dDrop;
+      } else {
+        timeOnMs += cappedDt;
+        dropOn += dDrop;
+      }
+    }
+  }
+
+  const hoursOn = timeOnMs / 3600000;
+  const hoursOff = timeOffMs / 3600000;
+  const rateOn = hoursOn >= 0.016 ? (dropOn / hoursOn) : null;
+  const rateOff = hoursOff >= 0.016 ? (dropOff / hoursOff) : null;
+
+  const formatDuration = (ms) => {
+    const totalMin = Math.round(ms / 60000);
+    if (totalMin < 60) return `${totalMin}min`;
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return `${h}h${m > 0 ? (m < 10 ? '0' + m : m) : ''}`;
+  };
+
+  return {
+    timeOnMs,
+    timeOffMs,
+    dropOn,
+    dropOff,
+    rateOn,
+    rateOff,
+    rateOnStr: (rateOn !== null) ? `-${rateOn.toFixed(1)}%/h` : '--%/h',
+    rateOffStr: (rateOff !== null) ? `-${rateOff.toFixed(1)}%/h` : '--%/h',
+    detailOnStr: `-${dropOn}% • ${formatDuration(timeOnMs)}`,
+    detailOffStr: `-${dropOff}% • ${formatDuration(timeOffMs)}`
+  };
+}
+
 function loadBatteryHistoryFromStorage() {
   try {
     const raw = localStorage.getItem('rando_battery_history_v1');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        state.batteryHistory = parsed;
+        state.batteryHistory = parsed.map(p => ({
+          ...p,
+          screen: p.screen || 'allume'
+        }));
       }
     }
   } catch (e) {
@@ -1443,14 +1520,15 @@ function loadBatteryHistoryFromStorage() {
   }
 }
 
-function recordBatteryHistorySample(level, rate) {
+function recordBatteryHistorySample(level, rate, screenOpt) {
   if (typeof level !== 'number' || isNaN(level)) return;
   const now = Date.now();
   if (!Array.isArray(state.batteryHistory)) state.batteryHistory = [];
   const last = state.batteryHistory[state.batteryHistory.length - 1];
+  const currentScreen = screenOpt || getScreenState();
 
-  // Enregistrer si premier point, ou si variation de niveau %, ou si au moins 60s écoulées
-  if (!last || last.level !== level || (now - last.timestamp >= 60000)) {
+  // Enregistrer si premier point, variation de niveau %, changement d'état écran, ou si au moins 60s écoulées
+  if (!last || last.level !== level || last.screen !== currentScreen || (now - last.timestamp >= 60000)) {
     const d = new Date(now);
     const timeStr = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     const dateStr = d.toLocaleDateString('fr-FR');
@@ -1459,7 +1537,8 @@ function recordBatteryHistorySample(level, rate) {
       dateStr: dateStr,
       timeStr: timeStr,
       level: level,
-      rate: (typeof rate === 'number') ? rate : null
+      rate: (typeof rate === 'number') ? rate : null,
+      screen: currentScreen
     });
     // Plafond à 1440 points (24h de randonnée à raison d'1 point/minute)
     if (state.batteryHistory.length > 1440) {
@@ -1511,6 +1590,18 @@ function renderBatteryChart() {
     if (rateEl) rateEl.textContent = '0.0%/h';
   }
 
+  // Décomposition Écran allumé / Écran éteint
+  const breakdown = computeBatteryScreenBreakdown(history);
+  const rateOnEl = document.getElementById('battery-metric-rate-on');
+  const detailOnEl = document.getElementById('battery-metric-detail-on');
+  const rateOffEl = document.getElementById('battery-metric-rate-off');
+  const detailOffEl = document.getElementById('battery-metric-detail-off');
+
+  if (rateOnEl) rateOnEl.textContent = breakdown.rateOnStr;
+  if (detailOnEl) detailOnEl.textContent = breakdown.detailOnStr;
+  if (rateOffEl) rateOffEl.textContent = breakdown.rateOffStr;
+  if (detailOffEl) detailOffEl.textContent = breakdown.detailOffStr;
+
   if (typeof Chart === 'undefined') return;
 
   if (state.batteryChartInstance) {
@@ -1525,7 +1616,8 @@ function renderBatteryChart() {
   const displayHistory = (history.length > 0) ? history : [{
     timeStr: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
     level: (state.myUser && typeof state.myUser.battery === 'number') ? state.myUser.battery : 90,
-    rate: 0
+    rate: 0,
+    screen: getScreenState()
   }];
 
   // Échantillonnage si trop de points pour la lisibilité
@@ -1543,8 +1635,20 @@ function renderBatteryChart() {
   const dataValues = sampled.map(p => p.level);
 
   const gradient = ctx.createLinearGradient(0, 0, 0, 140);
-  gradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
-  gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+  gradient.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
+  gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
+
+  // Plugin pour fond sombre plein (garantit un rendu net lors de l'export PNG)
+  const darkBackgroundPlugin = {
+    id: 'customDarkBackground',
+    beforeDraw: (chart) => {
+      const { ctx: c, width, height } = chart;
+      c.save();
+      c.fillStyle = '#0f172a';
+      c.fillRect(0, 0, width, height);
+      c.restore();
+    }
+  };
 
   state.batteryChartInstance = new Chart(ctx, {
     type: 'line',
@@ -1553,34 +1657,79 @@ function renderBatteryChart() {
       datasets: [{
         label: 'Batterie (%)',
         data: dataValues,
-        borderColor: '#10b981',
+        borderColor: '#f59e0b',
         borderWidth: 2.5,
         backgroundColor: gradient,
         fill: true,
         tension: 0.25,
-        pointRadius: sampled.length > 25 ? 0 : 3,
+        segment: {
+          borderColor: ctxSegment => {
+            const p = sampled[ctxSegment.p0DataIndex];
+            return (p && p.screen === 'eteint') ? '#38bdf8' : '#f59e0b';
+          }
+        },
+        pointRadius: sampled.length > 30 ? (sampled.length > 80 ? 0 : 2) : 3.5,
         pointHoverRadius: 5,
-        pointBackgroundColor: '#10b981',
+        pointBackgroundColor: sampled.map(p => (p && p.screen === 'eteint') ? '#38bdf8' : '#f59e0b'),
         pointBorderColor: '#ffffff',
         pointBorderWidth: 1.5
       }]
     },
+    plugins: [darkBackgroundPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
+      layout: {
+        padding: { top: 6, bottom: 4, left: 6, right: 6 }
+      },
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'end',
+          labels: {
+            color: '#cbd5e1',
+            font: { size: 9, weight: 'bold' },
+            boxWidth: 10,
+            boxHeight: 10,
+            usePointStyle: true,
+            pointStyle: 'circle',
+            padding: 6,
+            generateLabels: () => [
+              { text: '🔆 Écran allumé', fillStyle: '#f59e0b', strokeStyle: '#f59e0b', lineWidth: 1, hidden: false, index: 0, pointStyle: 'circle' },
+              { text: '🌙 Écran éteint', fillStyle: '#38bdf8', strokeStyle: '#38bdf8', lineWidth: 1, hidden: false, index: 1, pointStyle: 'circle' }
+            ]
+          }
+        },
+        title: {
+          display: true,
+          text: 'RandoTracker - Décharge Batterie',
+          color: '#f8fafc',
+          font: { size: 11, weight: 'bold' },
+          padding: { top: 4, bottom: 2 }
+        },
+        subtitle: {
+          display: true,
+          text: `🔆 Allumé: ${breakdown.rateOnStr} (${breakdown.detailOnStr})   |   🌙 Éteint: ${breakdown.rateOffStr} (${breakdown.detailOffStr})`,
+          color: '#94a3b8',
+          font: { size: 8.5 },
+          padding: { bottom: 6 }
+        },
         tooltip: {
           backgroundColor: 'rgba(15, 23, 42, 0.95)',
           titleColor: '#94a3b8',
-          bodyColor: '#34d399',
-          borderColor: 'rgba(52, 211, 153, 0.4)',
+          bodyColor: '#38bdf8',
+          borderColor: 'rgba(56, 189, 248, 0.4)',
           borderWidth: 1,
           displayColors: false,
           callbacks: {
             title: (items) => `Heure : ${items[0].label}`,
-            label: (item) => `Niveau : ${item.parsed.y}%`
+            label: (item) => {
+              const p = sampled[item.dataIndex];
+              const scr = (p && p.screen === 'eteint') ? '🌙 Écran éteint' : '🔆 Écran allumé';
+              return [`Niveau : ${item.parsed.y}%`, `État : ${scr}`];
+            }
           }
         }
       },
@@ -1682,17 +1831,26 @@ function exportBatteryCsv() {
     }
   }
   const currentHistory = Array.isArray(state.batteryHistory) && state.batteryHistory.length > 0 ? state.batteryHistory : [];
-  const rows = ['Date,Heure,Batterie_Pourcent,Vitesse_Decharge_PctHeure'];
+  const breakdown = computeBatteryScreenBreakdown(currentHistory);
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+  const fileName = `RandoTracker_Batterie_${dateStr}.csv`;
+
+  const rows = [
+    '# RandoTracker - Telemetrie et Analyse Decharge Batterie',
+    `# Date export : ${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR')}`,
+    `# BILAN ECRAN ALLUME : Vitesse ${breakdown.rateOnStr} (Perte ${breakdown.detailOnStr})`,
+    `# BILAN ECRAN ETEINT : Vitesse ${breakdown.rateOffStr} (Perte ${breakdown.detailOffStr})`,
+    'Date,Heure,Batterie_Pourcent,Vitesse_Decharge_PctHeure,Etat_Ecran'
+  ];
   currentHistory.forEach(p => {
     const date = p.dateStr || new Date(p.timestamp).toLocaleDateString('fr-FR');
     const time = p.timeStr || new Date(p.timestamp).toLocaleTimeString('fr-FR');
     const rate = (typeof p.rate === 'number') ? p.rate.toFixed(1) : '';
-    rows.push(`${date},${time},${p.level},${rate}`);
+    const screenLabel = (p.screen === 'eteint') ? 'Ecran Eteint' : 'Ecran Allume';
+    rows.push(`${date},${time},${p.level},${rate},${screenLabel}`);
   });
   const csvContent = rows.join('\r\n');
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-  const fileName = `RandoTracker_Batterie_${dateStr}.csv`;
 
   // 1. Si on est dans l'appli Android native avec le pont Java :
   // Envoi DIRECT dans le dossier Téléchargements du smartphone via MediaStore
@@ -11292,6 +11450,8 @@ window.confirmResetBatteryHistory = confirmResetBatteryHistory;
 window.renderBatteryChart = renderBatteryChart;
 window.recordBatteryHistorySample = recordBatteryHistorySample;
 window.loadBatteryHistoryFromStorage = loadBatteryHistoryFromStorage;
+window.computeBatteryScreenBreakdown = computeBatteryScreenBreakdown;
+window.getScreenState = getScreenState;
 
 window.state = state;
 
