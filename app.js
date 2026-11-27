@@ -1689,19 +1689,20 @@ function showChartPreviewModal(dataUrl, fileName) {
             <span class="text-lg">📊</span>
             <h3 class="text-sm font-bold text-white">Graphique de Batterie</h3>
           </div>
-          <button type="button" id="close-chart-preview-btn" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-bold">✕</button>
+          <button type="button" id="close-chart-preview-btn" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-bold cursor-pointer">✕</button>
         </div>
         <div class="bg-slate-950 rounded-xl p-2 border border-slate-800 flex items-center justify-center overflow-hidden">
           <img id="chart-preview-img" src="" alt="Graphique de batterie" class="max-h-[50vh] w-auto object-contain rounded select-all" />
         </div>
-        <p class="text-[11px] text-amber-300/90 text-center bg-amber-950/40 border border-amber-800/40 p-2 rounded-xl">
-          📱 <strong>Sur mobile :</strong> Restez appuyé 1 seconde sur l'image pour l'enregistrer ou la partager via WhatsApp, Drive, etc.
-        </p>
+        <div class="text-[11px] text-amber-300/90 bg-amber-950/40 border border-amber-800/40 p-2.5 rounded-xl space-y-1">
+          <p>📱 <strong>Astuce sur smartphone :</strong> Restez appuyé <strong>1 seconde sur l'image</strong> avec votre doigt pour faire apparaître le menu natif : <em>« Enregistrer l'image »</em> ou <em>« Partager l'image »</em>.</p>
+          <p class="text-slate-300 text-[10px]">📁 Les images téléchargées vont dans votre <strong>Galerie / Photos</strong> (album Téléchargements / Récents).</p>
+        </div>
         <div class="flex items-center gap-2 pt-1">
           <a id="chart-preview-download-link" href="" download="" class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs text-center shadow">
             📥 Télécharger l'image
           </a>
-          <button type="button" id="chart-preview-copy-btn" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs text-center shadow">
+          <button type="button" id="chart-preview-copy-btn" class="flex-1 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs text-center shadow cursor-pointer">
             📋 Copier l'image
           </button>
         </div>
@@ -1741,6 +1742,70 @@ function showChartPreviewModal(dataUrl, fileName) {
   modal.classList.remove('hidden');
 }
 
+function showCsvPreviewModal(csvContent, fileName) {
+  let modal = document.getElementById('csv-preview-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'csv-preview-modal';
+    modal.className = 'fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4';
+    modal.innerHTML = `
+      <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-4 shadow-2xl flex flex-col gap-3 max-h-[90vh]">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">📄</span>
+            <h3 class="text-sm font-bold text-white">Données Batterie (Format CSV)</h3>
+          </div>
+          <button type="button" id="close-csv-preview-btn" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-bold cursor-pointer">✕</button>
+        </div>
+        <p class="text-xs text-slate-400">
+          Données horodatées prêtes à être collées dans Excel, Google Sheets, un email ou WhatsApp :
+        </p>
+        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800 max-h-48 overflow-y-auto">
+          <pre id="csv-preview-text" class="text-[11px] text-emerald-400 font-mono select-all whitespace-pre-wrap leading-tight"></pre>
+        </div>
+        <div class="flex flex-col gap-2 pt-1">
+          <button type="button" id="csv-preview-copy-btn" class="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow cursor-pointer">
+            📋 Copier tout le texte (pour coller directement)
+          </button>
+          <a id="csv-preview-download-link" href="" download="" class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs text-center shadow">
+            📥 Télécharger le fichier CSV (.csv)
+          </a>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const closeBtn = document.getElementById('close-csv-preview-btn');
+    if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
+    modal.onclick = (e) => {
+      if (e.target === modal) modal.classList.add('hidden');
+    };
+    const copyBtn = document.getElementById('csv-preview-copy-btn');
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        const text = document.getElementById('csv-preview-text').textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast('Données CSV copiées ! Prêtes à être collées.', 'success');
+        } catch(e) {
+          showToast('Sélectionnez le texte pour le copier', 'info');
+        }
+      };
+    }
+  }
+
+  const textEl = document.getElementById('csv-preview-text');
+  const dLink = document.getElementById('csv-preview-download-link');
+  if (textEl) textEl.textContent = csvContent;
+  if (dLink) {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    dLink.href = url;
+    dLink.download = fileName;
+  }
+  modal.classList.remove('hidden');
+}
+
 async function exportBatteryCsv() {
   const history = Array.isArray(state.batteryHistory) ? state.batteryHistory : [];
   if (history.length === 0) {
@@ -1765,61 +1830,16 @@ async function exportBatteryCsv() {
   const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
   const fileName = `RandoTracker_Batterie_${dateStr}.csv`;
 
-  let shared = false;
-  // 1. Partage natif fichier si supporté
-  if (navigator.canShare) {
-    try {
-      const file = new File([blob], fileName, { type: 'text/plain' });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: 'Données batterie RandoTracker',
-          files: [file]
-        });
-        shared = true;
-        showToast('Données CSV partagées avec succès', 'success');
-        return;
-      }
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-    }
-  }
-
-  // 2. Partage natif du texte si partage de fichier non supporté
-  if (navigator.share && !shared) {
-    try {
-      await navigator.share({
-        title: 'Historique de batterie - RandoTracker',
-        text: csvContent
-      });
-      shared = true;
-      showToast('Données CSV partagées !', 'success');
-      return;
-    } catch(e) {
-      if (e.name === 'AbortError') return;
-    }
-  }
-
-  // 3. Téléchargement direct
-  try {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  } catch(e) {}
-
-  // 4. Copie automatique dans le presse-papier en secours
+  // Copie automatique dans le presse-papier
   if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
     try {
       await navigator.clipboard.writeText(csvContent);
       showToast('Données CSV copiées dans le presse-papier !', 'success');
-      return;
     } catch(e) {}
   }
-  showToast(`Fichier CSV téléchargé : ${fileName}`, 'success');
+
+  // Affichage immédiat de la modale de visualisation et copie CSV
+  showCsvPreviewModal(csvContent, fileName);
 }
 
 function confirmResetBatteryHistory() {
