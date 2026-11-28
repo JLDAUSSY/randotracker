@@ -1782,22 +1782,21 @@ function exportBatteryChartPng() {
     return;
   }
 
-  // 1. Si on est dans l'appli Android native avec le pont Java :
-  // Envoi DIRECT dans le dossier Téléchargements du smartphone via MediaStore
-  if (window.AndroidBridge && typeof window.AndroidBridge.saveFileToDownloads === 'function') {
-    try {
-      const base64 = dataUrl.split(',')[1];
-      window.AndroidBridge.saveFileToDownloads(base64, fileName, 'image/png');
-      showToast(`Graphique envoyé dans Téléchargements`, 'success');
-      return;
-    } catch(err) {
-      console.warn('[ExportChart] saveFileToDownloads error:', err);
+  (async () => {
+    // 1. Si on est dans l'appli Android native avec le pont Java (v1.4.25+) :
+    // Envoi DIRECT dans le dossier Téléchargements du smartphone via MediaStore
+    if (window.AndroidBridge && typeof window.AndroidBridge.saveFileToDownloads === 'function') {
+      try {
+        const base64 = dataUrl.split(',')[1];
+        window.AndroidBridge.saveFileToDownloads(base64, fileName, 'image/png');
+        showToast(`Graphique envoyé dans Téléchargements`, 'success');
+        return;
+      } catch(err) {
+        console.warn('[ExportChart] saveFileToDownloads error:', err);
+      }
     }
-  }
 
-  // 2. Si on est dans un navigateur (Chrome, Edge, Safari, Firefox sur PC ou mobile) :
-  // Téléchargement DIRECT et forcé dans le dossier Téléchargements avec application/octet-stream
-  try {
+    // 2. Partage natif mobile via Web Share API avec fichier (fonctionne immédiatement sur mobile / PWA / WebView)
     const arr = dataUrl.split(',');
     const bstr = atob(arr[1]);
     let n = bstr.length;
@@ -1805,23 +1804,49 @@ function exportBatteryChartPng() {
     while (n--) {
       u8arr[n] = bstr.charCodeAt(n);
     }
-    const blob = new Blob([u8arr], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 2000);
-    showToast(`Graphique envoyé dans Téléchargements`, 'success');
-  } catch(e) {
-    console.error('[ExportChart] Download error:', e);
-    showToast('Erreur lors du téléchargement du graphique', 'error');
-  }
+    const blob = new Blob([u8arr], { type: 'image/png' });
+
+    if (navigator.canShare) {
+      try {
+        const file = new File([blob], fileName, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `RandoTracker - Graphique Batterie ${dateStr}`,
+            text: `Graphique de décharge de batterie RandoTracker (${fileName})`
+          });
+          showToast('Graphique partagé / enregistré avec succès !', 'success');
+          return;
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          console.warn('[ExportChart Share]', e);
+        } else {
+          return;
+        }
+      }
+    }
+
+    // 3. Si on est dans un navigateur classique (PC desktop) :
+    try {
+      const octetBlob = new Blob([u8arr], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(octetBlob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 2000);
+      showToast(`Graphique envoyé dans Téléchargements`, 'success');
+    } catch(e) {
+      console.error('[ExportChart] Download error:', e);
+      showToast('Erreur lors du téléchargement du graphique', 'error');
+    }
+  })();
 }
 
 function exportBatteryCsv() {
@@ -1856,39 +1881,63 @@ function exportBatteryCsv() {
   });
   const csvContent = rows.join('\r\n');
 
-  // 1. Si on est dans l'appli Android native avec le pont Java :
-  // Envoi DIRECT dans le dossier Téléchargements du smartphone via MediaStore
-  if (window.AndroidBridge && typeof window.AndroidBridge.saveFileToDownloads === 'function') {
-    try {
-      const base64 = btoa(unescape(encodeURIComponent(csvContent)));
-      window.AndroidBridge.saveFileToDownloads(base64, fileName, 'text/csv');
-      showToast(`Fichier CSV envoyé dans Téléchargements`, 'success');
-      return;
-    } catch(err) {
-      console.warn('[ExportCsv] saveFileToDownloads error:', err);
+  (async () => {
+    // 1. Si on est dans l'appli Android native avec le pont Java (v1.4.25+) :
+    // Envoi DIRECT dans le dossier Téléchargements du smartphone via MediaStore
+    if (window.AndroidBridge && typeof window.AndroidBridge.saveFileToDownloads === 'function') {
+      try {
+        const base64 = btoa(unescape(encodeURIComponent(csvContent)));
+        window.AndroidBridge.saveFileToDownloads(base64, fileName, 'text/csv');
+        showToast(`Fichier CSV envoyé dans Téléchargements`, 'success');
+        return;
+      } catch(err) {
+        console.warn('[ExportCsv] saveFileToDownloads error:', err);
+      }
     }
-  }
 
-  // 2. Si on est dans un navigateur (Chrome, Edge, Safari, Firefox sur PC ou mobile) :
-  // Téléchargement DIRECT et forcé dans le dossier Téléchargements avec application/octet-stream
-  try {
-    const blob = new Blob([csvContent], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 2000);
-    showToast(`Fichier CSV envoyé dans Téléchargements`, 'success');
-  } catch(e) {
-    console.error('[ExportCsv] Download error:', e);
-    showToast('Erreur lors du téléchargement du fichier CSV', 'error');
-  }
+    // 2. Partage natif mobile via Web Share API avec fichier (fonctionne immédiatement sur mobile / PWA / WebView)
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    if (navigator.canShare) {
+      try {
+        const file = new File([blob], fileName, { type: 'text/csv' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `RandoTracker - Télémétrie Batterie ${dateStr}`,
+            text: `Fichier d'analyse de décharge batterie RandoTracker (${fileName})`
+          });
+          showToast('Fichier CSV partagé / enregistré avec succès !', 'success');
+          return;
+        }
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          console.warn('[ExportCsv Share]', e);
+        } else {
+          return;
+        }
+      }
+    }
+
+    // 3. Si on est dans un navigateur classique (PC desktop) :
+    try {
+      const octetBlob = new Blob([csvContent], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(octetBlob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 2000);
+      showToast(`Fichier CSV envoyé dans Téléchargements`, 'success');
+    } catch(e) {
+      console.error('[ExportCsv] Download error:', e);
+      showToast('Erreur lors du téléchargement du fichier CSV', 'error');
+    }
+  })();
 }
 
 function confirmResetBatteryHistory() {
