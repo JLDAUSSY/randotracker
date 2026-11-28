@@ -456,6 +456,10 @@ run_test("IHM POI : Fonction toggleNearbyPoi définie", lambda: 'function toggle
 run_test("IHM POI : Fonction clearAllNearbyPoi définie", lambda: 'function clearAllNearbyPoi' in js_text)
 run_test("IHM POI : Fonction formatPoiDistance définie", lambda: 'function formatPoiDistance' in js_text)
 run_test("CSS : Styles DAE actif (.poi-quick-btn-active-dae)", lambda: '.poi-quick-btn-active-dae' in css_text)
+run_test("Connexion Géo'DAE : Fonction fetchGeoDaePoi définie et exportée", lambda: 'function fetchGeoDaePoi' in js_text and 'window.fetchGeoDaePoi = fetchGeoDaePoi' in js_text)
+run_test("Connexion Géo'DAE : Service WFS officiel data.gouv / datasud requêté", lambda: 'datasud.fr/geoserver/region-sud/ows' in js_text and 'geodae-region-sud' in js_text)
+run_test("Connexion Géo'DAE : Badge officiel '🏛️ Géo\'DAE Officiel' dans popup DAE", lambda: ("Géo'DAE Officiel" in js_text or "Géo\\'DAE Officiel" in js_text))
+run_test("Connexion Géo'DAE : Fusion et déduplication géographique (seuil 35m)", lambda: 'calculateDistance(osm.lat, osm.lon, g.lat, g.lon) < 0.035' in js_text)
 
 
 # ----------------------------------------------------------------------

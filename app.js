@@ -10599,30 +10599,7 @@ function formatPoiDistance(dKm) {
 }
 window.formatPoiDistance = formatPoiDistance;
 
-async function fetchNearbyPoi(type) {
-  if (!state.map) return [];
-  const hasMePos = typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat) && !isNaN(state.myUser.lon);
-  const centerLat = hasMePos ? state.myUser.lat : state.map.getCenter().lat;
-  const centerLon = hasMePos ? state.myUser.lon : state.map.getCenter().lng;
-
-  // Périmètre de recherche ~4.5 km autour de la position
-  const delta = 0.04;
-  const s = (centerLat - delta).toFixed(4);
-  const w = (centerLon - delta * 1.2).toFixed(4);
-  const n = (centerLat + delta).toFixed(4);
-  const e = (centerLon + delta * 1.2).toFixed(4);
-
-  let query = '';
-  if (type === 'water') {
-    query = `[out:json][timeout:10];(node["amenity"="drinking_water"](${s},${w},${n},${e});node["drinking_water"="yes"](${s},${w},${n},${e}););out body 40;`;
-  } else if (type === 'toilets') {
-    query = `[out:json][timeout:10];(node["amenity"="toilets"](${s},${w},${n},${e}););out body 40;`;
-  } else if (type === 'dae') {
-    query = `[out:json][timeout:10];(node["emergency"="defibrillator"](${s},${w},${n},${e}););out body 40;`;
-  } else {
-    return [];
-  }
-
+async function fetchOsmPoi(query) {
   const servers = [
     'https://overpass.openstreetmap.fr/api/interpreter',
     'https://overpass.private.coffee/api/interpreter',
@@ -10649,8 +10626,125 @@ async function fetchNearbyPoi(type) {
         }
       }
     } catch (e) {
-      console.warn(`[POI] Échec sur ${server}, tentative serveur suivant...`, e);
+      console.warn(`[POI OSM] Échec sur ${server}, tentative serveur suivant...`, e);
     }
+  }
+  return [];
+}
+window.fetchOsmPoi = fetchOsmPoi;
+
+async function fetchGeoDaePoi(s, w, n, e) {
+  // Service WFS officiel Géo'DAE (Ministère de la Santé / Région Sud - Data.gouv.fr)
+  const url = `https://www.datasud.fr/geoserver/region-sud/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=region-sud:geodae-region-sud&srsName=EPSG:4326&bbox=${w},${s},${e},${n},EPSG:4326&maxFeatures=80&outputFormat=application/json`;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data || !Array.isArray(data.features)) return [];
+
+    return data.features.map(f => {
+      const p = f.properties || {};
+      const geom = f.geometry || {};
+      const coords = Array.isArray(geom.coordinates) ? geom.coordinates : [0, 0];
+      const lon = parseFloat(coords[0]) || parseFloat(p.c_long_coor1) || 0;
+      const lat = parseFloat(coords[1]) || parseFloat(p.c_lat_coor1) || 0;
+      if (!lat || !lon) return null;
+
+      const num = p.c_adr_num ? `${p.c_adr_num} ` : '';
+      const voie = p.c_adr_voie || '';
+      const ville = p.c_com_nom || '';
+      const fullAddress = `${num}${voie}${ville ? ` (${ville})` : ''}`.trim();
+
+      const dispJ = (p.c_disp_j || '').replace(/[{"}]/g, '').trim();
+      const dispH = (p.c_disp_h || '').replace(/[{"}]/g, '').trim();
+      let openingHours = '';
+      if (dispH.includes('24h/24') || (dispJ.includes('tous les jours') && dispH.includes('24'))) {
+        openingHours = '24/7';
+      } else if (dispH || dispJ) {
+        openingHours = [dispJ, dispH].filter(Boolean).join(' - ');
+      }
+
+      const isIndoor = p.c_acc === 'Intérieur' ? 'yes' : (p.c_acc === 'Extérieur' ? 'no' : undefined);
+
+      return {
+        id: `geodae_${p.c_gid || p.gid || Math.round(lat * 100000)}`,
+        lat,
+        lon,
+        tags: {
+          name: p.c_nom || 'Défibrillateur Géo\'DAE',
+          address: fullAddress,
+          'defibrillator:location': p.c_acc_complt || p.c_loc_prec || '',
+          operator: p.c_expt_rais || '',
+          opening_hours: openingHours,
+          indoor: isIndoor,
+          access_free: p.c_acc_lib === 't',
+          status: p.c_etat_fonct || 'En service',
+          source: "Géo'DAE (Ministère de la Santé)"
+        }
+      };
+    }).filter(Boolean);
+  } catch (e) {
+    console.warn("[Géo'DAE] Échec de récupération :", e);
+    return [];
+  }
+}
+window.fetchGeoDaePoi = fetchGeoDaePoi;
+
+async function fetchNearbyPoi(type) {
+  if (!state.map) return [];
+  const hasMePos = typeof state.myUser.lat === 'number' && typeof state.myUser.lon === 'number' && !isNaN(state.myUser.lat) && !isNaN(state.myUser.lon);
+  const centerLat = hasMePos ? state.myUser.lat : state.map.getCenter().lat;
+  const centerLon = hasMePos ? state.myUser.lon : state.map.getCenter().lng;
+
+  // Périmètre de recherche ~4.5 km autour de la position
+  const delta = 0.04;
+  const s = (centerLat - delta).toFixed(4);
+  const w = (centerLon - delta * 1.2).toFixed(4);
+  const n = (centerLat + delta).toFixed(4);
+  const e = (centerLon + delta * 1.2).toFixed(4);
+
+  if (type === 'water') {
+    const query = `[out:json][timeout:10];(node["amenity"="drinking_water"](${s},${w},${n},${e});node["drinking_water"="yes"](${s},${w},${n},${e}););out body 40;`;
+    return await fetchOsmPoi(query);
+  } else if (type === 'toilets') {
+    const query = `[out:json][timeout:10];(node["amenity"="toilets"](${s},${w},${n},${e}););out body 40;`;
+    return await fetchOsmPoi(query);
+  } else if (type === 'dae') {
+    // Requête combinée : Base officielle française Géo'DAE + OpenStreetMap
+    const osmQuery = `[out:json][timeout:10];(nwr["emergency"="defibrillator"](${s},${w},${n},${e}););out center 40;`;
+    const [geoDaeRes, osmRes] = await Promise.allSettled([
+      fetchGeoDaePoi(s, w, n, e),
+      fetchOsmPoi(osmQuery)
+    ]);
+
+    const geoItems = (geoDaeRes.status === 'fulfilled' && Array.isArray(geoDaeRes.value)) ? geoDaeRes.value : [];
+    const osmRaw = (osmRes.status === 'fulfilled' && Array.isArray(osmRes.value)) ? osmRes.value : [];
+    const osmItems = osmRaw.map(el => {
+      const lat = el.lat || (el.center && el.center.lat);
+      const lon = el.lon || (el.center && el.center.lon);
+      return {
+        ...el,
+        lat,
+        lon,
+        tags: {
+          ...(el.tags || {}),
+          source: (el.tags && el.tags.source) ? el.tags.source : 'OpenStreetMap'
+        }
+      };
+    }).filter(el => el.lat && el.lon);
+
+    // Déduplication géographique : priorité aux données officielles Géo'DAE (seuil 35m)
+    const merged = [...geoItems];
+    for (const osm of osmItems) {
+      const isDuplicate = geoItems.some(g => calculateDistance(osm.lat, osm.lon, g.lat, g.lon) < 0.035);
+      if (!isDuplicate) {
+        merged.push(osm);
+      }
+    }
+    return merged;
   }
   return [];
 }
@@ -10724,16 +10818,20 @@ function createPoiMarker(item, type, hasMePos, isClosest = false) {
     subTitle = tags.toilets ? 'Sanitaires / WC' : 'Toilettes';
   } else if (isDae) {
     mainTitle = tags.name ? escapeHtml(tags.name) : "Défibrillateur Automatisé (DAE)";
-    subTitle = tags['defibrillator:location'] ? escapeHtml(tags['defibrillator:location']) : (tags.operator ? 'Opérateur : ' + escapeHtml(tags.operator) : 'Dispositif d\'urgence cardiaque');
+    subTitle = tags['defibrillator:location'] ? escapeHtml(tags['defibrillator:location']) : (tags.address ? escapeHtml(tags.address) : (tags.operator ? 'Opérateur : ' + escapeHtml(tags.operator) : 'Dispositif d\'urgence cardiaque'));
   }
 
   const feeTag = (tags.fee === 'no') ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 text-[10px]">Gratuit</span>' : ((tags.fee && tags.fee !== 'no') ? `<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 text-[10px]">Payant (${escapeHtml(tags.fee)})</span>` : '');
   const pmrTag = (tags.wheelchair === 'yes') ? '<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40 text-[10px]">♿ Accès PMR</span>' : '';
   const distDesc = hasMePos ? "à vol d'oiseau de votre position" : "du centre de recherche";
 
-  // Badges spéciaux DAE
+  // Badges spéciaux DAE (Géo'DAE Officiel & OpenStreetMap)
   let daeExtras = '';
   if (isDae) {
+    const isGeoDae = Boolean(tags.source && tags.source.includes("Géo'DAE"));
+    const sourceBadge = isGeoDae
+      ? `<span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-bold border border-rose-500/40 text-[10px]">🏛️ Géo'DAE Officiel</span>`
+      : `<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold border border-slate-700 text-[10px]">🌐 OpenStreetMap</span>`;
     const is24_7 = (tags.opening_hours === '24/7');
     const openTag = is24_7
       ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/40 text-[10px]">🟢 Accès 24h/24 7j/7</span>'
@@ -10741,10 +10839,23 @@ function createPoiMarker(item, type, hasMePos, isClosest = false) {
     const indoorTag = (tags.indoor === 'no')
       ? '<span class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-500/40 text-[10px]">Extérieur</span>'
       : ((tags.indoor === 'yes') ? '<span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 text-[10px]">Intérieur</span>' : '');
-    const locNote = tags['defibrillator:location'] ? `<div class="text-[11px] font-bold text-rose-200 bg-rose-950/70 p-2 rounded-xl border border-rose-500/40 leading-snug">📍 Emplacement : ${escapeHtml(tags['defibrillator:location'])}</div>` : '';
+    const accessTag = (tags.access_free === true)
+      ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40 text-[10px]">Accès Libre</span>'
+      : '';
+    const addressLine = tags.address
+      ? `<div class="text-[11px] text-slate-200 font-medium flex items-center gap-1.5"><span class="text-rose-400">📍</span><span>${escapeHtml(tags.address)}</span></div>`
+      : '';
+    const locNote = tags['defibrillator:location']
+      ? `<div class="text-[11px] font-bold text-rose-200 bg-rose-950/70 p-2 rounded-xl border border-rose-500/40 leading-snug">📌 Emplacement : ${escapeHtml(tags['defibrillator:location'])}</div>`
+      : '';
+    const operatorTag = tags.operator
+      ? `<div class="text-[10px] text-slate-400 font-semibold">🏢 Géré par : ${escapeHtml(tags.operator)}</div>`
+      : '';
     daeExtras = `
-      ${(openTag || indoorTag) ? `<div class="flex flex-wrap items-center gap-1.5">${openTag}${indoorTag}</div>` : ''}
+      <div class="flex flex-wrap items-center gap-1.5">${sourceBadge}${openTag}${indoorTag}${accessTag}</div>
+      ${addressLine}
       ${locNote}
+      ${operatorTag}
     `;
   }
 
