@@ -1311,6 +1311,10 @@ function saveUserProfile() {
 
   if (name) state.myUser.name = name;
   if (role) state.myUser.role = role;
+  if (role === 'QG' && (!state.myUser.icon || state.myUser.icon === '🌲' || state.myUser.icon === '🥾')) {
+    state.myUser.icon = '🏛️';
+    state.myUser.color = '#b91c1c';
+  }
   state.myUser.assignedTrackId = trackId || 'auto';
   state.shareDurationHours = Math.min(ABSOLUTE_MAX_HOURS, Math.max(1, isNaN(duration) ? 8 : duration));
 
@@ -8573,6 +8577,35 @@ function setupEventListeners() {
   });
 
   if (saveProfileBtn) saveProfileBtn.addEventListener('click', saveUserProfile);
+
+  const inputRoleSelect = document.getElementById('input-user-role');
+  if (inputRoleSelect) {
+    inputRoleSelect.addEventListener('change', () => {
+      if (inputRoleSelect.value === 'QG') {
+        state.myUser.icon = '🏛️';
+        state.myUser.color = '#b91c1c';
+        document.querySelectorAll('.avatar-opt').forEach(b => {
+          if (b.getAttribute('data-icon') === '🏛️') {
+            b.classList.add('border-white', 'scale-110');
+            b.classList.remove('border-transparent');
+          } else {
+            b.classList.remove('border-white', 'scale-110');
+            b.classList.add('border-transparent');
+          }
+        });
+        const headerBadge = document.getElementById('header-avatar-badge');
+        if (headerBadge) {
+          headerBadge.innerHTML = formatAvatarHtml(state.myUser.icon);
+          headerBadge.style.backgroundColor = state.myUser.color;
+        }
+        const myAvatar = document.getElementById('my-avatar-display');
+        if (myAvatar) {
+          myAvatar.innerHTML = formatAvatarHtml(state.myUser.icon);
+          myAvatar.style.backgroundColor = state.myUser.color;
+        }
+      }
+    });
+  }
 
   // Boutons de messages rapides prédéfinis pour l'organisateur
   document.querySelectorAll('.preset-msg-btn').forEach(btn => {

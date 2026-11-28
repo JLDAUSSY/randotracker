@@ -835,6 +835,7 @@ try:
     test_btn("Avatar Chat Jaune (data-icon='🐱')", lambda: sim_driver.execute_script("const b = document.querySelector(\".avatar-opt[data-icon='🐱']\"); if(b) b.click();"), lambda: sim_driver.execute_script("return window.state.myUser.icon === '🐱' || window.state.myUser.icon === 'cat_icon.png';"))
     test_btn("Avatar Chat Rose (data-icon='🐱_pink')", lambda: sim_driver.execute_script("const b = document.querySelector(\".avatar-opt[data-icon='🐱_pink']\"); if(b) b.click();"), lambda: sim_driver.execute_script("return window.state.myUser.icon === '🐱_pink' || window.state.myUser.icon === 'cat_pink_icon.png';"))
     test_btn("Avatar Chaussure Rando (data-icon='🥾')", lambda: sim_driver.execute_script("const b = document.querySelector(\".avatar-opt[data-icon='🥾']\"); if(b) b.click();"), lambda: sim_driver.execute_script("return window.state.myUser.icon === '🥾';"))
+    test_btn("Avatar QG Rouge (data-icon='🏛️')", lambda: sim_driver.execute_script("const b = document.querySelector(\".avatar-opt[data-icon='🏛️']\"); if(b) b.click();"), lambda: sim_driver.execute_script("return window.state.myUser.icon === '🏛️';"))
 
     for r in ['Guide de tête', 'Serre-file', 'Randonneur', 'Secours / PC', 'QG']:
         test_btn(f"Rôle '{r}'", lambda role=r: sim_driver.execute_script(f"const s=document.getElementById('input-user-role'); if(s){{s.value='{role}'; s.dispatchEvent(new Event('change'));}}"), lambda role=r: sim_driver.find_element(By.ID, 'input-user-role').get_attribute('value') == role)
