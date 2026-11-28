@@ -4209,13 +4209,14 @@ function generateUserPopupHtml(userId) {
   const isZoneBlanche = !isMe && timeSinceSeenMs > 2 * 60 * 1000;
   const minSinceSeen = Math.max(1, Math.round(timeSinceSeenMs / 60000));
 
-  // Rôle spécifique uniquement si Guide / Serre-file / Secours
+  // Rôle spécifique uniquement si Guide / Serre-file / Secours / QG
   let roleBadge = '';
   if (user.role) {
     const r = user.role.toLowerCase();
     if (r.includes('guide')) roleBadge = '👑 ';
     else if (r.includes('serre-file')) roleBadge = '🛡️ ';
     else if (r.includes('secours') || r.includes('sécurité') || r.includes('pc')) roleBadge = '🚑 ';
+    else if (r.includes('qg') || r.includes('commandement')) roleBadge = '🏛️ ';
   }
 
   // Nom affiché : pour "Moi", si le prénom n'a pas encore été personnalisé, afficher "Moi"
@@ -4642,13 +4643,14 @@ function createOrUpdateUserMarker(user) {
   const sosClass = user.isSos ? 'is-sos' : '';
   const liveClass = (!user.isSos && !isZoneBlanche) ? 'is-live' : '';
   
-  // Rôle spécifique uniquement si Guide / Serre-file / Secours (pas d'icône redondante pour les marcheurs standards)
+  // Rôle spécifique uniquement si Guide / Serre-file / Secours / QG (pas d'icône redondante pour les marcheurs standards)
   let roleBadge = '';
   if (user.role) {
     const r = user.role.toLowerCase();
     if (r.includes('guide')) roleBadge = '👑 ';
     else if (r.includes('serre-file')) roleBadge = '🛡️ ';
     else if (r.includes('secours') || r.includes('sécurité') || r.includes('pc')) roleBadge = '🚑 ';
+    else if (r.includes('qg') || r.includes('commandement')) roleBadge = '🏛️ ';
   }
 
   // Nom affiché : pour "Moi", si le prénom n'a pas encore été personnalisé, afficher "Moi"
@@ -10621,7 +10623,7 @@ async function fetchNearbyPoi(type) {
 }
 window.fetchNearbyPoi = fetchNearbyPoi;
 
-function createPoiMarker(item, type, hasMePos) {
+function createPoiMarker(item, type, hasMePos, isClosest = false) {
   const isWater = (type === 'water');
   const isToilets = (type === 'toilets');
   const isDae = (type === 'dae');
@@ -10646,13 +10648,25 @@ function createPoiMarker(item, type, hasMePos) {
 
   const tags = item.tags || {};
   let defaultTitle = isWater ? "Point d'eau potable" : (isToilets ? "Toilettes" : "Défibrillateur (DAE)");
+
+  const closestPinClass = isClosest ? 'poi-closest-blinking' : '';
+  const closestBadgeClass = isClosest ? 'poi-closest-badge ring-1 ring-white/90 text-white' : '';
+  const closestStar = isClosest ? '⭐ ' : '';
+  const closestIndicator = isClosest ? `
+    <span class="absolute -top-1.5 -right-1.5 flex h-4 w-4 z-20 pointer-events-none">
+      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-90"></span>
+      <span class="relative inline-flex rounded-full h-4 w-4 bg-amber-400 border border-white items-center justify-center text-[8px] font-black text-slate-950 shadow">★</span>
+    </span>
+  ` : '';
+
   const iconHtml = `
-    <div class="poi-marker-pin" title="${escapeHtml(tags.name || defaultTitle)}">
-      <div class="w-9 h-9 rounded-2xl bg-gradient-to-br ${bgGradient} border-2 border-white shadow-2xl flex items-center justify-center text-lg text-white transition-transform hover:scale-110 active:scale-95">
+    <div class="poi-marker-pin ${closestPinClass}" id="poi-pin-${item.id}" title="${escapeHtml(tags.name || defaultTitle)}">
+      <div class="relative w-9 h-9 rounded-2xl bg-gradient-to-br ${bgGradient} border-2 border-white shadow-2xl flex items-center justify-center text-lg text-white transition-transform hover:scale-110 active:scale-95">
+        ${closestIndicator}
         ${iconEmoji}
       </div>
-      <div class="poi-dist-badge px-1.5 py-0.2 rounded-md bg-slate-950/95 border ${borderColor} text-[9.5px] font-mono font-black shadow-md mt-0.5 whitespace-nowrap" id="poi-badge-${item.id}">
-        ${distStr}
+      <div class="poi-dist-badge px-1.5 py-0.2 rounded-md bg-slate-950/95 border ${borderColor} text-[9.5px] font-mono font-black shadow-md mt-0.5 whitespace-nowrap ${closestBadgeClass}" id="poi-badge-${item.id}">
+        ${closestStar}${distStr}
       </div>
     </div>
   `;
@@ -10835,8 +10849,9 @@ async function toggleNearbyPoi(type) {
     }
 
     const layer = L.layerGroup();
-    processed.forEach(item => {
-      const marker = createPoiMarker(item, type, hasMePos);
+    processed.forEach((item, index) => {
+      const isClosest = (index === 0);
+      const marker = createPoiMarker(item, type, hasMePos, isClosest);
       marker.addTo(layer);
     });
 
@@ -10919,37 +10934,49 @@ function updateNearbyPoiDistances() {
   const userLat = state.myUser.lat;
   const userLon = state.myUser.lon;
 
-  if (state.nearbyPoi.waterActive && Array.isArray(state.nearbyPoi.waterData)) {
-    state.nearbyPoi.waterData.forEach(poi => {
-      const d = calculateDistance(userLat, userLon, poi.lat, poi.lon);
-      poi.distKm = d;
-      const badge = document.getElementById(`poi-badge-${poi.id}`);
-      if (badge) badge.textContent = formatPoiDistance(d);
+  const updatePoiGroup = (list) => {
+    if (!Array.isArray(list) || list.length === 0) return;
+    list.forEach(poi => {
+      poi.distKm = calculateDistance(userLat, userLon, poi.lat, poi.lon);
       const popupDist = document.getElementById(`poi-popup-dist-${poi.id}`);
-      if (popupDist) popupDist.textContent = `📏 ${formatPoiDistance(d)}`;
+      if (popupDist) popupDist.textContent = `📏 ${formatPoiDistance(poi.distKm)}`;
     });
+
+    list.sort((a, b) => a.distKm - b.distKm);
+    const closestId = list[0].id;
+
+    list.forEach(poi => {
+      const isClosest = (poi.id === closestId);
+      const badge = document.getElementById(`poi-badge-${poi.id}`);
+      if (badge) {
+        badge.textContent = `${isClosest ? '⭐ ' : ''}${formatPoiDistance(poi.distKm)}`;
+        if (isClosest) {
+          badge.classList.add('poi-closest-badge', 'ring-1', 'ring-white/90', 'text-white');
+        } else {
+          badge.classList.remove('poi-closest-badge', 'ring-1', 'ring-white/90', 'text-white');
+        }
+      }
+      const pin = document.getElementById(`poi-pin-${poi.id}`);
+      if (pin) {
+        if (isClosest) {
+          pin.classList.add('poi-closest-blinking');
+        } else {
+          pin.classList.remove('poi-closest-blinking');
+        }
+      }
+    });
+  };
+
+  if (state.nearbyPoi.waterActive && Array.isArray(state.nearbyPoi.waterData)) {
+    updatePoiGroup(state.nearbyPoi.waterData);
   }
 
   if (state.nearbyPoi.toiletsActive && Array.isArray(state.nearbyPoi.toiletsData)) {
-    state.nearbyPoi.toiletsData.forEach(poi => {
-      const d = calculateDistance(userLat, userLon, poi.lat, poi.lon);
-      poi.distKm = d;
-      const badge = document.getElementById(`poi-badge-${poi.id}`);
-      if (badge) badge.textContent = formatPoiDistance(d);
-      const popupDist = document.getElementById(`poi-popup-dist-${poi.id}`);
-      if (popupDist) popupDist.textContent = `📏 ${formatPoiDistance(d)}`;
-    });
+    updatePoiGroup(state.nearbyPoi.toiletsData);
   }
 
   if (state.nearbyPoi.daeActive && Array.isArray(state.nearbyPoi.daeData)) {
-    state.nearbyPoi.daeData.forEach(poi => {
-      const d = calculateDistance(userLat, userLon, poi.lat, poi.lon);
-      poi.distKm = d;
-      const badge = document.getElementById(`poi-badge-${poi.id}`);
-      if (badge) badge.textContent = formatPoiDistance(d);
-      const popupDist = document.getElementById(`poi-popup-dist-${poi.id}`);
-      if (popupDist) popupDist.textContent = `📏 ${formatPoiDistance(d)}`;
-    });
+    updatePoiGroup(state.nearbyPoi.daeData);
   }
 }
 window.updateNearbyPoiDistances = updateNearbyPoiDistances;
