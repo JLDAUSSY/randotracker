@@ -560,6 +560,28 @@ public class RandoMainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
+        public String getDeviceModel() {
+            try {
+                String manufacturer = Build.MANUFACTURER != null ? Build.MANUFACTURER.trim() : "";
+                String model = Build.MODEL != null ? Build.MODEL.trim() : "";
+                if (model.toLowerCase().startsWith(manufacturer.toLowerCase())) {
+                    return capitalizeModel(model);
+                } else if (!manufacturer.isEmpty()) {
+                    return capitalizeModel(manufacturer) + " " + model;
+                } else {
+                    return model;
+                }
+            } catch (Exception e) {
+                return "Smartphone Android";
+            }
+        }
+
+        private String capitalizeModel(String str) {
+            if (str == null || str.isEmpty()) return "";
+            return Character.toUpperCase(str.charAt(0)) + str.substring(1);
+        }
+
+        @JavascriptInterface
         public void saveFileToDownloads(final String base64Data, final String fileName, final String mimeType) {
             runOnUiThread(new Runnable() {
                 @Override

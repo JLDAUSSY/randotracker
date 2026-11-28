@@ -58,7 +58,7 @@
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1457919469523324" crossorigin="anonymous"></script>
 
   <!-- Custom Styles with Cache-Busting v120 -->
-  <link rel="stylesheet" href="styles.css?v=120" />
+  <link rel="stylesheet" href="styles.css?v=131" />
   <style>
     html, body {
       background-color: #020617 !important;
@@ -1123,18 +1123,18 @@
   <!-- ================================================================= -->
   <!-- MODAL : USER PROFILE EDIT -->
   <!-- ================================================================= -->
-  <div id="profile-modal" class="hidden fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 pointer-events-none" style="display: none;">
-    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[88vh] pointer-events-auto overflow-hidden">
-      <!-- EN-TÊTE FIXE & POIGNÉE DE DÉPLACEMENT -->
-      <div class="modal-drag-header p-4 sm:p-5 border-b-2 border-slate-800 flex items-center justify-between bg-slate-900 shrink-0 cursor-grab active:cursor-grabbing select-none">
+  <div id="profile-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-start justify-center pt-2 sm:pt-4 pb-3 px-2 sm:px-4 pointer-events-none" style="display: none;">
+    <div class="bg-slate-900 border-2 border-slate-700 rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[94vh] sm:max-h-[92vh] pointer-events-auto overflow-hidden">
+      <!-- EN-TÊTE FIXE CALÉ EN HAUT -->
+      <div class="p-4 sm:p-5 border-b-2 border-slate-800 flex items-center justify-between bg-slate-900 shrink-0 select-none">
         <div>
           <h3 class="font-black text-lg sm:text-xl text-white flex items-center gap-2.5 sm:gap-3">
             <i data-lucide="user-cog" class="w-6 h-6 sm:w-7 sm:h-7 text-emerald-400"></i>
             Mon Profil de Randonneur
           </h3>
           <div class="text-[11px] font-bold text-slate-400 flex items-center gap-1.5 mt-1">
-            <span class="text-emerald-400 font-mono text-sm leading-none">⠿</span>
-            <span>Glissez l'en-tête pour déplacer • Défilez ↓ pour voir la suite</span>
+            <span class="text-emerald-400 font-bold">⚙️</span>
+            <span>Paramètres du compte & Suivi de batterie</span>
           </div>
         </div>
         <button id="close-profile-modal-btn" class="modal-close-btn" title="Fermer">
@@ -1142,8 +1142,8 @@
         </button>
       </div>
 
-      <!-- CORPS DU PROFIL AVEC DÉFILEMENT VERTICAL FLUIDE -->
-      <div id="profile-modal-body" class="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 custom-scroll" style="overscroll-behavior: contain; -webkit-overflow-scrolling: touch;">
+      <!-- CORPS DU PROFIL CALÉ EN HAUT AVEC ASCENSEUR VISIBLE CLASSIQUE (WORD / EXCEL) -->
+      <div id="profile-modal-body" class="p-4 sm:p-6 space-y-4 overflow-y-scroll flex-1 office-scrollbar" style="overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;">
         <!-- Prénom / Nom -->
         <div>
           <label class="block text-xs font-black text-slate-400 uppercase mb-2">Votre Prénom & Nom</label>
@@ -2303,6 +2303,6 @@
   </div>
 
   <!-- Main Application Script with Cache-Busting v130 -->
-  <script src="app.js?v=130"></script>
+  <script src="app.js?v=131"></script>
 </body>
 </html>

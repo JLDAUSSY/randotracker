@@ -1285,7 +1285,14 @@ function closeAppOpenAd() {
 function openProfileModal() {
   const profileModal = document.getElementById('profile-modal');
   if (!profileModal) return;
-  makeModalDraggable(profileModal);
+  // Caler le profil fermement en haut sans déplacement (drag & drop désactivé pour fluidité tactile)
+  profileModal.style.transform = '';
+  const innerCard = profileModal.querySelector('div');
+  if (innerCard) {
+    innerCard.style.transform = '';
+    innerCard.style.left = '';
+    innerCard.style.top = '';
+  }
   updateProfileUI();
   renderBatteryUI();
   renderBatteryChart();
@@ -1560,6 +1567,399 @@ function recordBatteryHistorySample(level, rate, screenOpt) {
   }
 }
 
+// ============================================================================
+// MODÈLE DE TÉLÉPHONE & OUTILS DE DESSIN CANVAS SUR FOND BLANC
+// ============================================================================
+function getDeviceModelName() {
+  if (window.AndroidBridge && typeof window.AndroidBridge.getDeviceModel === 'function') {
+    try {
+      const dev = window.AndroidBridge.getDeviceModel();
+      if (dev && dev.trim()) return dev.trim();
+    } catch(e) {}
+  }
+  try {
+    const ua = navigator.userAgent || '';
+    const match = ua.match(/Android[^;]+;\s*([^;\)]+?)\s*(?:Build|[;\)])/i);
+    if (match && match[1]) {
+      const clean = match[1].trim();
+      if (clean && !/^(wv|K|Mobile)$/i.test(clean)) {
+        return clean;
+      }
+    }
+    if (/iPhone/i.test(ua)) return 'iPhone';
+    if (/iPad/i.test(ua)) return 'iPad';
+    if (/Macintosh/i.test(ua)) return 'Mac';
+    if (/Windows/i.test(ua)) return 'PC Windows';
+    if (/Linux/i.test(ua)) return 'Linux';
+  } catch(e) {}
+  return 'Smartphone';
+}
+
+function roundRect(ctx, x, y, width, height, radius) {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+}
+
+function drawFallbackLogo(ctx, x, y, size) {
+  ctx.save();
+  ctx.fillStyle = '#0f172a';
+  roundRect(ctx, x, y, size, size, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#10b981';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.strokeStyle = '#34d399';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size * 0.35, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.fillStyle = '#10b981';
+  ctx.font = `bold ${Math.round(size * 0.36)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('RT', x + size / 2, y + size / 2 + 1);
+  ctx.restore();
+}
+
+function buildBatteryExportCanvas(history, breakdown, deviceModel) {
+  const width = 1200;
+  const height = 820;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  // 1. Fond blanc pur
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  const displayHistory = (history && history.length > 0) ? history : [{
+    timeStr: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+    level: (state.myUser && typeof state.myUser.battery === 'number') ? state.myUser.battery : 100,
+    rate: 0,
+    screen: getScreenState(),
+    timestamp: Date.now()
+  }];
+
+  const firstPoint = displayHistory[0];
+  const lastPoint = displayHistory[displayHistory.length - 1];
+  const startLevel = firstPoint.level != null ? firstPoint.level : 100;
+  const currentLevel = lastPoint.level != null ? lastPoint.level : startLevel;
+  const drop = Math.max(0, startLevel - currentLevel);
+
+  const startDateObj = new Date(firstPoint.timestamp || Date.now());
+  const dateFormatted = startDateObj.toLocaleDateString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
+  });
+  const startTime = firstPoint.timeStr || '00:00';
+  const endTime = lastPoint.timeStr || startTime;
+
+  // Header : Logo + "Appli RandoTracker by JLDApps"
+  const headerY = 30;
+  const logoImg = document.querySelector('img[src*="logo.png"]');
+  if (logoImg && logoImg.complete && logoImg.naturalWidth > 0) {
+    try {
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.08)';
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = '#ffffff';
+      roundRect(ctx, 40, headerY, 64, 64, 14);
+      ctx.fill();
+      ctx.restore();
+      ctx.drawImage(logoImg, 42, headerY + 2, 60, 60);
+    } catch(e) {
+      drawFallbackLogo(ctx, 40, headerY, 64);
+    }
+  } else {
+    drawFallbackLogo(ctx, 40, headerY, 64);
+  }
+
+  // Textes Header
+  ctx.fillStyle = '#0f172a';
+  ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('Appli RandoTracker by JLDApps', 120, headerY + 36);
+
+  ctx.fillStyle = '#64748b';
+  ctx.font = '500 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('Sécurité, Partage GPS Outdoor & Télémesure Batterie • https://randotracker.jldapps.fr', 120, headerY + 58);
+
+  // Badge en haut à droite
+  ctx.save();
+  ctx.fillStyle = '#f1f5f9';
+  roundRect(ctx, width - 260, headerY + 12, 220, 38, 19);
+  ctx.fill();
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.fillStyle = '#10b981';
+  ctx.beginPath();
+  ctx.arc(width - 240, headerY + 31, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#334155';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillText('Rapport Télémesure Autonomie', width - 225, headerY + 35);
+  ctx.restore();
+
+  // Séparateur fin
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(40, headerY + 76);
+  ctx.lineTo(width - 40, headerY + 76);
+  ctx.stroke();
+
+  // 2. Titre demandé expressément par l'utilisateur :
+  // "Suivi de la décharge du téléphone [marque et modèle] le [date] entre heure début et heure de fin"
+  const titleY = headerY + 115;
+  ctx.save();
+  ctx.fillStyle = '#f8fafc';
+  roundRect(ctx, 40, titleY - 26, width - 80, 52, 12);
+  ctx.fill();
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#0f172a';
+  ctx.font = 'bold 19px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  const mainTitleText = `Suivi de la décharge du téléphone ${deviceModel} le ${dateFormatted} entre ${startTime} et ${endTime}`;
+  ctx.fillText(mainTitleText, 60, titleY + 6);
+  ctx.restore();
+
+  // 3. Cartes KPIs / Résumé (4 cartes en ligne)
+  const cardY = titleY + 44;
+  const cardH = 82;
+  const cardGap = 16;
+  const cardW = (width - 80 - (cardGap * 3)) / 4;
+
+  const cards = [
+    {
+      title: 'NIVEAU BATTERIE',
+      val: `${startLevel}% ➔ ${currentLevel}%`,
+      sub: `Perte totale : -${drop}%`,
+      subColor: drop > 0 ? '#e11d48' : '#059669',
+      valColor: '#0f172a'
+    },
+    {
+      title: 'VITESSE DE DÉCHARGE',
+      val: (breakdown && breakdown.overallRateStr) ? breakdown.overallRateStr : '--%/h',
+      sub: `Autonomie restante : ~${(breakdown && breakdown.remainingHoursStr) ? breakdown.remainingHoursStr : '--'}h`,
+      subColor: '#d97706',
+      valColor: '#b45309'
+    },
+    {
+      title: '🔆 ÉCRAN ALLUMÉ',
+      val: (breakdown && breakdown.rateOnStr) ? breakdown.rateOnStr : '--%/h',
+      sub: (breakdown && breakdown.detailOnStr) ? breakdown.detailOnStr : '0% • 0min',
+      subColor: '#b45309',
+      valColor: '#d97706'
+    },
+    {
+      title: '🌙 ÉCRAN ÉTEINT (VEILLE)',
+      val: (breakdown && breakdown.rateOffStr) ? breakdown.rateOffStr : '--%/h',
+      sub: (breakdown && breakdown.detailOffStr) ? breakdown.detailOffStr : '0% • 0min',
+      subColor: '#0369a1',
+      valColor: '#0284c7'
+    }
+  ];
+
+  cards.forEach((c, idx) => {
+    const cx = 40 + idx * (cardW + cardGap);
+    ctx.save();
+    ctx.fillStyle = '#f8fafc';
+    roundRect(ctx, cx, cardY, cardW, cardH, 10);
+    ctx.fill();
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 10.5px sans-serif';
+    ctx.fillText(c.title, cx + 14, cardY + 22);
+
+    ctx.fillStyle = c.valColor;
+    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(c.val, cx + 14, cardY + 50);
+
+    ctx.fillStyle = c.subColor;
+    ctx.font = '600 11.5px sans-serif';
+    ctx.fillText(c.sub, cx + 14, cardY + 70);
+    ctx.restore();
+  });
+
+  // 4. Cadre Graphique sur Fond Blanc
+  const chartBoxY = cardY + cardH + 18;
+  const chartBoxH = height - chartBoxY - 45;
+  const chartBoxW = width - 80;
+
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  roundRect(ctx, 40, chartBoxY, chartBoxW, chartBoxH, 12);
+  ctx.fill();
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // En-tête du graphique
+  ctx.fillStyle = '#334155';
+  ctx.font = 'bold 13px sans-serif';
+  ctx.fillText(`COURBE DE DÉCHARGE TEMPORELLE (${displayHistory.length} mesures enregistrées)`, 58, chartBoxY + 25);
+
+  // Légende dans le graphique
+  const legX = width - 360;
+  ctx.fillStyle = '#f59e0b';
+  ctx.beginPath();
+  ctx.arc(legX, chartBoxY + 21, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#b45309';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillText('🔆 Écran allumé', legX + 10, chartBoxY + 25);
+
+  ctx.fillStyle = '#0284c7';
+  ctx.beginPath();
+  ctx.arc(legX + 150, chartBoxY + 21, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#0369a1';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillText('🌙 Écran éteint', legX + 160, chartBoxY + 25);
+
+  // Zone de tracé interne
+  const plotLeft = 100;
+  const plotRight = width - 70;
+  const plotTop = chartBoxY + 45;
+  const plotBottom = chartBoxY + chartBoxH - 35;
+  const plotWidth = plotRight - plotLeft;
+  const plotHeight = plotBottom - plotTop;
+
+  // Lignes Y (0%, 20%, 40%, 60%, 80%, 100%)
+  const ySteps = [0, 20, 40, 60, 80, 100];
+  ctx.font = '600 11px sans-serif';
+  ctx.textAlign = 'right';
+  ySteps.forEach(val => {
+    const yPos = plotBottom - (val / 100) * plotHeight;
+    ctx.strokeStyle = val === 0 ? '#cbd5e1' : '#f1f5f9';
+    ctx.lineWidth = val === 0 ? 1.5 : 1;
+    ctx.beginPath();
+    ctx.moveTo(plotLeft, yPos);
+    ctx.lineTo(plotRight, yPos);
+    ctx.stroke();
+
+    ctx.fillStyle = '#64748b';
+    ctx.fillText(`${val}%`, plotLeft - 10, yPos + 4);
+  });
+  ctx.textAlign = 'left';
+
+  // Tracé des points et de la courbe
+  if (displayHistory.length > 0) {
+    const coords = displayHistory.map((p, idx) => {
+      const frac = (displayHistory.length > 1) ? (idx / (displayHistory.length - 1)) : 0.5;
+      const x = plotLeft + frac * plotWidth;
+      const lvl = Math.max(0, Math.min(100, (p.level != null ? p.level : 100)));
+      const y = plotBottom - (lvl / 100) * plotHeight;
+      return { x, y, level: lvl, screen: p.screen, timeStr: p.timeStr };
+    });
+
+    // Remplissage dégradé sous la courbe
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(coords[0].x, plotBottom);
+    coords.forEach(pt => ctx.lineTo(pt.x, pt.y));
+    ctx.lineTo(coords[coords.length - 1].x, plotBottom);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, plotTop, 0, plotBottom);
+    grad.addColorStop(0, 'rgba(245, 158, 11, 0.20)');
+    grad.addColorStop(1, 'rgba(56, 189, 248, 0.02)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.restore();
+
+    // Tracé segmenté par état d'écran (Orange = Allumé, Bleu = Éteint)
+    for (let i = 0; i < coords.length - 1; i++) {
+      const p1 = coords[i];
+      const p2 = coords[i + 1];
+      const isOff = (p1.screen === 'eteint');
+      ctx.save();
+      ctx.strokeStyle = isOff ? '#0284c7' : '#d97706';
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Dessin des points
+    const maxDots = 70;
+    const dotStep = coords.length > maxDots ? Math.ceil(coords.length / maxDots) : 1;
+    for (let i = 0; i < coords.length; i += dotStep) {
+      const pt = coords[i];
+      const isOff = (pt.screen === 'eteint');
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = isOff ? '#0284c7' : '#f59e0b';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Graduations X (Heures)
+    ctx.fillStyle = '#64748b';
+    ctx.font = '600 11px sans-serif';
+    ctx.textAlign = 'center';
+    const xTickCount = Math.min(8, coords.length);
+    const xStep = Math.max(1, Math.floor((coords.length - 1) / (xTickCount - 1 || 1)));
+    const drawnIndices = new Set();
+    for (let i = 0; i < coords.length; i += xStep) {
+      drawnIndices.add(i);
+    }
+    drawnIndices.add(coords.length - 1);
+    drawnIndices.forEach(idx => {
+      const pt = coords[idx];
+      if (pt) {
+        ctx.fillText(pt.timeStr, pt.x, plotBottom + 18);
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pt.x, plotBottom);
+        ctx.lineTo(pt.x, plotBottom + 5);
+        ctx.stroke();
+      }
+    });
+    ctx.textAlign = 'left';
+  }
+  ctx.restore();
+
+  // 5. Footer officiel
+  const footerY = height - 16;
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '500 11.5px sans-serif';
+  ctx.fillText('Appli RandoTracker by JLDApps • Sécurité & Partage de position en randonnée • https://randotracker.jldapps.fr', 42, footerY);
+
+  const exportDateStr = `Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+  ctx.textAlign = 'right';
+  ctx.fillText(exportDateStr, width - 42, footerY);
+  ctx.textAlign = 'left';
+
+  return canvas;
+}
+
 function renderBatteryChart() {
   const canvas = document.getElementById('battery-history-chart');
   if (!canvas) return;
@@ -1708,7 +2108,7 @@ function renderBatteryChart() {
         },
         title: {
           display: true,
-          text: 'RandoTracker - Décharge Batterie',
+          text: `RandoTracker - Décharge Batterie (${getDeviceModelName()})`,
           color: '#f8fafc',
           font: { size: 11, weight: 'bold' },
           padding: { top: 4, bottom: 2 }
@@ -1769,18 +2169,36 @@ function exportBatteryChartPng() {
     return;
   }
   renderBatteryChart();
+
+  const history = loadBatteryHistoryFromStorage();
+  const breakdown = computeBatteryScreenBreakdown(history);
+  const deviceModel = getDeviceModelName();
+
+  let dataUrl = '';
+  // 1. Génération de la fiche graphique soignée sur fond blanc (logo, titre avec modèle/date/heures, KPIs et courbe)
+  try {
+    const exportCanvas = buildBatteryExportCanvas(history, breakdown, deviceModel);
+    if (exportCanvas) {
+      dataUrl = exportCanvas.toDataURL('image/png');
+    }
+  } catch (errExport) {
+    console.warn('[ExportChart] buildBatteryExportCanvas warning:', errExport);
+  }
+
+  // 2. Repli de secours sur le canvas direct si besoin
+  if (!dataUrl) {
+    try {
+      dataUrl = canvas.toDataURL('image/png');
+    } catch(e) {
+      console.error('[ExportChart] toDataURL failed:', e);
+      showToast('Erreur génération graphique', 'error');
+      return;
+    }
+  }
+
   const now = new Date();
   const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
   const fileName = `RandoTracker_Batterie_${dateStr}.png`;
-
-  let dataUrl = '';
-  try {
-    dataUrl = canvas.toDataURL('image/png');
-  } catch(e) {
-    console.error('[ExportChart] toDataURL failed:', e);
-    showToast('Erreur génération graphique', 'error');
-    return;
-  }
 
   (async () => {
     // 1. Si on est dans l'appli Android native avec le pont Java (v1.4.25+) :
@@ -9115,7 +9533,7 @@ function makeElementPinchZoomable(containerEl) {
 
 function initAllDraggableModals() {
   const modalIds = [
-    'tracks-modal', 'layer-modal', 'room-modal', 'profile-modal',
+    'tracks-modal', 'layer-modal', 'room-modal',
     'invite-modal', 'announcement-modal', 'received-announcement-modal',
     'about-modal', 'onboarding-modal', 'elevation-drawer', 'users-panel',
     'emergency-modal', 'waypoint-modal'
@@ -11723,6 +12141,8 @@ window.recordBatteryHistorySample = recordBatteryHistorySample;
 window.loadBatteryHistoryFromStorage = loadBatteryHistoryFromStorage;
 window.computeBatteryScreenBreakdown = computeBatteryScreenBreakdown;
 window.getScreenState = getScreenState;
+window.getDeviceModelName = getDeviceModelName;
+window.buildBatteryExportCanvas = buildBatteryExportCanvas;
 
 window.state = state;
 

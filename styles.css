@@ -1208,7 +1208,6 @@ main {
 #tracks-modal > div,
 #layer-modal > div,
 #room-modal > div,
-#profile-modal > div,
 #about-modal > div,
 #onboarding-modal > div,
 #app-open-ad-modal > div,
@@ -1219,7 +1218,6 @@ main {
   -webkit-user-select: none;
 }
 
-#profile-modal > div:active,
 .leaflet-popup-content-wrapper:active {
   cursor: grabbing;
 }
@@ -2071,6 +2069,41 @@ body.has-active-popup #city-search-container {
 
 .custom-scroll::-webkit-scrollbar-thumb:hover {
   background: #059669;
+}
+
+/* ASCENSEUR DE DÉFILEMENT CLASSIQUE ET HAUTE VISIBILITÉ (TYPE WORD / EXCEL) */
+.office-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: #64748b #1e293b;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y !important;
+}
+
+.office-scrollbar::-webkit-scrollbar {
+  width: 11px;
+  display: block;
+}
+
+.office-scrollbar::-webkit-scrollbar-track {
+  background: #1e293b;
+  border-left: 1px solid #334155;
+  border-radius: 6px;
+}
+
+.office-scrollbar::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-radius: 6px;
+  border: 2px solid #1e293b;
+  min-height: 48px;
+}
+
+.office-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.office-scrollbar::-webkit-scrollbar-thumb:active {
+  background: #10b981;
 }
 
 /* POIGNÉE DE DÉPLACEMENT D'EN-TÊTE */
