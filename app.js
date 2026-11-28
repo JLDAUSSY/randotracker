@@ -1492,6 +1492,28 @@ function computeBatteryScreenBreakdown(history) {
   const rateOn = hoursOn >= 0.016 ? (dropOn / hoursOn) : null;
   const rateOff = hoursOff >= 0.016 ? (dropOff / hoursOff) : null;
 
+  const dropTotal = (Array.isArray(history) && history.length >= 2)
+    ? Math.max(0, history[0].level - history[history.length - 1].level)
+    : (dropOn + dropOff);
+  const timeTotalMs = timeOnMs + timeOffMs;
+  const hoursTotal = timeTotalMs / 3600000;
+  const rateTotal = hoursTotal >= 0.016
+    ? (dropTotal / hoursTotal)
+    : (state.batteryTracking ? state.batteryTracking.ratePerHour : null);
+
+  const overallRateStr = (rateTotal !== null && rateTotal !== undefined)
+    ? `-${rateTotal.toFixed(1)}%/h`
+    : (state.batteryTracking && typeof state.batteryTracking.ratePerHour === 'number'
+        ? `-${state.batteryTracking.ratePerHour.toFixed(1)}%/h`
+        : '--%/h');
+
+  let remainingHoursStr = '--';
+  if (rateTotal && rateTotal > 0 && Array.isArray(history) && history.length > 0) {
+    remainingHoursStr = String(Math.round(history[history.length - 1].level / rateTotal));
+  } else if (state.batteryTracking && state.batteryTracking.remainingHours) {
+    remainingHoursStr = String(state.batteryTracking.remainingHours);
+  }
+
   const formatDuration = (ms) => {
     const totalMin = Math.round(ms / 60000);
     if (totalMin < 60) return `${totalMin}min`;
@@ -1503,14 +1525,20 @@ function computeBatteryScreenBreakdown(history) {
   return {
     timeOnMs,
     timeOffMs,
+    timeTotalMs,
     dropOn,
     dropOff,
+    dropTotal,
     rateOn,
     rateOff,
+    rateTotal,
+    overallRateStr,
+    remainingHoursStr,
     rateOnStr: (rateOn !== null) ? `-${rateOn.toFixed(1)}%/h` : '--%/h',
     rateOffStr: (rateOff !== null) ? `-${rateOff.toFixed(1)}%/h` : '--%/h',
     detailOnStr: `-${dropOn}% • ${formatDuration(timeOnMs)}`,
-    detailOffStr: `-${dropOff}% • ${formatDuration(timeOffMs)}`
+    detailOffStr: `-${dropOff}% • ${formatDuration(timeOffMs)}`,
+    detailTotalStr: `-${dropTotal}% • ${formatDuration(timeTotalMs)}`
   };
 }
 
@@ -1519,7 +1547,7 @@ function loadBatteryHistoryFromStorage() {
     const raw = localStorage.getItem('rando_battery_history_v1');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
         state.batteryHistory = parsed.map(p => ({
           ...p,
           screen: p.screen || 'allume'
@@ -1527,8 +1555,9 @@ function loadBatteryHistoryFromStorage() {
       }
     }
   } catch (e) {
-    state.batteryHistory = [];
+    if (!Array.isArray(state.batteryHistory)) state.batteryHistory = [];
   }
+  return Array.isArray(state.batteryHistory) ? state.batteryHistory : [];
 }
 
 function recordBatteryHistorySample(level, rate, screenOpt) {
@@ -1634,7 +1663,7 @@ function drawFallbackLogo(ctx, x, y, size) {
 
 function buildBatteryExportCanvas(history, breakdown, deviceModel) {
   const width = 1200;
-  const height = 820;
+  const height = 840;
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -1645,19 +1674,32 @@ function buildBatteryExportCanvas(history, breakdown, deviceModel) {
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
 
-  const displayHistory = (history && history.length > 0) ? history : [{
-    timeStr: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-    level: (state.myUser && typeof state.myUser.battery === 'number') ? state.myUser.battery : 100,
-    rate: 0,
-    screen: getScreenState(),
-    timestamp: Date.now()
-  }];
+  let displayHistory = (Array.isArray(history) && history.length > 0)
+    ? history
+    : (Array.isArray(state.batteryHistory) && state.batteryHistory.length > 0 ? state.batteryHistory : null);
 
+  if (!displayHistory || displayHistory.length === 0) {
+    displayHistory = loadBatteryHistoryFromStorage();
+  }
+  if (!displayHistory || displayHistory.length === 0) {
+    const curLevel = (state.myUser && typeof state.myUser.battery === 'number') ? state.myUser.battery : 97;
+    const curTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    displayHistory = [{
+      timeStr: curTime,
+      level: curLevel,
+      rate: 0,
+      screen: getScreenState(),
+      timestamp: Date.now()
+    }];
+  }
+
+  const b = (breakdown && breakdown.dropTotal !== undefined) ? breakdown : computeBatteryScreenBreakdown(displayHistory);
   const firstPoint = displayHistory[0];
   const lastPoint = displayHistory[displayHistory.length - 1];
   const startLevel = firstPoint.level != null ? firstPoint.level : 100;
   const currentLevel = lastPoint.level != null ? lastPoint.level : startLevel;
   const drop = Math.max(0, startLevel - currentLevel);
+  const totalDropVal = (b && b.dropTotal !== undefined && b.dropTotal !== null) ? b.dropTotal : drop;
 
   const startDateObj = new Date(firstPoint.timestamp || Date.now());
   const dateFormatted = startDateObj.toLocaleDateString('fr-FR', {
@@ -1739,64 +1781,88 @@ function buildBatteryExportCanvas(history, breakdown, deviceModel) {
   ctx.fillText(mainTitleText, 60, titleY + 6);
   ctx.restore();
 
-  // 3. Cartes KPIs / Résumé (4 cartes en ligne)
+  // 3. Cartes KPIs / Résumé (4 cartes en ligne avec distinction nette des 3 consommations)
   const cardY = titleY + 44;
-  const cardH = 82;
+  const cardH = 86;
   const cardGap = 16;
   const cardW = (width - 80 - (cardGap * 3)) / 4;
 
   const cards = [
     {
-      title: 'NIVEAU BATTERIE',
-      val: `${startLevel}% ➔ ${currentLevel}%`,
-      sub: `Perte totale : -${drop}%`,
-      subColor: drop > 0 ? '#e11d48' : '#059669',
-      valColor: '#0f172a'
+      title: '1. DÉCHARGE TOTALE',
+      val: `-${totalDropVal}%`,
+      sub: `Vitesse: ${b.overallRateStr} • Reste: ~${b.remainingHoursStr}h`,
+      subColor: totalDropVal > 0 ? '#b91c1c' : '#059669',
+      valColor: '#0f172a',
+      badge: `${startLevel}% ➔ ${currentLevel}%`,
+      borderColor: '#cbd5e1',
+      bgColor: '#f8fafc'
     },
     {
-      title: 'VITESSE DE DÉCHARGE',
-      val: (breakdown && breakdown.overallRateStr) ? breakdown.overallRateStr : '--%/h',
-      sub: `Autonomie restante : ~${(breakdown && breakdown.remainingHoursStr) ? breakdown.remainingHoursStr : '--'}h`,
-      subColor: '#d97706',
-      valColor: '#b45309'
-    },
-    {
-      title: '🔆 ÉCRAN ALLUMÉ',
-      val: (breakdown && breakdown.rateOnStr) ? breakdown.rateOnStr : '--%/h',
-      sub: (breakdown && breakdown.detailOnStr) ? breakdown.detailOnStr : '0% • 0min',
+      title: '2. CONSO ÉCRAN ALLUMÉ',
+      val: `-${b.dropOn}%`,
+      sub: `Vitesse: ${b.rateOnStr} • ${b.detailOnStr.split('•')[1] ? b.detailOnStr.split('•')[1].trim() : '0min'}`,
       subColor: '#b45309',
-      valColor: '#d97706'
+      valColor: '#d97706',
+      badge: '🔆 Écran Allumé',
+      borderColor: '#fed7aa',
+      bgColor: '#fffbeb'
     },
     {
-      title: '🌙 ÉCRAN ÉTEINT (VEILLE)',
-      val: (breakdown && breakdown.rateOffStr) ? breakdown.rateOffStr : '--%/h',
-      sub: (breakdown && breakdown.detailOffStr) ? breakdown.detailOffStr : '0% • 0min',
+      title: '3. CONSO ÉCRAN ÉTEINT',
+      val: `-${b.dropOff}%`,
+      sub: `Vitesse: ${b.rateOffStr} • ${b.detailOffStr.split('•')[1] ? b.detailOffStr.split('•')[1].trim() : '0min'}`,
       subColor: '#0369a1',
-      valColor: '#0284c7'
+      valColor: '#0284c7',
+      badge: '🌙 En Veille',
+      borderColor: '#bae6fd',
+      bgColor: '#f0f9ff'
+    },
+    {
+      title: '4. TÉLÉMÉTRIE MATÉRIELLE',
+      val: deviceModel,
+      sub: `${displayHistory.length} mesures horodatées (${startTime} ➔ ${endTime})`,
+      subColor: '#047857',
+      valColor: '#065f46',
+      badge: '📱 Terminal Testé',
+      borderColor: '#a7f3d0',
+      bgColor: '#ecfdf5'
     }
   ];
 
   cards.forEach((c, idx) => {
     const cx = 40 + idx * (cardW + cardGap);
     ctx.save();
-    ctx.fillStyle = '#f8fafc';
+    ctx.fillStyle = c.bgColor || '#f8fafc';
     roundRect(ctx, cx, cardY, cardW, cardH, 10);
     ctx.fill();
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = c.borderColor || '#e2e8f0';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
 
+    // Titre de la carte
     ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 10.5px sans-serif';
-    ctx.fillText(c.title, cx + 14, cardY + 22);
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText(c.title, cx + 12, cardY + 20);
 
+    // Badge d'état
+    if (c.badge) {
+      ctx.fillStyle = c.valColor;
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(c.badge, cx + cardW - 12, cardY + 20);
+      ctx.textAlign = 'left';
+    }
+
+    // Valeur principale
     ctx.fillStyle = c.valColor;
-    ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-    ctx.fillText(c.val, cx + 14, cardY + 50);
+    ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillText(c.val, cx + 12, cardY + 50);
 
+    // Sous-titre explicatif
     ctx.fillStyle = c.subColor;
-    ctx.font = '600 11.5px sans-serif';
-    ctx.fillText(c.sub, cx + 14, cardY + 70);
+    ctx.font = '600 11px sans-serif';
+    ctx.fillText(c.sub, cx + 12, cardY + 72);
     ctx.restore();
   });
 
@@ -1813,34 +1879,45 @@ function buildBatteryExportCanvas(history, breakdown, deviceModel) {
   ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  // En-tête du graphique
-  ctx.fillStyle = '#334155';
-  ctx.font = 'bold 13px sans-serif';
+  // En-tête du graphique avec distinction explicite des 3 composantes
+  ctx.fillStyle = '#0f172a';
+  ctx.font = 'bold 13.5px sans-serif';
   ctx.fillText(`COURBE DE DÉCHARGE TEMPORELLE (${displayHistory.length} mesures enregistrées)`, 58, chartBoxY + 25);
 
-  // Légende dans le graphique
-  const legX = width - 360;
+  // Légende en haut à droite avec les 3 composantes bien distinctes
+  const legX = width - 530;
+  // 1. Total
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(legX, chartBoxY + 21);
+  ctx.lineTo(legX + 20, chartBoxY + 21);
+  ctx.stroke();
+  ctx.fillStyle = '#1e293b';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillText(`⚡ Total: -${totalDropVal}% (${b.overallRateStr})`, legX + 26, chartBoxY + 25);
+
+  // 2. Allumé
   ctx.fillStyle = '#f59e0b';
   ctx.beginPath();
-  ctx.arc(legX, chartBoxY + 21, 5, 0, Math.PI * 2);
+  ctx.arc(legX + 195, chartBoxY + 21, 5, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#b45309';
-  ctx.font = 'bold 12px sans-serif';
-  ctx.fillText('🔆 Écran allumé', legX + 10, chartBoxY + 25);
+  ctx.fillText(`🔆 Allumé: -${b.dropOn}% (${b.rateOnStr})`, legX + 206, chartBoxY + 25);
 
+  // 3. Éteint
   ctx.fillStyle = '#0284c7';
   ctx.beginPath();
-  ctx.arc(legX + 150, chartBoxY + 21, 5, 0, Math.PI * 2);
+  ctx.arc(legX + 375, chartBoxY + 21, 5, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#0369a1';
-  ctx.font = 'bold 12px sans-serif';
-  ctx.fillText('🌙 Écran éteint', legX + 160, chartBoxY + 25);
+  ctx.fillText(`🌙 Éteint: -${b.dropOff}% (${b.rateOffStr})`, legX + 386, chartBoxY + 25);
 
   // Zone de tracé interne
   const plotLeft = 100;
   const plotRight = width - 70;
   const plotTop = chartBoxY + 45;
-  const plotBottom = chartBoxY + chartBoxH - 35;
+  const plotBottom = chartBoxY + chartBoxH - 45;
   const plotWidth = plotRight - plotLeft;
   const plotHeight = plotBottom - plotTop;
 
@@ -1872,77 +1949,136 @@ function buildBatteryExportCanvas(history, breakdown, deviceModel) {
       return { x, y, level: lvl, screen: p.screen, timeStr: p.timeStr };
     });
 
-    // Remplissage dégradé sous la courbe
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(coords[0].x, plotBottom);
-    coords.forEach(pt => ctx.lineTo(pt.x, pt.y));
-    ctx.lineTo(coords[coords.length - 1].x, plotBottom);
-    ctx.closePath();
-    const grad = ctx.createLinearGradient(0, plotTop, 0, plotBottom);
-    grad.addColorStop(0, 'rgba(245, 158, 11, 0.20)');
-    grad.addColorStop(1, 'rgba(56, 189, 248, 0.02)');
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.restore();
-
-    // Tracé segmenté par état d'écran (Orange = Allumé, Bleu = Éteint)
-    for (let i = 0; i < coords.length - 1; i++) {
-      const p1 = coords[i];
-      const p2 = coords[i + 1];
-      const isOff = (p1.screen === 'eteint');
+    if (coords.length === 1) {
+      // Cas 1 seule mesure : dessine une ligne guide horizontale nette sur tout le graphique
+      const singleY = coords[0].y;
       ctx.save();
-      ctx.strokeStyle = isOff ? '#0284c7' : '#d97706';
-      ctx.lineWidth = 3.5;
-      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
+      ctx.moveTo(plotLeft, singleY);
+      ctx.lineTo(plotRight, singleY);
       ctx.stroke();
-      ctx.restore();
-    }
+      ctx.setLineDash([]);
 
-    // Dessin des points
-    const maxDots = 70;
-    const dotStep = coords.length > maxDots ? Math.ceil(coords.length / maxDots) : 1;
-    for (let i = 0; i < coords.length; i += dotStep) {
-      const pt = coords[i];
-      const isOff = (pt.screen === 'eteint');
-      ctx.save();
       ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 4, 0, Math.PI * 2);
-      ctx.fillStyle = isOff ? '#0284c7' : '#f59e0b';
+      ctx.arc(plotLeft + plotWidth / 2, singleY, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#0284c7';
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'italic 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Mesure initiale : ${coords[0].level}% (${coords[0].timeStr}) • La courbe complète se dessine au fil de la marche`, plotLeft + plotWidth / 2, singleY - 14);
+      ctx.fillText(coords[0].timeStr, plotLeft + plotWidth / 2, plotBottom + 20);
+      ctx.restore();
+    } else {
+      // Cas >= 2 mesures : tracé complet continu avec mise en valeur Allumé / Éteint
+
+      // A. Remplissage dégradé sous la courbe
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(coords[0].x, plotBottom);
+      coords.forEach(pt => ctx.lineTo(pt.x, pt.y));
+      ctx.lineTo(coords[coords.length - 1].x, plotBottom);
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(0, plotTop, 0, plotBottom);
+      grad.addColorStop(0, 'rgba(245, 158, 11, 0.18)');
+      grad.addColorStop(0.5, 'rgba(2, 132, 199, 0.08)');
+      grad.addColorStop(1, 'rgba(2, 132, 199, 0.01)');
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.restore();
+
+      // B. Ligne continue totale globale en arrière-plan (trajectoire complète)
+      ctx.save();
+      ctx.strokeStyle = 'rgba(100, 116, 139, 0.45)';
       ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(coords[0].x, coords[0].y);
+      for (let i = 1; i < coords.length; i++) {
+        ctx.lineTo(coords[i].x, coords[i].y);
+      }
       ctx.stroke();
       ctx.restore();
-    }
 
-    // Graduations X (Heures)
-    ctx.fillStyle = '#64748b';
-    ctx.font = '600 11px sans-serif';
-    ctx.textAlign = 'center';
-    const xTickCount = Math.min(8, coords.length);
-    const xStep = Math.max(1, Math.floor((coords.length - 1) / (xTickCount - 1 || 1)));
-    const drawnIndices = new Set();
-    for (let i = 0; i < coords.length; i += xStep) {
-      drawnIndices.add(i);
-    }
-    drawnIndices.add(coords.length - 1);
-    drawnIndices.forEach(idx => {
-      const pt = coords[idx];
-      if (pt) {
-        ctx.fillText(pt.timeStr, pt.x, plotBottom + 18);
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.lineWidth = 1;
+      // C. Tracé segmenté par état d'écran (Orange Vif = Allumé, Bleu Azur = Éteint)
+      for (let i = 0; i < coords.length - 1; i++) {
+        const p1 = coords[i];
+        const p2 = coords[i + 1];
+        const isOff = (p1.screen === 'eteint');
+        ctx.save();
+        ctx.strokeStyle = isOff ? '#0284c7' : '#d97706';
+        ctx.lineWidth = isOff ? 3.5 : 4.5; // Plus épais pour Allumé afin de bien le distinguer
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(pt.x, plotBottom);
-        ctx.lineTo(pt.x, plotBottom + 5);
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
         ctx.stroke();
+        ctx.restore();
       }
-    });
-    ctx.textAlign = 'left';
+
+      // D. Dessin des points de mesure avec pastilles bicolores
+      const maxDots = 70;
+      const dotStep = coords.length > maxDots ? Math.ceil(coords.length / maxDots) : 1;
+      for (let i = 0; i < coords.length; i += dotStep) {
+        const pt = coords[i];
+        const isOff = (pt.screen === 'eteint');
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, isOff ? 4 : 5, 0, Math.PI * 2);
+        ctx.fillStyle = isOff ? '#0284c7' : '#f59e0b';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // E. Frise chronologique d'état d'écran sous la courbe (Timeline Bar)
+      const barY = plotBottom + 8;
+      const barH = 7;
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 9px sans-serif';
+      ctx.fillText('État écran :', plotLeft - 68, barY + 6);
+
+      for (let i = 0; i < coords.length - 1; i++) {
+        const p1 = coords[i];
+        const p2 = coords[i + 1];
+        const isOff = (p1.screen === 'eteint');
+        ctx.fillStyle = isOff ? '#0284c7' : '#f59e0b';
+        ctx.fillRect(p1.x, barY, Math.max(2, p2.x - p1.x), barH);
+      }
+
+      // F. Graduations X (Heures) sous la frise
+      ctx.fillStyle = '#64748b';
+      ctx.font = '600 11px sans-serif';
+      ctx.textAlign = 'center';
+      const xTickCount = Math.min(8, coords.length);
+      const xStep = Math.max(1, Math.floor((coords.length - 1) / (xTickCount - 1 || 1)));
+      const drawnIndices = new Set();
+      for (let i = 0; i < coords.length; i += xStep) {
+        drawnIndices.add(i);
+      }
+      drawnIndices.add(coords.length - 1);
+      drawnIndices.forEach(idx => {
+        const pt = coords[idx];
+        if (pt) {
+          ctx.fillText(pt.timeStr, pt.x, plotBottom + 30);
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(pt.x, plotBottom);
+          ctx.lineTo(pt.x, plotBottom + 5);
+          ctx.stroke();
+        }
+      });
+      ctx.textAlign = 'left';
+    }
   }
   ctx.restore();
 
@@ -2115,7 +2251,7 @@ function renderBatteryChart() {
         },
         subtitle: {
           display: true,
-          text: `🔆 Allumé: ${breakdown.rateOnStr} (${breakdown.detailOnStr})   |   🌙 Éteint: ${breakdown.rateOffStr} (${breakdown.detailOffStr})`,
+          text: `⚡ Total: ${breakdown.overallRateStr || '--%/h'} (-${breakdown.dropTotal !== undefined ? breakdown.dropTotal : 0}%)   |   🔆 Allumé: ${breakdown.rateOnStr} (${breakdown.detailOnStr})   |   🌙 Éteint: ${breakdown.rateOffStr} (${breakdown.detailOffStr})`,
           color: '#94a3b8',
           font: { size: 8.5 },
           padding: { bottom: 6 }
@@ -2170,7 +2306,21 @@ function exportBatteryChartPng() {
   }
   renderBatteryChart();
 
-  const history = loadBatteryHistoryFromStorage();
+  // 1. Récupération robuste et prioritaire de l'historique complet
+  let history = (Array.isArray(state.batteryHistory) && state.batteryHistory.length > 0)
+    ? state.batteryHistory
+    : loadBatteryHistoryFromStorage();
+
+  if (!history || history.length === 0) {
+    history = loadBatteryHistoryFromStorage();
+  }
+  if (!history || history.length === 0) {
+    if (state.myUser && typeof state.myUser.battery === 'number') {
+      recordBatteryHistorySample(state.myUser.battery, 0);
+      history = state.batteryHistory;
+    }
+  }
+
   const breakdown = computeBatteryScreenBreakdown(history);
   const deviceModel = getDeviceModelName();
 
