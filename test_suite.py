@@ -460,6 +460,9 @@ run_test("Connexion Géo'DAE : Fonction fetchGeoDaePoi définie et exportée", l
 run_test("Connexion Géo'DAE : Service WFS officiel data.gouv / datasud requêté", lambda: 'datasud.fr/geoserver/region-sud/ows' in js_text and 'geodae-region-sud' in js_text)
 run_test("Connexion Géo'DAE : Badge officiel '🏛️ Géo\'DAE Officiel' dans popup DAE", lambda: ("Géo'DAE Officiel" in js_text or "Géo\\'DAE Officiel" in js_text))
 run_test("Connexion Géo'DAE : Fusion et déduplication géographique (seuil 35m)", lambda: 'calculateDistance(osm.lat, osm.lon, g.lat, g.lon) < 0.035' in js_text)
+run_test("Fermeture Réelle Android : Basculement écran d'accueil (moveTaskToBack & CATEGORY_HOME)", lambda: 'moveTaskToBack(true)' in open(os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoMainActivity.java'), 'r', encoding='utf-8').read() and 'CATEGORY_HOME' in open(os.path.join(PROJECT_DIR, 'android-project', 'app', 'src', 'main', 'java', 'fr', 'jldaussy', 'randotracker', 'RandoMainActivity.java'), 'r', encoding='utf-8').read())
+run_test("Fermeture Réelle PWA : Écran d'extinction totale (showAppExitScreen)", lambda: 'function showAppExitScreen' in js_text and 'app-exit-screen' in js_text)
+run_test("Fermeture Réelle Android : Double appui retour détecté dans handleNativeBackPress", lambda: 'lastBackPressTime' in js_text and 'stopTrackingAndExitApp' in js_text)
 
 
 # ----------------------------------------------------------------------

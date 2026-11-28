@@ -10044,12 +10044,24 @@ function closeAllModalsAndDrawers() {
   ensureBarsVisible();
 }
 
+let lastBackPressTime = 0;
+
 function handleNativeBackPress() {
   if (isAnyModalOrDrawerOpen()) {
     closeAllModalsAndDrawers();
     ensureBarsVisible();
     return true;
   }
+
+  const now = Date.now();
+  if (now - lastBackPressTime < 2500) {
+    // Deuxième appui consécutif sur Retour -> Demande de fermeture réelle
+    stopTrackingAndExitApp();
+    return true;
+  }
+
+  lastBackPressTime = now;
+  showToast("Appuyez à nouveau sur Retour pour quitter", "info");
   ensureBarsVisible();
   return false;
 }
@@ -11174,19 +11186,54 @@ function savePoiAsWaypoint(poiId, type) {
 window.savePoiAsWaypoint = savePoiAsWaypoint;
 
 // ============================================================================
+// ÉCRAN D'EXTINCTION & ARRÊT COMPLET DE L'APPLICATION
+// ============================================================================
+function showAppExitScreen() {
+  closeAllModalsAndDrawers();
+  let exitEl = document.getElementById('app-exit-screen');
+  if (!exitEl) {
+    exitEl = document.createElement('div');
+    exitEl.id = 'app-exit-screen';
+    exitEl.className = 'fixed inset-0 z-[99999] bg-slate-950 flex flex-col items-center justify-center p-6 text-center text-white select-none';
+    exitEl.innerHTML = `
+      <div class="w-20 h-20 rounded-3xl bg-red-600/20 border-2 border-red-500/40 flex items-center justify-center text-4xl shadow-2xl mb-5">
+        🛑
+      </div>
+      <h1 class="text-2xl font-black text-white mb-2">Application fermée</h1>
+      <p class="text-sm text-slate-300 font-medium max-w-sm mb-4 leading-relaxed">
+        Le suivi GPS est arrêté, le service d'arrière-plan est coupé et la session est fermée.
+      </p>
+      <div class="text-xs text-slate-400 font-semibold mb-8">
+        L'écran de l'application est désactivé. Vous pouvez verrouiller votre téléphone ou fermer cet onglet.
+      </div>
+      <button type="button" onclick="window.location.reload()" class="py-3 px-6 rounded-xl bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 font-black text-xs cursor-pointer active:scale-95 transition">
+        🔄 Relancer RandoTracker
+      </button>
+    `;
+    document.body.appendChild(exitEl);
+  } else {
+    exitEl.classList.remove('hidden');
+    exitEl.style.display = 'flex';
+  }
+}
+window.showAppExitScreen = showAppExitScreen;
+
+// ============================================================================
 // ARRÊT PROPRE DU SUIVI GPS & DÉCONNEXION COMPLÈTE DE L'APPLICATION
 // ============================================================================
 async function stopTrackingAndExitApp() {
   let ok = false;
+  const isTracking = Boolean(state.isTrackingGps);
+  const title = isTracking ? '🛑 Arrêter le suivi & Quitter' : '🚪 Quitter RandoTracker';
+  const msg = isTracking
+    ? 'Voulez-vous arrêter le suivi GPS et quitter la session ?\n\nVotre position ne sera plus transmise au groupe et le service d\'arrière-plan sera immédiatement coupé.'
+    : 'Voulez-vous fermer RandoTracker et revenir à l\'écran d\'accueil ?';
+  const confirmBtn = isTracking ? 'Arrêter et Quitter' : 'Quitter';
+
   if (typeof showConfirmModal === 'function') {
-    ok = await showConfirmModal(
-      '🛑 Arrêter le suivi & Quitter',
-      'Voulez-vous arrêter le suivi GPS et quitter la session ?\n\nVotre position ne sera plus transmise au groupe et le service d\'arrière-plan sera immédiatement coupé.',
-      'Arrêter et Quitter',
-      'Annuler'
-    );
+    ok = await showConfirmModal(title, msg, confirmBtn, 'Annuler');
   } else {
-    ok = confirm('Voulez-vous arrêter le suivi GPS et quitter la session ?\n\nVotre position ne sera plus transmise au groupe et le service d\'arrière-plan sera immédiatement coupé.');
+    ok = confirm(msg);
   }
   if (!ok) return;
 
@@ -11238,7 +11285,11 @@ async function stopTrackingAndExitApp() {
     updateConnectionStatus(false);
     showToast('🛑 Suivi GPS arrêté. Session fermée.', 'info');
 
-    // 6. Si nous sommes sur l'application native Android, tuer tous les processus et fermer la tâche
+    // 6. Extinction immédiate de l'écran applicatif et fermeture réelle
+    try { window.close(); } catch (e) {}
+    showAppExitScreen();
+
+    // 7. Si nous sommes sur l'application native Android, basculer sur l'écran d'accueil et fermer la tâche
     if (window.AndroidBridge && typeof window.AndroidBridge.closeApp === 'function') {
       setTimeout(() => {
         try {
@@ -11246,7 +11297,7 @@ async function stopTrackingAndExitApp() {
         } catch (e) {
           console.warn('[StopTracking] Erreur fermeture app native Android:', e);
         }
-      }, 300);
+      }, 150);
     }
   } catch (e) {
     console.error('[StopTracking] Erreur lors de l\'arrêt du suivi:', e);

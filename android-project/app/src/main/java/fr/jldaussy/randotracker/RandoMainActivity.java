@@ -641,6 +641,13 @@ public class RandoMainActivity extends AppCompatActivity {
                 @Override
                 public void run() {
                     try {
+                        // Basculer immédiatement sur l'écran d'accueil du téléphone
+                        moveTaskToBack(true);
+                        Intent homeIntent = new Intent(Intent.ACTION_MAIN);
+                        homeIntent.addCategory(Intent.CATEGORY_HOME);
+                        homeIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(homeIntent);
+
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                             finishAndRemoveTask();
                         } else {
