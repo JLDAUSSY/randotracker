@@ -1921,14 +1921,30 @@ function buildBatteryExportCanvas(history, breakdown, deviceModel) {
   const plotWidth = plotRight - plotLeft;
   const plotHeight = plotBottom - plotTop;
 
-  // Lignes Y (0%, 20%, 40%, 60%, 80%, 100%)
-  const ySteps = [0, 20, 40, 60, 80, 100];
+  // Échelle dynamique des ordonnées : commence à min - 10 et termine à max
+  const allLevels = displayHistory.map(p => (typeof p.level === 'number' && !isNaN(p.level)) ? p.level : 100);
+  const rawMin = allLevels.length > 0 ? Math.min(...allLevels) : 90;
+  const rawMax = allLevels.length > 0 ? Math.max(...allLevels) : 100;
+  const yMin = Math.max(0, Math.round(rawMin - 10));
+  let yMax = Math.min(100, Math.round(rawMax));
+  if (yMax <= yMin) yMax = Math.min(100, yMin + 10);
+  const yRange = yMax - yMin;
+
+  // Lignes Y et graduations bien réparties entre yMin et yMax
+  const yStepsSet = new Set();
+  const stepCount = Math.min(5, Math.max(2, Math.floor(yRange / 2) || 1));
+  for (let i = 0; i <= stepCount; i++) {
+    yStepsSet.add(Math.round(yMin + (i / stepCount) * yRange));
+  }
+  const ySteps = Array.from(yStepsSet).sort((a, b) => a - b);
+
   ctx.font = '600 11px sans-serif';
   ctx.textAlign = 'right';
   ySteps.forEach(val => {
-    const yPos = plotBottom - (val / 100) * plotHeight;
-    ctx.strokeStyle = val === 0 ? '#cbd5e1' : '#f1f5f9';
-    ctx.lineWidth = val === 0 ? 1.5 : 1;
+    const fracY = (val - yMin) / (yRange || 1);
+    const yPos = plotBottom - fracY * plotHeight;
+    ctx.strokeStyle = (val === yMin) ? '#cbd5e1' : '#f1f5f9';
+    ctx.lineWidth = (val === yMin) ? 1.5 : 1;
     ctx.beginPath();
     ctx.moveTo(plotLeft, yPos);
     ctx.lineTo(plotRight, yPos);
@@ -1945,7 +1961,8 @@ function buildBatteryExportCanvas(history, breakdown, deviceModel) {
       const frac = (displayHistory.length > 1) ? (idx / (displayHistory.length - 1)) : 0.5;
       const x = plotLeft + frac * plotWidth;
       const lvl = Math.max(0, Math.min(100, (p.level != null ? p.level : 100)));
-      const y = plotBottom - (lvl / 100) * plotHeight;
+      const fracY = Math.max(0, Math.min(1, (lvl - yMin) / (yRange || 1)));
+      const y = plotBottom - fracY * plotHeight;
       return { x, y, level: lvl, screen: p.screen, timeStr: p.timeStr };
     });
 
@@ -1973,7 +1990,8 @@ function buildBatteryExportCanvas(history, breakdown, deviceModel) {
       ctx.fillStyle = '#64748b';
       ctx.font = 'italic 12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`Mesure initiale : ${coords[0].level}% (${coords[0].timeStr}) • La courbe complète se dessine au fil de la marche`, plotLeft + plotWidth / 2, singleY - 14);
+      const textY = (singleY - 14 < plotTop) ? (singleY + 22) : (singleY - 14);
+      ctx.fillText(`Mesure initiale : ${coords[0].level}% (${coords[0].timeStr}) • La courbe complète se dessine au fil de la marche`, plotLeft + plotWidth / 2, textY);
       ctx.fillText(coords[0].timeStr, plotLeft + plotWidth / 2, plotBottom + 20);
       ctx.restore();
     } else {
@@ -2174,6 +2192,14 @@ function renderBatteryChart() {
   const labels = sampled.map(p => p.timeStr);
   const dataValues = sampled.map(p => p.level);
 
+  // Échelle dynamique : commence à min - 10 et termine à max
+  const allLevels = sampled.map(p => (typeof p.level === 'number' && !isNaN(p.level)) ? p.level : 100);
+  const rawMin = allLevels.length > 0 ? Math.min(...allLevels) : 90;
+  const rawMax = allLevels.length > 0 ? Math.max(...allLevels) : 100;
+  const chartYMin = Math.max(0, Math.round(rawMin - 10));
+  let chartYMax = Math.min(100, Math.round(rawMax));
+  if (chartYMax <= chartYMin) chartYMax = Math.min(100, chartYMin + 10);
+
   const gradient = ctx.createLinearGradient(0, 0, 0, 140);
   gradient.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
   gradient.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
@@ -2283,14 +2309,14 @@ function renderBatteryChart() {
           }
         },
         y: {
-          min: 0,
-          max: 100,
+          min: chartYMin,
+          max: chartYMax,
           grid: { color: 'rgba(51, 65, 85, 0.3)' },
           ticks: {
             color: '#64748b',
             font: { size: 9 },
-            stepSize: 20,
-            callback: (val) => `${val}%`
+            precision: 0,
+            callback: (val) => `${Math.round(val)}%`
           }
         }
       }
